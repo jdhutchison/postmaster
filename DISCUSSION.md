@@ -73,3 +73,14 @@ This file records communication between us after the clarification round. The cl
 **You:** Why is one agent looking at a tarball of MariaDB?
 
 **Claude:** Production uses MariaDB, but the requirements say tests use an in-memory database (H2 imitating MariaDB), and the imitation isn't exact. So I asked the builder to run the migrations once against real MariaDB, to catch SQL that H2 accepts but MariaDB rejects before it fails on tigerbear. Docker wasn't available, so the builder runs MariaDB's official tarball as your user in the session scratch folder. It's temporary, makes no system changes, and isn't part of the project or the test suite. Once you're in the docker group it can use a throwaway container instead, or I can drop the check if you prefer.
+
+**You:** What features of MariaDB specifically would be needed that something like H2 could not provide?
+
+**Claude:** None. Postmaster uses only plain tables, foreign keys, indexes and simple queries, and the schema is kept to portable SQL on purpose. The check is there because the same SQL can behave differently on the two databases. Examples from this schema:
+- **Reserved words:** the `Settings` columns are `key` (reserved in MariaDB) and `value` (reserved in H2).
+- **Table name case:** MariaDB on Linux treats table names like `Email_events` as case-sensitive, and H2 doesn't.
+- **Case-insensitive uniqueness:** MariaDB's default collation rejects `bill` when `Bill` already exists, and H2 would accept both.
+- **Index length limits:** MariaDB limits index key size, which matters for a unique index on a long Message-ID.
+- **`TIMESTAMP` behaviour:** MariaDB's `TIMESTAMP` has a limited range and converts by time zone, so `DATETIME` is safer.
+
+H2 remains the test database as required. The one-off MariaDB run catches these problems before deployment.
