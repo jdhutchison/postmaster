@@ -65,3 +65,7 @@ This file records communication between us after the clarification round. The cl
 - The local image build check in task 8.2. This is still open.
 
 **Claude:** I confirmed it: `docker ps` gets permission denied, and `/var/run/docker.sock` is `root:docker 660`. **Open question for you, needed by Phase 8:** either add `hutch` to the `docker` group (`sudo usermod -aG docker hutch`, then log out and back in), or run the local image build yourself when we get there. The real arm64 build happens on tigerbear either way.
+
+**You:** I'll add myself to the docker group.
+
+**Claude:** Thanks. A running process doesn't pick up a new group until you log in again, so this Claude session and its agents will reach Docker through `sg docker -c "…"`. That works as soon as you're in the group, with no restart needed. I've told the builder.
