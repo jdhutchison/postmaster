@@ -279,6 +279,15 @@ I'll adopt these unless you object.
   - "Selecting a calendar" gets `{{calendars}}` (enabled calendars only) and `{{events}}` (with event ids).
   - Typos are corrected, for example "there many be" → "there may be".
 
+- **D20. Name uniqueness ignores case (added 2026-10-22).** Type names, calendar names and rule names (within a rule type) are unique regardless of case, so `Bill` and `bill` can't both exist.
+  - This matches MariaDB's default case-insensitive collation.
+  - It is enforced in the service layer, so tests on H2 behave the same as production.
+  - Schema details kept portable between H2 and MariaDB:
+    - the `Settings` `key` and `value` columns are quoted
+    - table names match exactly
+    - timestamps are UTC `DATETIME`s
+    - unique columns stay within MariaDB's index size limit
+
 ---
 
 ## Revisions
