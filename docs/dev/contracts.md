@@ -43,7 +43,7 @@ Other startup keys are standard Quarkus keys: `quarkus.datasource.jdbc.url`, `qu
 - `quarkus.http.test-port` is not set in main config.
 - `quarkus.datasource.db-kind` is `mariadb`, unprofiled. Tests override it with `"%test"`.
 - `quarkus.flyway.locations` is `db/migration`, unprofiled and overridable. `quarkus.flyway.migrate-at-start` is true.
-- `quarkus.flyway.placeholders.table_options` is the MariaDB table options. **H2 in MariaDB mode accepts them**, so tests don't need to override this (verified with H2 2.4.240).
+- `quarkus.flyway.placeholders.table_options` is `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`, so the collation is the database default. **H2 in MariaDB mode accepts it**, so tests don't need to override this (verified with H2 2.4.240).
 - Production migrations are `V1`–`V899`. `V900`+ is reserved for the tester's known data sets in `db/testdata`.
 
 ---
@@ -66,6 +66,17 @@ Migrations: `V1__create_schema.sql`, `V2__seed_settings.sql`, `V3__seed_types.sq
 | `Email_events.calendar` | `calendar_id` |
 
 Normalised tables (D7) replace the `Emails.attachments`, `classification_rules`, `action_rules` and `errors` columns.
+
+Portability decisions (D20):
+- **Identifiers.** No table or column name is a reserved word in MariaDB or H2 2.x, and no identifier is quoted anywhere, in migrations or in mappings. Table names in `@Table` and `@JoinTable` match the migrations exactly, because MariaDB on Linux is case-sensitive about table names (`lower_case_table_names=0`).
+- **Case-insensitive unique names.** Types, Calendars and Rules have a `name_key` column:
+  - It holds `name.trim().lowercase(Locale.ROOT)` while the row is active and NULL once soft-deleted. The entity sets it on insert and update.
+  - The column uses `COLLATE utf8mb4_bin`, so its unique constraints behave the same on MariaDB and H2. The constraints are `uq_types_name_key`, `uq_calendars_name_key`, and for rules (`rule_type`, `name_key`) `uq_rules_type_name_key`.
+  - A name that clashes only with a soft-deleted row is **allowed**.
+  - The services check first and throw `DuplicateNameException` (Phase 3). The constraint is the backstop.
+- **Times.** All times are `DATETIME(6)`, never `TIMESTAMP`. Every `*_at` column holds UTC, except `Email_events.starts_at`/`ends_at`.
+- **Index sizes.** Unique and indexed `VARCHAR`s are at most 500 characters (2000 bytes in utf8mb4), within MariaDB's 3072-byte index key limit. `Emails.message_id` is `VARCHAR(998)` and isn't indexed. Its uniqueness comes from `message_hash`: `CHAR(64)`, unique, the lower-case hex SHA-256 of the stored `message_id`.
+- **Verification.** Verified on H2 2.4.240 (with and without `NON_KEYWORDS=VALUE`) and on MariaDB 13.0.2, where the default collation is `utf8mb4_uca1400_ai_ci`.
 
 | Column | Stored values |
 |---|---|
@@ -92,7 +103,9 @@ Normalised tables (D7) replace the `Emails.attachments`, `classification_rules`,
 | `Emails.bill_amount` | `DECIMAL(12,2)` |
 | `Types.system_key` | `bill` for the Bill type; NULL for every other seeded type |
 | `Prompts.prompt_key` | NULL for user-created prompts |
-| `Emails.message_id` | the Message-ID header without angle brackets. Ids longer than 500 characters are stored as `sha256:<hex>`. A message with no Message-ID gets `generated:<sha256 hex of date, from, subject and uidvalidity/uid>`. |
+| `Emails.message_id` | the normalised Message-ID (see `MessageIds` below), up to 998 characters |
+| `Emails.message_hash` | `MessageIds.hash(messageId)`: lower-case hex SHA-256 of the UTF-8 bytes of `message_id`. Unique. |
+| `Types.name_key`, `Calendars.name_key`, `Rules.name_key` | lower-cased name while active, NULL when soft-deleted |
 
 Conditions on attributes:
 - `type` compares against the email's type **name**, case-insensitively for `is`.
@@ -189,6 +202,7 @@ Each enum has `code: String` (the stored value) and `companion fun fromCode(code
 
 - Action types are stored as plain strings, so new action types can be registered without a migration. The built-in names are constants in `sh.hutch.postmaster.domain.ActionTypes`, listed in `ActionTypes.BUILT_IN`.
 - The condition compatibility matrix (Q9) is `MatchType.appliesTo(attribute)`, with `MatchType.needsTest` (false for HAS and IS_PRESENT).
+- **A rule matches only when ALL its conditions match (AND, CLARIFICATIONS.md Q21).** The rule engine arrives in Phase 5.1.
 
 ### Entities (`sh.hutch.postmaster.entities`)
 
@@ -211,8 +225,15 @@ Property names are the camelCase form of the columns.
 | `EmailErrorEntity` | Email_errors |
 | `ProcessingRunEntity` | Processing_runs |
 
-- Soft-deletable entities implement `SoftDeletable` (`deleted`, `deletedAt`, `markDeleted(now: Instant = Instant.now())`).
-- `createdAt` and `lastUpdatedAt` are set automatically on insert and update.
+- Soft-deletable entities implement `SoftDeletable` (`deleted`, `deletedAt`, `markDeleted(now: Instant = Times.now())`). `markDeleted` on `TypeEntity`, `CalendarEntity` and `RuleEntity` also sets `nameKey` to NULL.
+- `createdAt` and `lastUpdatedAt` are set automatically on insert and update, in `AuditedEntity`. `id` is in `BaseEntity`.
+- **Time binding.** `Instant` fields are mapped with `@JdbcTypeCode(SqlTypes.TIMESTAMP)` and the UTC JDBC zone, so columns hold UTC wall time on both databases whatever the JVM zone. `Email_events` `startsAt`/`endsAt` (`LocalDateTime`) and `Emails.billDueDate` (`LocalDate`) use `SqlTypes.LOCAL_DATE_TIME`/`LOCAL_DATE`, bound with `setObject`, so no zone shift. Timestamps are truncated to microseconds (`sh.hutch.postmaster.util.Times.now()`).
+- `TypeEntity.BILL_KEY` is `"bill"`. `TypeEntity` has `isSystem` and `isBill`; `PromptEntity` has `isSystem`.
+- **`EmailEntity` enforces Q13.** `type`, `actionRequired` and `actionDescription` have protected setters. Change them only through these methods:
+  - `assignType(type)`: setting a Bill type clears the action flag
+  - `flagActionRequired(required, description)`: ignored for bills, and `description` is kept only when `required`
+  - `clearActionRequired()`
+- `EmailEntity.messageHash` is recomputed from `messageId` on insert and update.
 
 ### Repositories (`sh.hutch.postmaster.repositories`, Panache Kotlin `PanacheRepository<…Entity>`)
 
@@ -225,7 +246,7 @@ Property names are the camelCase form of the columns.
 **`TypeRepository`**
 - `listActive()`, by name, case-insensitive
 - `findActive(id)`
-- `findActiveByName(name)`, case-insensitive
+- `findActiveByName(name)`, case-insensitive (compares `name_key`)
 - `findBySystemKey(key)`
 - `findBill()`
 
@@ -255,8 +276,8 @@ Property names are the camelCase form of the columns.
 - `listEnabledForRule(ruleId)`
 
 **`EmailRepository`**
-- `findByMessageId(messageId)`
-- `existsByMessageId(messageId)`: includes soft-deleted emails, so deleted mail isn't reprocessed
+- `findByMessageId(messageId)` looks up by `MessageIds.hash(messageId)`. `messageId` must already be normalised.
+- `existsByMessageId(messageId)`: same lookup, and includes soft-deleted emails, so deleted mail isn't reprocessed
 - `findActive(id)`
 - `listRecent(limit)`: active, by `received_at` descending
 
@@ -270,12 +291,29 @@ Property names are the camelCase form of the columns.
 
 ### Services and utilities
 
+**`sh.hutch.postmaster.services.MessageIds`** (object)
+- `normalise(raw: String?): String?`
+  - Removes all whitespace, including from folded headers, then a single pair of surrounding angle brackets `<…>`.
+  - Returns null if the result is blank.
+  - Values longer than 998 characters are cut to 998.
+  - Case is kept.
+- `generated(receivedAt: Instant?, from: String?, subject: String?, uidValidity: Long?, uid: Long?): String` returns `generated:` + the lower-case hex SHA-256 of those values joined with `\n`, with nulls as empty strings. It is used when a message has no Message-ID.
+- `hash(messageId: String): String` is the lower-case hex SHA-256 of the UTF-8 bytes (64 characters).
+
+**Name uniqueness (Phase 3, for D20).**
+- `TypeService`, `CalendarService` and `RuleService` create and rename methods throw `sh.hutch.postmaster.services.DuplicateNameException(field: String, message: String)`, an `IllegalArgumentException`.
+  - `field` is `"name"`.
+  - It is thrown when another *active* row has the same name ignoring case. For rules, only rows of the same rule type count.
+- Exact signatures will be recorded here before Phase 3 starts.
+- In Phase 1 the repositories' `findActiveByName` already compares by `name_key`.
+
 **`sh.hutch.postmaster.services.Crypto`** (`@ApplicationScoped`)
 - `encrypt(plainText: String): String` returns `enc:…`. Each call uses a fresh random IV, so encrypting the same text twice gives different values.
 - `decrypt(value: String): String` takes an `enc:`-prefixed value. It throws `CryptoException` (an `IllegalArgumentException`) if the prefix is missing, the base64 is bad, the value was tampered with, or it was encrypted with a different key.
 - `isEncrypted(value: String?): Boolean` is true when the value starts with `enc:`.
 - `Crypto.PREFIX` is `enc:`.
-- `Crypto.decodeKey(base64: String): ByteArray` throws `IllegalArgumentException` unless the input is valid base64 of exactly 32 bytes.
+- `Crypto.decodeKey(base64: String): ByteArray` throws `IllegalArgumentException` unless the input is valid base64 of exactly 32 bytes (`Crypto.KEY_BYTES`).
+- Startup (`sh.hutch.postmaster.config.StartupChecks`) fails with that message if `postmaster.encryption-key` is invalid. If `postmaster.khal-config` is missing or unreadable, it only logs a warning.
 
 **`sh.hutch.postmaster.util.IsoDurations`** (object)
 - `parse(text): Duration` throws `InvalidDurationException` (an `IllegalArgumentException`).
@@ -286,13 +324,14 @@ Property names are the camelCase form of the columns.
 - `isValid(text): Boolean`
 - `parseList(text): List<Duration>` takes a **comma plus space** separated list (`4h, 1d`). It throws `InvalidDurationException` for any other separator (`4h,1d` or `4h ,1d`), empty items, or leading or trailing spaces.
 - `isValidList(text): Boolean`
-- `format(duration): String` gives the simplified form, e.g. `1d2h`, `30m`, `0s`.
+- `format(duration): String` gives the simplified form, e.g. `1d2h`, `30m`, `0s`. Weeks come out as days, and durations with fractions of a second use ISO 8601 (`PT1.5S`).
+- `IsoDurations.LIST_SEPARATOR` is `", "`.
 
 **`sh.hutch.postmaster.services.SettingsService`** (`@ApplicationScoped`)
 - `list(): List<Setting>`, by position
 - `get(key): Setting` throws `UnknownSettingException` (a `NoSuchElementException`).
 - Typed getters return the plain-text value, decrypting encrypted settings. They throw `UnknownSettingException`, or `IllegalStateException` if a stored value doesn't parse.
-  - `getString(key): String?`
+  - `getString(key): String?` throws `IllegalStateException` if an encrypted value can't be decrypted, e.g. the key changed.
   - `getInt(key): Int`
   - `getBool(key): Boolean`
   - `getDuration(key): Duration`
@@ -306,7 +345,7 @@ Property names are the camelCase form of the columns.
   | `int` | A positive integer. Keys ending `.port` must be 1–65535. |
   | `bool` | `true` or `false`, case-insensitive, stored lower case. |
   | `duration` | `IsoDurations` valid and greater than zero. `processing.frequency` must be at least 1 minute. |
-  | `encrypted` | Non-blank values are encrypted and stored. **Blank leaves the setting unchanged** (Q17: the masked field starts empty). |
+  | `encrypted` | Non-blank values are encrypted and stored **as entered, not trimmed**. **Blank leaves the setting unchanged** (Q17: the masked field starts empty). |
   | `path` | An absolute path. |
   | `list` | Comma separated, with blank items rejected. Stored normalised as `a, b`. At least one item. |
   | `choice` | One of `allowed_values`, case-insensitive, stored as the allowed spelling. |

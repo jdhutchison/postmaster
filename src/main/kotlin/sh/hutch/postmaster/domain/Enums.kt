@@ -1,0 +1,189 @@
+package sh.hutch.postmaster.domain
+
+import jakarta.persistence.Converter
+
+/** Whether a rule classifies email or acts on it. */
+enum class RuleType(override val code: String) : CodedEnum {
+  CLASSIFICATION("classification"),
+  ACTION("action");
+
+  companion object {
+    fun fromCode(code: String): RuleType = codedEnumOf(code)
+  }
+}
+
+/** The attribute of an email that a condition tests. */
+enum class ConditionAttribute(override val code: String) : CodedEnum {
+  SUBJECT("subject"),
+  SENDER("sender"),
+  MESSAGE("message"),
+  EVENTS("events"),
+  ATTACHMENTS("attachments"),
+  BILL_URL("bill_url"),
+  TYPE("type"),
+  LINK("link");
+
+  companion object {
+    fun fromCode(code: String): ConditionAttribute = codedEnumOf(code)
+  }
+}
+
+/**
+ * How a condition tests an attribute. [appliesTo] is the compatibility matrix agreed in
+ * CLARIFICATIONS.md Q9; [needsTest] is false for the match types that take no test value (Q10).
+ */
+enum class MatchType(
+    override val code: String,
+    val needsTest: Boolean,
+    private val attributes: Set<ConditionAttribute>
+) : CodedEnum {
+  IS(
+      "is", true,
+      setOf(
+          ConditionAttribute.SUBJECT, ConditionAttribute.SENDER, ConditionAttribute.BILL_URL,
+          ConditionAttribute.TYPE, ConditionAttribute.LINK
+      )
+  ),
+  CONTAINS(
+      "contains", true,
+      setOf(ConditionAttribute.SUBJECT, ConditionAttribute.SENDER, ConditionAttribute.MESSAGE, ConditionAttribute.LINK)
+  ),
+  STARTS_WITH(
+      "starts_with", true,
+      setOf(
+          ConditionAttribute.SUBJECT, ConditionAttribute.SENDER, ConditionAttribute.MESSAGE,
+          ConditionAttribute.BILL_URL, ConditionAttribute.LINK
+      )
+  ),
+  REGEX("regex", true, ConditionAttribute.entries.toSet()),
+  HAS("has", false, setOf(ConditionAttribute.EVENTS, ConditionAttribute.ATTACHMENTS)),
+  IS_PRESENT(
+      "is_present", false,
+      setOf(
+          ConditionAttribute.MESSAGE, ConditionAttribute.EVENTS, ConditionAttribute.ATTACHMENTS,
+          ConditionAttribute.BILL_URL, ConditionAttribute.TYPE, ConditionAttribute.LINK
+      )
+  );
+
+  fun appliesTo(attribute: ConditionAttribute): Boolean = attribute in attributes
+
+  companion object {
+    fun fromCode(code: String): MatchType = codedEnumOf(code)
+  }
+}
+
+/** Processing status of an email (CLARIFICATIONS.md D1). */
+enum class EmailStatus(override val code: String) : CodedEnum {
+  PENDING("pending"),
+  PROCESSED("processed"),
+  SKIPPED("skipped"),
+  FAILED("failed");
+
+  companion object {
+    fun fromCode(code: String): EmailStatus = codedEnumOf(code)
+  }
+}
+
+/** The processing phase an email error happened in. MANUAL is an action run from the UI or MCP. */
+enum class ErrorPhase(override val code: String) : CodedEnum {
+  FETCH("fetch"),
+  CLASSIFICATION("classification"),
+  LLM("llm"),
+  ACTION("action"),
+  MANUAL("manual");
+
+  companion object {
+    fun fromCode(code: String): ErrorPhase = codedEnumOf(code)
+  }
+}
+
+/** What triggered an action on an email. */
+enum class ActionSource(override val code: String) : CodedEnum {
+  RULE("rule"),
+  UI("ui"),
+  MCP("mcp");
+
+  companion object {
+    fun fromCode(code: String): ActionSource = codedEnumOf(code)
+  }
+}
+
+/** Outcome of an action on an email. */
+enum class ActionResultStatus(override val code: String) : CodedEnum {
+  DONE("done"),
+  SKIPPED("skipped"),
+  FAILED("failed");
+
+  companion object {
+    fun fromCode(code: String): ActionResultStatus = codedEnumOf(code)
+  }
+}
+
+/** What started a processing run. */
+enum class RunTrigger(override val code: String) : CodedEnum {
+  SCHEDULE("schedule"),
+  MANUAL("manual");
+
+  companion object {
+    fun fromCode(code: String): RunTrigger = codedEnumOf(code)
+  }
+}
+
+/** Status of a processing run. */
+enum class RunStatus(override val code: String) : CodedEnum {
+  RUNNING("running"),
+  SUCCEEDED("succeeded"),
+  FAILED("failed");
+
+  companion object {
+    fun fromCode(code: String): RunStatus = codedEnumOf(code)
+  }
+}
+
+/** Type of a setting's value, which decides how it is validated and stored. */
+enum class SettingType(override val code: String) : CodedEnum {
+  TEXT("text"),
+  INT("int"),
+  BOOL("bool"),
+  DURATION("duration"),
+  ENCRYPTED("encrypted"),
+  PATH("path"),
+  LIST("list"),
+  CHOICE("choice"),
+  TIMEZONE("timezone"),
+  URL("url");
+
+  companion object {
+    fun fromCode(code: String): SettingType = codedEnumOf(code)
+  }
+}
+
+@Converter
+class RuleTypeConverter : CodedEnumConverter<RuleType>(RuleType::class.java)
+
+@Converter
+class ConditionAttributeConverter : CodedEnumConverter<ConditionAttribute>(ConditionAttribute::class.java)
+
+@Converter
+class MatchTypeConverter : CodedEnumConverter<MatchType>(MatchType::class.java)
+
+@Converter
+class EmailStatusConverter : CodedEnumConverter<EmailStatus>(EmailStatus::class.java)
+
+@Converter
+class ErrorPhaseConverter : CodedEnumConverter<ErrorPhase>(ErrorPhase::class.java)
+
+@Converter
+class ActionSourceConverter : CodedEnumConverter<ActionSource>(ActionSource::class.java)
+
+@Converter
+class ActionResultStatusConverter : CodedEnumConverter<ActionResultStatus>(ActionResultStatus::class.java)
+
+@Converter
+class RunTriggerConverter : CodedEnumConverter<RunTrigger>(RunTrigger::class.java)
+
+@Converter
+class RunStatusConverter : CodedEnumConverter<RunStatus>(RunStatus::class.java)
+
+@Converter
+class SettingTypeConverter : CodedEnumConverter<SettingType>(SettingType::class.java)

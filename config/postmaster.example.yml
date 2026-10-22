@@ -1,0 +1,31 @@
+# Postmaster startup configuration.
+#
+# Pass the path of this file as the only command line argument:
+#   postmaster /config/postmaster.yml
+#
+# Only what the application needs to start is configured here. Everything else
+# (Dovecot, SMTP, the LLM, attachments, ...) is set on the Configuration page
+# and stored in the database.
+
+quarkus:
+  datasource:
+    jdbc:
+      url: jdbc:mariadb://mariadb:3306/postmaster
+    username: postmaster
+    password: change-me
+
+postmaster:
+  # Base64 of 32 random bytes: the AES-256 key that encrypts passwords stored in
+  # the database. Generate one with:
+  #   openssl rand -base64 32
+  # Keep it safe. If it changes, stored passwords can't be decrypted and have to
+  # be entered again.
+  encryption-key: REPLACE-WITH-OUTPUT-OF-openssl-rand-base64-32
+
+  # The khal configuration file, as mounted in the container
+  khal-config: /config/khal/khal.ini
+
+  # Commands used to run khal, headless Chromium and curl (defaults shown)
+  # khal-command: khal
+  # chromium-command: chromium
+  # curl-command: curl

@@ -91,6 +91,12 @@ kapt {
   }
 }
 
+// Tests use no annotation processors, and kapt's incremental snapshots for the test source set
+// break when main and test change together ("Number of loaded files in snapshots differs")
+tasks.matching { it.name == "kaptTestKotlin" || it.name == "kaptGenerateStubsTestKotlin" }.configureEach {
+  enabled = false
+}
+
 tasks.withType<Test> {
   useJUnitPlatform()
   systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
