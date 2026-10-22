@@ -365,3 +365,299 @@ Property names are the camelCase form of the columns.
 
 **Mappers** (`sh.hutch.postmaster.mappers`, MapStruct with the `jakarta-cdi` component model)
 - `SettingMapper.toModel(entity: SettingEntity): Setting`
+
+---
+
+## Phase 2: UI foundation
+
+All routes below are under `/mail`. Pages are server-rendered Qute templates enhanced with HTMX 2.0.11 and one small script, `postmaster.js`. Every asset is served by the app, with no CDN or other external request. A `Content-Security-Policy` header (`default-src 'self'`, `script-src 'self'`, `style-src 'self' 'unsafe-inline'`) enforces this.
+
+### Assets (`src/main/resources/META-INF/resources/assets/`)
+
+| URL | What |
+|---|---|
+| `/mail/assets/vendor/htmx/htmx.min.js` | HTMX **2.0.11** (npm `htmx.org`, 0BSD, `LICENSE` beside it) |
+| `/mail/assets/fonts/atkinson-hyperlegible-next/*.woff2` | Atkinson Hyperlegible Next variable font, weights 200–800. From npm `@fontsource-variable/atkinson-hyperlegible-next` **5.3.0**, under the SIL OFL 1.1, with `OFL.txt` beside it. Files: `atkinson-hyperlegible-next-latin-wght-normal.woff2`, `…-latin-ext-wght-normal.woff2`, `…-latin-wght-italic.woff2`, `…-latin-ext-wght-italic.woff2`. |
+| `/mail/assets/css/postmaster.css` | All styles |
+| `/mail/assets/js/postmaster.js` | All behaviour; exposes `window.Postmaster` |
+| `/mail/assets/VENDOR.md` | Versions, sources, SHA-256 and licences of the vendored files |
+
+- The font family is `"Atkinson Hyperlegible Next"`, with a `system-ui, sans-serif` fallback. `@font-face` is in `postmaster.css`.
+- The layout links CSS and JS with `?v=<application version>` for cache busting.
+
+### Palette (CSS custom properties on `:root`)
+
+Values are exactly those of the official specification, https://draculatheme.com/spec ("Color Palette" Dracula Classic and Alucard Classic, plus "UI Color Palette"). Light mode (Alucard) is the default; `@media (prefers-color-scheme: dark)` switches to Dracula.
+
+| Property | Alucard (light) | Dracula (dark) | Spec token |
+|---|---|---|---|
+| `--pm-background` | `#FFFBEB` | `#282A36` | Background |
+| `--pm-current-line` | `#6C664B` | `#6272A4` | Current Line |
+| `--pm-selection` | `#CFCFDE` | `#44475A` | Selection |
+| `--pm-foreground` | `#1F1F1F` | `#F8F8F2` | Foreground |
+| `--pm-comment` | `#6C664B` | `#6272A4` | Comment |
+| `--pm-red` | `#CB3A2A` | `#FF5555` | Red |
+| `--pm-orange` | `#A34D14` | `#FFB86C` | Orange |
+| `--pm-yellow` | `#846E15` | `#F1FA8C` | Yellow |
+| `--pm-green` | `#14710A` | `#50FA7B` | Green |
+| `--pm-cyan` | `#036A96` | `#8BE9FD` | Cyan |
+| `--pm-purple` | `#644AC9` | `#BD93F9` | Purple |
+| `--pm-pink` | `#A3144D` | `#FF79C6` | Pink |
+| `--pm-bg-floating` | `#EFEDDC` | `#343746` | UI: Floating interactive elements |
+| `--pm-bg-lighter` | `#ECE9DF` | `#424450` | UI: Background Lighter |
+| `--pm-bg-light` | `#DEDCCF` | `#343746` | UI: Background Light |
+| `--pm-bg-dark` | `#CECCC0` | `#21222C` | UI: Background Dark |
+| `--pm-bg-darker` | `#BCBAB3` | `#191A21` | UI: Background Darker |
+| `--pm-focus` | `#815CD6` | `#815CD6` | Functional Purple (focus indicators) |
+
+Element colours:
+
+| Element | Colours |
+|---|---|
+| `body` | background `--pm-background`, text `--pm-foreground` |
+| links | `--pm-cyan` |
+| muted text | `--pm-comment` |
+| table header cells | background `--pm-bg-light` |
+| table borders | `--pm-selection` |
+| hovered rows | `--pm-bg-lighter` |
+| text selection (`::selection`) | `--pm-selection` |
+| menu button and menu panel | `--pm-bg-floating` (frosted, see below) |
+| success toasts | left border `--pm-green` |
+| error toasts | left border `--pm-red` |
+| primary buttons (`.pm-button--primary`) | background `--pm-purple`, text `--pm-background` |
+| danger buttons (`.pm-button--danger`) | background `--pm-red`, text `--pm-background` |
+| focus outlines | `--pm-focus` |
+
+`color-scheme` is `light` or `dark` to match.
+
+### Layout and templates
+
+Page templates use the base layout `templates/layout.html` through an include with sections:
+
+```
+{#include layout page="types"}
+  {#title}Types{/title}
+  {#content}
+    …page content…
+  {/content}
+{/include}
+```
+
+- `page` is optional. It's the key of the menu item to mark `aria-current="page"`: `dashboard`, `emails`, `types`, `calendars`, `prompts`, `rules-classification`, `rules-action` or `configuration`.
+- The `title` section sets both `<title>` (as `<title> · Postmaster`) and the page's `<h1 class="pm-page-title" data-testid="page-title">`.
+- A resource returns a `TemplateInstance`. The layout needs no data from it; it uses the template globals and the `inject:` beans below.
+- Templates and tags on the test classpath (`src/test/resources/templates/…`) are found too, so a test fixture page can `{#include layout}` and use every tag.
+
+Structure rendered by the layout:
+
+```html
+<body class="pm-body" data-page="{page}">
+  <a class="pm-skip-link" href="#pm-main">Skip to content</a>
+  <button id="pm-menu-button" class="pm-menu-button" data-testid="menu-button" …>
+  <nav id="pm-menu" class="pm-menu" data-testid="menu" hidden>…</nav>
+  <main id="pm-main" class="pm-main" data-testid="main">
+    <h1 class="pm-page-title" data-testid="page-title">{title}</h1>
+    {content}
+  </main>
+  <div id="pm-toasts" class="pm-toasts" data-testid="toasts">…</div>
+  <dialog id="pm-confirm" data-testid="confirm-dialog">…</dialog>
+</body>
+```
+
+**Template globals:**
+- `{base}` is the root path without a trailing slash (`/mail`). Write links as `{base}/types`.
+- `{appVersion}` is the application version.
+
+**Placeholder page:** `GET /mail/` renders `templates/HomeController/home.html` (`data-testid="home-page"`) in the layout with `page="dashboard"`. The dashboard (6.3) replaces it.
+
+### Menu
+
+- **Button.** `button#pm-menu-button.pm-menu-button` (`data-testid="menu-button"`) with `aria-label="Menu"`, `aria-controls="pm-menu"` and `aria-expanded="false|true"`.
+  - It's `position: fixed` at the top left (`top` and `left` 0.75rem), with `z-index: 100`, so it floats over the content.
+  - The frosted glass is `backdrop-filter: blur(12px) saturate(140%)` (plus `-webkit-backdrop-filter`) over a translucent `--pm-bg-floating`.
+- **Panel.** `nav#pm-menu.pm-menu` (`data-testid="menu"`, `aria-label="Main"`) is hidden with the `hidden` attribute when closed. It is also fixed and frosted, below the button.
+- **Items**, in order (each is an `a` in `li`):
+
+  | Label | href | data-testid |
+  |---|---|---|
+  | Dashboard | `/mail/` | `menu-dashboard` |
+  | Emails | `/mail/emails` | `menu-emails` |
+  | Types | `/mail/types` | `menu-types` |
+  | Calendars | `/mail/calendars` | `menu-calendars` |
+  | Prompts | `/mail/prompts` | `menu-prompts` |
+  | Classification rules | `/mail/rules/classification` | `menu-rules-classification` |
+  | Action rules | `/mail/rules/action` | `menu-rules-action` |
+  | Configuration | `/mail/configuration` | `menu-configuration` |
+
+  These are the routes later phases implement.
+- **Behaviour:**
+  - Click, Enter or Space on the button toggles the panel, keeping `aria-expanded` in step.
+  - Opening moves focus to the first item. Up and Down arrows move between items, and Home and End jump to the first and last.
+  - **Escape** closes the panel and returns focus to the button.
+  - A click outside the button and panel closes it.
+  - Moving focus out of the panel (Tab past the last item) closes it.
+
+### Toasts
+
+- **Container:** `div#pm-toasts.pm-toasts` (`data-testid="toasts"`), fixed at the bottom right (full width minus gutters on phones).
+- **A toast:**
+
+  ```html
+  <div class="pm-toast pm-toast--success" data-testid="toast" data-level="success" role="status">
+    <span class="pm-toast__message" data-testid="toast-message">Saved</span>
+    <button type="button" class="pm-toast__close" data-testid="toast-close" aria-label="Dismiss">×</button>
+  </div>
+  ```
+
+  - Levels are `success`, `info` and `error` (`pm-toast--error`, `role="alert"`).
+  - **success and info:** fading starts after **4000 ms** (class `pm-toast--leaving`, a 300 ms opacity transition), and the toast is removed from the DOM by **4500 ms**. While the pointer is over the toast, removal waits until it leaves.
+  - **error:** never removed automatically. Only the close button removes it.
+  - The close button removes any toast at once.
+- **Raising toasts:**
+  1. **Full page load.**
+     - Toasts added to the request-scoped bean `sh.hutch.postmaster.controllers.PageToasts` (`@Named("pageToasts")`, methods `success(message)`, `info(message)` and `error(message)`) are rendered by the layout as toast elements.
+     - So are **flash** toasts from the cookie `pm_flash`. To redirect with toasts, use `Flash.redirect(location: String, vararg toasts: Toast): Response`. It returns `303 See Other` and sets `pm_flash`: base64url JSON, `Path=/mail`, `HttpOnly`, `SameSite=Lax`, `Max-Age=60`.
+     - The next full-page (non-HTMX) HTML response renders the toasts and clears the cookie.
+  2. **HTMX response.**
+     - The header is `HX-Trigger: {"pm-toast":{"toasts":[{"level":"success","message":"Saved"}]}}`. Build it with `Toasts.hxTrigger(vararg toasts: Toast): String`, or `Toasts.hxTrigger(toasts: List<Toast>, events: Map<String, Any?>)` to add other events. Non-ASCII characters are escaped as `\uXXXX` so the header stays ASCII.
+     - `Toasts.HEADER` is `"HX-Trigger"`.
+     - `postmaster.js` listens for the `pm-toast` event on `document.body`.
+  3. **Failed HTMX requests.** With an error status and no `pm-toast` trigger, the toast says `Request failed (<status>)`. When the request can't reach the server, it says `Network error: the server could not be reached`. Both are error toasts.
+  4. **JavaScript:** `Postmaster.toast(level, message)`.
+- **Kotlin types** (`sh.hutch.postmaster.controllers`):
+  - `ToastLevel` (SUCCESS/INFO/ERROR, `code` = `success`/`info`/`error`)
+  - `data class Toast(level: ToastLevel, message: String)`, with `Toast.success(m)`, `Toast.info(m)` and `Toast.error(m)`
+
+### Dialogs (`<dialog>`)
+
+- **Modal tag:**
+
+  ```
+  {#modal id="type-dialog" title="Edit type"}…body…{/modal}
+  ```
+
+  It renders:
+
+  ```html
+  <dialog id="type-dialog" class="pm-dialog" data-testid="type-dialog" aria-labelledby="type-dialog-title">
+    <div class="pm-dialog__header">
+      <h2 id="type-dialog-title" class="pm-dialog__title">Edit type</h2>
+      <button type="button" class="pm-dialog__close" data-pm-close aria-label="Close" data-testid="dialog-close">×</button>
+    </div>
+    <div class="pm-dialog__body" id="type-dialog-body">…body…</div>
+  </dialog>
+  ```
+
+  - The optional `testid=` parameter overrides `data-testid` (default: the id).
+  - Footer buttons go in the body inside `<div class="pm-dialog__actions">`.
+- **Opening a dialog:**
+  - a click on any element with `data-pm-open="<dialog id>"`
+  - `Postmaster.openDialog(id)`
+  - an HTMX response header `HX-Trigger-After-Swap: {"pm-dialog-open":{"id":"<dialog id>"}}`. Typical use: `hx-get` loads the form into `#<id>-body`, then the trigger opens the dialog. HTMX dispatches the event on the requesting element, so that element must still be in the page after the swap.
+
+  It uses `showModal()`.
+- **Closing a dialog:**
+  - a click on any `[data-pm-close]` inside it
+  - `Postmaster.closeDialog(id)`
+  - `HX-Trigger: {"pm-dialog-close":{"id":"…"}}`
+  - Escape (native)
+  - a click on the backdrop, i.e. on the `dialog` element itself, outside its content
+- **Focus.** On open, focus goes to the first element with `autofocus`, else the first focusable element in `.pm-dialog__body`, else the close button. On close, it goes back to the element that opened the dialog.
+- **Confirm.** One shared confirm dialog in the layout:
+
+  ```html
+  <dialog id="pm-confirm" class="pm-dialog pm-dialog--confirm" data-testid="confirm-dialog">
+    <p class="pm-confirm__message" data-testid="confirm-message">…</p>
+    <button type="button" data-testid="confirm-cancel">Cancel</button>
+    <button type="button" data-testid="confirm-ok">OK</button>
+  </dialog>
+  ```
+
+  - **HTMX actions:** `hx-confirm="Delete type Bill?"`. The `htmx:confirm` event is intercepted and the request is issued only after **OK**.
+  - **Plain links and forms:** `data-pm-confirm="Delete type Bill?"` on a submit button or link. The click is intercepted, and the form is submitted or the link followed only after OK.
+  - `data-pm-confirm-label="Delete"` on the triggering element sets the OK button's text; it defaults to `OK`.
+  - Focus starts on **Cancel**. Escape, a backdrop click or Cancel all cancel.
+  - `Postmaster.confirm(message, okLabel?)` returns a `Promise<boolean>`.
+
+### Table component
+
+Tags in `templates/tags/`:
+
+```
+{#table id="types-table" testid="types-table"}
+  <thead><tr>
+    {#th col="name" label="Name" priority=1 /}
+    {#th col="description" label="Description" priority=3 /}
+  </tr></thead>
+  <tbody>
+    <tr data-testid="type-row">
+      {#td col="name" priority=1}{type.name}{/td}
+      {#td col="description" priority=3 title="optional explicit tooltip"}{type.description}{/td}
+    </tr>
+  </tbody>
+{/table}
+```
+
+- **`{#table}`** renders `div.pm-table-wrap[data-testid="<testid>-wrap"]` containing `table.pm-table#<id>[data-pm-table][data-testid="<testid>"]`. `testid` defaults to the id.
+- **`{#th}`** renders:
+
+  ```html
+  <th scope="col" class="pm-th" data-col="name" data-priority="1" data-testid="th-name">
+    <span class="pm-th__label">Name</span>
+    <span class="pm-resizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize Name column" data-testid="resize-name"></span>
+  </th>
+  ```
+
+  Pass `resizable=false` to leave out the resizer, e.g. for an actions column.
+- **`{#td}`** renders `<td data-col="…" data-priority="…"><span class="pm-cell" data-testid="cell-<col>">…</span></td>`.
+  - A `title=` parameter adds a fixed tooltip: `title="…"` and `data-pm-title-fixed` on the `span`.
+  - Pass `truncate=false` for cells holding controls, such as action icons. That renders `span.pm-cell.pm-cell--wrap`, which doesn't truncate.
+- **Truncation.** `.pm-cell` is `display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap`. The table is `table-layout: fixed; width: 100%`.
+- **Full text on hover** is the native `title` attribute. On `pointerenter` or `focusin`, if the cell is truncated (`scrollWidth > clientWidth`), `postmaster.js` sets `title` to the cell's trimmed text, and it removes a title it set itself when the cell no longer overflows. Cells with `data-pm-title-fixed` keep the server's title.
+- **Priority and breakpoints.** Container queries on `.pm-table-wrap` (`container-type: inline-size`), applying equally to `th` and `td` with that `data-priority`:
+
+  | `data-priority` | Hidden when the wrapper is narrower than |
+  |---|---|
+  | `1` | never |
+  | `2` | 480px |
+  | `3` | 640px |
+  | `4` | 832px |
+  | `5` | 1024px |
+- **Sticky header.** `thead th` is `position: sticky; top: 0` against the **page (viewport) scroll**. Neither the wrapper nor the table scrolls. The wrapper has `overflow-x: clip`, which clips without creating a scroll container, so the header sticks to the top of the viewport while any part of the table is in view, and the page never scrolls sideways.
+- **Resizing.**
+  - Dragging `.pm-resizer` (pointer events) changes the column's width and the next visible column's width by the opposite amount. Widths are percentages of the table, so the total never exceeds the table.
+  - The minimum column width is 48px.
+  - When the resizer has focus, Left and Right arrows resize by 16px, and Enter or a double-click resets all widths.
+  - The last visible column's resizer is hidden (class `pm-resizer--hidden`).
+  - Widths persist in `localStorage` under `pm-table-widths:<table id>:<visible column keys>` and are ignored if storage is unavailable. When the set of visible columns changes, the stored widths for the new set apply, or the defaults if there are none.
+- **No horizontal page scroll** at any width down to 320px.
+
+### Relative times
+
+- **`sh.hutch.postmaster.util.RelativeTime.format(instant: Instant, now: Instant): String`**, for an elapsed time `d = now - instant`:
+
+  | Elapsed time | Result |
+  |---|---|
+  | less than 60s, or in the future | `just now` |
+  | 60s to 59m59s | `{d / 1 minute}m ago` (rounded down; 60s → `1m ago`, 59m59s → `59m ago`) |
+  | 60m to 23h59m59s | `{d / 1 hour}h ago` (60m → `1h ago`, 23h59m → `23h ago`) |
+  | 24h or more | `{d / 1 day}d ago` (24h → `1d ago`, `45d ago`, `400d ago`); no weeks, months or years |
+- **Absolute time.** The `processing.timezone` setting, pattern `EEE d MMM yyyy, HH:mm z`, `Locale.ENGLISH`, e.g. `Fri 23 Oct 2026, 06:40 AEDT`.
+- **Bean `sh.hutch.postmaster.controllers.TimeDisplay`** (`@Named("times")`):
+  - `relative(instant): String`
+  - `absolute(instant): String`
+  - `iso(instant): String`: UTC ISO-8601, e.g. `2026-10-22T19:40:00Z`
+  - It caches the timezone for 60 seconds.
+- **Tag `{#time value=someInstant /}`** renders:
+
+  ```html
+  <time class="pm-time" datetime="2026-10-22T19:40:00Z" title="Fri 23 Oct 2026, 06:40 AEDT" data-pm-relative data-testid="time">14m ago</time>
+  ```
+
+  It renders nothing for a null value.
+- **Refresh.** `postmaster.js` recomputes every `[data-pm-relative]` every 60 seconds with the same rules, from `datetime`. `Postmaster.relativeTime(date, now)` exposes those rules.
+
+### HTMX setup
+
+- The layout includes `<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>`, because the CSP blocks HTMX's injected styles. `.htmx-indicator` styles are in `postmaster.css`.
+- `htmx.onLoad` initialises tables, times and confirm hooks in swapped content.
