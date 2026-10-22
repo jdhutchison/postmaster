@@ -92,3 +92,15 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** Columns can be renamed to avoid reserved words as needed.
 
 **Claude:** Thanks. Reserved-word columns will be renamed rather than quoted: `Settings.key` → `setting_key`, `Settings.value` → `setting_value`, and `Email_events.timestamp` → `starts_at`. The builder will check every column against both databases' reserved-word lists. Nothing has been deployed, so the migration is edited directly. This is recorded in CLARIFICATIONS.md D20.
+
+---
+
+## 2026-10-23
+
+**You:** What is this "domain" package? Why is it separate from the "models" package?
+
+**Claude:** It held the enums stored as codes, the built-in action type names and the converter that saves enums as codes. The builder kept them out of `models` because the requirements define models as reshaped data or JSON payloads. But the requirements never asked for a `domain` package, and it should have been proposed first. The builder also added `config`, `mappers` and `util`.
+
+**You:** *(chose)* Enums to models.
+
+**Claude:** The enums and `ActionTypes` move to `models`, the converter moves to `entities`, and `domain` is removed. `config`, `mappers` and `util` stay and will be documented. From now on, the agents must propose any package outside the specified structure before creating it. This is recorded as CLARIFICATIONS.md Q22.

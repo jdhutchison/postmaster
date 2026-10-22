@@ -136,6 +136,15 @@ A rule has "one or more" conditions, but the requirements don't say how they com
 *Proposed:* all conditions must match (AND). For "either X or Y", create two rules.
 *Answer (2026-10-22):* All must match (AND).
 
+**Q22. Where do enums and other shared vocabulary live?** *(Raised by you, 2026-10-23.)*
+The builder had created a `domain` package, which the requirements don't define. It held the enums stored as codes (`RuleType`, `ConditionAttribute`, the match types, the email statuses), the `ActionTypes` names and the JPA enum converter.
+*Answer (2026-10-23):*
+- The enums and `ActionTypes` move to `models`.
+- The JPA converter moves to `entities`.
+- There is no `domain` package.
+- The other supporting packages stay and will be documented in the architecture doc: `config` (startup config and checks), `mappers` (MapStruct) and `util` (duration, name and time helpers).
+- Any further package outside the requirements' structure must be proposed to you first.
+
 ### Emails and processing
 
 **Q13. What does "action required" mean?**
