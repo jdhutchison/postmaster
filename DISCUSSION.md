@@ -43,3 +43,17 @@ This file records communication between us after the clarification round. The cl
   - The `set_action_needed` action is removed.
   - Seeding includes the revised prompt.
   - The pipeline and MCP enforce "never for Bill".
+
+---
+
+**You:** Also I want one agent to build and another to write the tests, working in parallel. They may communicate and both can ask clarifications but both must comply with the requirements.
+
+**Claude:** Set up as described under "Working arrangement" in PLAN.md:
+- The builder owns the production code, build files, Docker, `bin/`, docs and Ansible.
+- The tester owns `src/test`, writing tests from the requirements and clarifications rather than from the builder's code.
+- The two agents coordinate through `docs/dev/contracts.md` and direct messages.
+- They build into separate directories and use random test ports.
+- Each commits only its own paths.
+- Clarification questions come to me, I ask you, and the answers go in CLARIFICATIONS.md.
+- Requirements win any disagreement, and neither agent may weaken the other's work to get a pass.
+- Both stop at the end of each phase so I can run the full suite and update PLAN.md.

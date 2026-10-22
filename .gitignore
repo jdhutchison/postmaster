@@ -28,3 +28,7 @@ playwright-report/
 
 # OS
 .DS_Store
+
+# Tester agent build output
+/build-tests/
+/.gradle-tests/
