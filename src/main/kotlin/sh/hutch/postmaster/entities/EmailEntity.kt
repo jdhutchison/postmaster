@@ -14,8 +14,7 @@ import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.EmailStatus
-import sh.hutch.postmaster.domain.EmailStatusConverter
+import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.services.MessageIds
 import java.math.BigDecimal
 import java.time.Instant

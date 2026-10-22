@@ -1,4 +1,4 @@
-package sh.hutch.postmaster.domain
+package sh.hutch.postmaster.models
 
 /**
  * Names of the built-in action types, stored in `Rule_actions.action_type`. Action types are plain

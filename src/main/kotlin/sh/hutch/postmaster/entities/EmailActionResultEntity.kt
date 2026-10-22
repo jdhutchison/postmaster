@@ -9,10 +9,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.ActionResultStatus
-import sh.hutch.postmaster.domain.ActionResultStatusConverter
-import sh.hutch.postmaster.domain.ActionSource
-import sh.hutch.postmaster.domain.ActionSourceConverter
+import sh.hutch.postmaster.models.ActionResultStatus
+import sh.hutch.postmaster.models.ActionSource
 import java.time.Instant
 
 /** An action taken on an email, by a rule or from the UI or MCP. */

@@ -1,6 +1,4 @@
-package sh.hutch.postmaster.domain
-
-import jakarta.persistence.Converter
+package sh.hutch.postmaster.models
 
 /** Whether a rule classifies email or acts on it. */
 enum class RuleType(override val code: String) : CodedEnum {
@@ -157,33 +155,3 @@ enum class SettingType(override val code: String) : CodedEnum {
     fun fromCode(code: String): SettingType = codedEnumOf(code)
   }
 }
-
-@Converter
-class RuleTypeConverter : CodedEnumConverter<RuleType>(RuleType::class.java)
-
-@Converter
-class ConditionAttributeConverter : CodedEnumConverter<ConditionAttribute>(ConditionAttribute::class.java)
-
-@Converter
-class MatchTypeConverter : CodedEnumConverter<MatchType>(MatchType::class.java)
-
-@Converter
-class EmailStatusConverter : CodedEnumConverter<EmailStatus>(EmailStatus::class.java)
-
-@Converter
-class ErrorPhaseConverter : CodedEnumConverter<ErrorPhase>(ErrorPhase::class.java)
-
-@Converter
-class ActionSourceConverter : CodedEnumConverter<ActionSource>(ActionSource::class.java)
-
-@Converter
-class ActionResultStatusConverter : CodedEnumConverter<ActionResultStatus>(ActionResultStatus::class.java)
-
-@Converter
-class RunTriggerConverter : CodedEnumConverter<RunTrigger>(RunTrigger::class.java)
-
-@Converter
-class RunStatusConverter : CodedEnumConverter<RunStatus>(RunStatus::class.java)
-
-@Converter
-class SettingTypeConverter : CodedEnumConverter<SettingType>(SettingType::class.java)

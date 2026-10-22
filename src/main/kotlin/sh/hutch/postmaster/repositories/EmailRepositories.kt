@@ -3,7 +3,6 @@ package sh.hutch.postmaster.repositories
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import io.quarkus.panache.common.Page
 import jakarta.enterprise.context.ApplicationScoped
-import sh.hutch.postmaster.domain.RunStatus
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
@@ -11,6 +10,7 @@ import sh.hutch.postmaster.entities.EmailErrorEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
 import sh.hutch.postmaster.entities.EmailRuleMatchEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
+import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.services.MessageIds
 
 @ApplicationScoped

@@ -7,10 +7,8 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import sh.hutch.postmaster.domain.ConditionAttribute
-import sh.hutch.postmaster.domain.ConditionAttributeConverter
-import sh.hutch.postmaster.domain.MatchType
-import sh.hutch.postmaster.domain.MatchTypeConverter
+import sh.hutch.postmaster.models.ConditionAttribute
+import sh.hutch.postmaster.models.MatchType
 
 /** A test a rule applies to an email. Removed for real when taken off a rule. */
 @Entity

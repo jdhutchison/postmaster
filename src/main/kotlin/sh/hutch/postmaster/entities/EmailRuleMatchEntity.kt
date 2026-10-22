@@ -9,8 +9,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.RuleType
-import sh.hutch.postmaster.domain.RuleTypeConverter
+import sh.hutch.postmaster.models.RuleType
 import java.time.Instant
 
 /** A rule that matched an email. */

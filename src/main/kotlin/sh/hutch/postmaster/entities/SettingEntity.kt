@@ -4,8 +4,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
-import sh.hutch.postmaster.domain.SettingType
-import sh.hutch.postmaster.domain.SettingTypeConverter
+import sh.hutch.postmaster.models.SettingType
 
 @Entity
 @Table(name = "Settings")

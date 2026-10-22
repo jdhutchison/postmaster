@@ -1,6 +1,5 @@
 package sh.hutch.postmaster.models
 
-import sh.hutch.postmaster.domain.SettingType
 
 /**
  * A setting as presented to users. [value] is always null for encrypted settings so their plain

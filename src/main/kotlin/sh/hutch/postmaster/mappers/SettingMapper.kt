@@ -2,9 +2,9 @@ package sh.hutch.postmaster.mappers
 
 import org.mapstruct.Mapper
 import org.mapstruct.Mapping
-import sh.hutch.postmaster.domain.SettingType
 import sh.hutch.postmaster.entities.SettingEntity
 import sh.hutch.postmaster.models.Setting
+import sh.hutch.postmaster.models.SettingType
 import sh.hutch.postmaster.services.SettingsService
 
 @Mapper

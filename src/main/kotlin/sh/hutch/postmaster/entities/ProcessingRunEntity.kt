@@ -6,10 +6,8 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.RunStatus
-import sh.hutch.postmaster.domain.RunStatusConverter
-import sh.hutch.postmaster.domain.RunTrigger
-import sh.hutch.postmaster.domain.RunTriggerConverter
+import sh.hutch.postmaster.models.RunStatus
+import sh.hutch.postmaster.models.RunTrigger
 import java.time.Instant
 
 /** A run of the email processing pipeline. */

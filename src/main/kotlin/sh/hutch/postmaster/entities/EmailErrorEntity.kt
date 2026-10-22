@@ -10,8 +10,7 @@ import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.ErrorPhase
-import sh.hutch.postmaster.domain.ErrorPhaseConverter
+import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.util.Times
 import java.time.Instant
 

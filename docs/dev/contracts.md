@@ -183,9 +183,13 @@ The `summarise` prompt asks for the `action_required` and `action` JSON fields (
 
 The keys are constants in `sh.hutch.postmaster.services.SettingKeys`.
 
-### Enums (`sh.hutch.postmaster.domain`)
+### Enums (`sh.hutch.postmaster.models`)
 
-Each enum has `code: String` (the stored value) and `companion fun fromCode(code: String)`, which throws `IllegalArgumentException` for unknown codes. Entities use them through JPA converters.
+Package layout (CLARIFICATIONS.md Q22):
+- The enums, `CodedEnum`, `codedEnumOf` and `ActionTypes` are in `sh.hutch.postmaster.models`, which has no JPA dependency.
+- The JPA converters (`CodedEnumConverter` and one `…Converter` per enum, e.g. `RuleTypeConverter`) are in `sh.hutch.postmaster.entities`.
+
+Each enum implements `CodedEnum`, with `code: String` (the stored value) and `companion fun fromCode(code: String)`, which throws `IllegalArgumentException` for unknown codes.
 
 | Enum | Values |
 |---|---|
@@ -200,7 +204,7 @@ Each enum has `code: String` (the stored value) and `companion fun fromCode(code
 | `RunStatus` | RUNNING, SUCCEEDED, FAILED |
 | `SettingType` | TEXT, INT, BOOL, DURATION, ENCRYPTED, PATH, LIST, CHOICE, TIMEZONE, URL |
 
-- Action types are stored as plain strings, so new action types can be registered without a migration. The built-in names are constants in `sh.hutch.postmaster.domain.ActionTypes`, listed in `ActionTypes.BUILT_IN`.
+- Action types are stored as plain strings, so new action types can be registered without a migration. The built-in names are constants in `sh.hutch.postmaster.models.ActionTypes`, listed in `ActionTypes.BUILT_IN`.
 - The condition compatibility matrix (Q9) is `MatchType.appliesTo(attribute)`, with `MatchType.needsTest` (false for HAS and IS_PRESENT).
 - **A rule matches only when ALL its conditions match (AND, CLARIFICATIONS.md Q21).** The rule engine arrives in Phase 5.1.
 

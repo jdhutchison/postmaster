@@ -2,10 +2,10 @@ package sh.hutch.postmaster.repositories
 
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import jakarta.enterprise.context.ApplicationScoped
-import sh.hutch.postmaster.domain.RuleType
 import sh.hutch.postmaster.entities.ConditionEntity
 import sh.hutch.postmaster.entities.RuleActionEntity
 import sh.hutch.postmaster.entities.RuleEntity
+import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.util.Names
 
 @ApplicationScoped

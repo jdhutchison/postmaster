@@ -2,10 +2,10 @@ package sh.hutch.postmaster.services
 
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
-import sh.hutch.postmaster.domain.SettingType
 import sh.hutch.postmaster.entities.SettingEntity
 import sh.hutch.postmaster.mappers.SettingMapper
 import sh.hutch.postmaster.models.Setting
+import sh.hutch.postmaster.models.SettingType
 import sh.hutch.postmaster.repositories.SettingRepository
 import sh.hutch.postmaster.util.InvalidDurationException
 import sh.hutch.postmaster.util.IsoDurations

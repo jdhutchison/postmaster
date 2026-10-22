@@ -11,8 +11,7 @@ import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
-import sh.hutch.postmaster.domain.RuleType
-import sh.hutch.postmaster.domain.RuleTypeConverter
+import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.util.Names
 import java.time.Instant
 
