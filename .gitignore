@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin
+.kotlin/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Quarkus
+.quarkus/
+
+# Local configuration and data
+/config/local*.yml
+/data/
+*.log
+
+# Test artifacts
+/test-results/
+playwright-report/
+
+# OS
+.DS_Store

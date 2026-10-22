@@ -4,7 +4,7 @@ Based on REQUIREMENTS.md and the answers in CLARIFICATIONS.md.
 
 Legend: `[ ]` to do · `[~]` in progress · `[x]` done · `[!]` blocked (see DISCUSSION.md)
 
-**Status:** Plan written and waiting for your go-ahead.
+**Status:** Plan accepted on 2026-10-22. Phase 0 is in progress.
 
 Standing rules:
 - Commit after each completed task.
@@ -34,7 +34,7 @@ Standing rules:
 - [ ] **1.2** Seed migrations:
   - default settings
   - the initial types, with `Bill` as a system type
-  - the system prompts with fixed keys, including a new `identify_events` prompt
+  - the system prompts with fixed keys, including a new `identify_events` prompt and the Summarise prompt extended to return `action_required` and `action` (CLARIFICATIONS R1 and D19)
 - [ ] **1.3** Entities (`…Entity`), Panache repositories, models where needed, and MapStruct mappers.
 - [ ] **1.4** `Crypto` (AES-256-GCM with the `enc:` prefix) and `SettingsService`: typed values, validation, and full and simplified ISO 8601 duration parsing. Unit tests.
 - [ ] **1.5** A known test data set and fixtures for the integration tests.
@@ -112,7 +112,7 @@ These are reusable, so the action handlers can share them.
   - the fixed execution order, with move/delete last and conflict handling
   - recording each action's result
 - [ ] **5.3** Action handlers:
-  - `set_type`, `set_reply_needed`, `set_action_needed` (new), `skip_processing`
+  - `set_type`, `set_reply_needed`, `skip_processing`
   - `mark_read`, `mark_unread`, `move`, `delete`, `forward_email`
   - `download_attachments`, `fetch_link_contents`, `check_for_events`, `create_events`
 - [ ] **5.4** `process_bill`:
@@ -127,6 +127,8 @@ These are reusable, so the action handlers can share them.
   3. LLM phase
   4. action rules
   5. record the status, errors and rule matches
+
+  `action_required` and `action_description` come from the Summarise result and are always false/empty for `Bill` emails (Q13 revision).
 
   Also supports reprocessing an email.
 - [ ] **5.6** Scheduler: the interval comes from the settings, only one run at a time, each run is recorded in `Processing_runs`, and there is a "Run now" trigger. End-to-end tests with GreenMail, WireMock and the fake khal.
@@ -153,7 +155,7 @@ These are reusable, so the action handlers can share them.
   - search and get emails, set type, move, mark read/unread, delete, forward
   - list types, folders and calendars
   - change an event's calendar
-  - set or clear the flags, and reprocess an email
+  - set or clear the flags (setting the type to `Bill` clears `action_required`), and reprocess an email
 
   Tested with an MCP client over HTTP.
 

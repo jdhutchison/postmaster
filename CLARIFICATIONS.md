@@ -141,7 +141,13 @@ It isn't defined in the requirements.
 - automatically for events not yet added to a calendar
 
 You can clear it in the UI and through MCP.
-*Answer (2026-10-22):* A flag set by an action and automatically, as proposed.
+*Answer (2026-10-22):* ~~A flag set by an action and automatically, as proposed.~~ **Superseded by the revised answer below.**
+
+*Revised answer (2026-10-22, your correction):* `action_required` means **the text of the email implies you need to do something**. Emails of type `Bill` never have it set, because bills are handled by `process_bill`.
+- The LLM decides it. The Summarise prompt now returns `action_required` and a short `action` description (see R1), which is stored in a new `action_description` column.
+- There is **no** `set_action_needed` action, and the flag is **not** set automatically for bills or for events.
+- The code enforces the Bill exclusion: when an email's type is `Bill`, `action_required` is false. This also applies if the type is changed to `Bill` later, in the UI or through MCP.
+- You can still clear the flag in the UI and through MCP once you've done what was needed.
 
 **Q14. How should emails be fetched?**
 "Stop at the first already-processed email" permanently skips older emails if a run fails partway through.
@@ -218,7 +224,7 @@ I'll adopt these unless you object.
   - For `create_events` and `process_bill`, the destination is a calendar chosen from a dropdown (see Q16).
   - An action's notifications override the calendar's `notification_periods`.
 - **D7. Emails schema.**
-  - Add `message_id` (unique), `imap_uid`, `uid_validity`, `folder`, `html_message`, `link_contents`, `link_summary`, `status`, `action_required`, `is_read`, `deleted` and `deleted_at`.
+  - Add `message_id` (unique), `imap_uid`, `uid_validity`, `folder`, `html_message`, `link_contents`, `link_summary`, `status`, `action_required`, `action_description`, `is_read`, `deleted` and `deleted_at`.
   - Normalise attachments, rule matches, action results and errors into the `Email_attachments`, `Email_rule_matches`, `Email_action_results` and `Email_errors` tables. The UI needs per-attachment downloads and per-rule action lists.
 - **D8. Email_events.**
   - Add `notes`, `ends_at`, `all_day`, `khal_uid` and a calendar foreign key.
@@ -263,6 +269,51 @@ I'll adopt these unless you object.
   - Postmaster writes each event as a `.ics` file with its own UID and adds it with `khal import`.
   - Moving or deleting an event moves or deletes that file in the calendar's vdir.
   - The host's vdirsyncer cron job then syncs the change.
+
+---
+
+- **D19. Fixes to the seeded prompts.** These are needed for the prompts to work as intended. You can still edit them all in the UI.
+  - "Summarising the email" has no placeholder for the email itself, so I'll add `Sender: {{sender}}`, `Subject: {{subject}}` and `Contents: {{text}}`.
+  - The JSON example in "Summarising the email" is invalid: commas are missing after `title` and `location`. Small models tend to copy mistakes like this, so I'll fix it.
+  - The Classify prompt's type table uses a `{{types}}` placeholder, which isn't in the requirements' placeholder list. I'll add it.
+  - "Selecting a calendar" gets `{{calendars}}` (enabled calendars only) and `{{events}}` (with event ids).
+  - Typos are corrected, for example "there many be" → "there may be".
+
+---
+
+## Revisions
+
+**R1 (2026-10-22). The Summarise prompt also identifies required action (from the Q13 revision).**
+The seeded "Summarising the email" prompt becomes:
+
+    Analyse the text of this email to identify if there are any events (there may be zero, one or multiple) that can be added to a calendar, and if there is a link to a page then extract the link. Summarise the contents of the email message. Attempt to identify if a response is required. Also attempt to identify if the email asks or implies that the recipient needs to do something other than reply, such as complete or sign a form, make a booking or payment, provide information, or do something by a deadline. Return the details as JSON with this structure:
+
+    {
+      "summary": "<summary of email>",
+      "link": "<url of link>",
+      "response_required": <true|false>,
+      "action_required": <true|false>,
+      "action": "<short description of what needs to be done, including any deadline>",
+      "events": [
+        {
+          "title": "<title of your event>",
+          "when": "<string - ISO 8601 datetime without zone>",
+          "location": "<where the event is, if it can be determined, leave null otherwise>",
+          "notes": "<string> any other details worth noting"
+        }
+      ],
+      "errors": [
+        <list of strings specifying errors>
+      ]
+    }
+
+    Do not guess any details. Only the summary is mandatory; include the other fields only if values are detected. Report errors when processing email, if any.
+
+    Sender: {{sender}}
+    Subject: {{subject}}
+    Contents: {{text}}
+
+`action_required` from the LLM is ignored when the email's type is `Bill`.
 
 ---
 
