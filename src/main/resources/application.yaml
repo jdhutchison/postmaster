@@ -1,0 +1,28 @@
+# Build-time and default configuration. Deployment-specific values (database
+# connection, encryption key, khal config path) come from the YAML file passed
+# as the single command line argument; see config/postmaster.example.yml.
+quarkus:
+  application:
+    name: postmaster
+  banner:
+    enabled: false
+  devservices:
+    enabled: false
+  http:
+    root-path: /mail
+    port: 8080
+  datasource:
+    db-kind: mariadb
+  hibernate-orm:
+    jdbc:
+      timezone: UTC
+  flyway:
+    migrate-at-start: true
+    locations: db/migration
+    placeholders:
+      # Applied to every CREATE TABLE. Tests on H2 can override this with an
+      # empty string if H2 rejects the MariaDB table options.
+      table_options: ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  smallrye-openapi:
+    info-title: Postmaster
+    info-description: Email processing, classification and actions
