@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has run the full test suite.
 
-**Status:** Plan accepted on 2026-10-22. Tasks 0.1 and 0.2 are done. The builder and tester agents are starting Phase 0 (0.3–0.5) and Phase 1.
+**Status:** Phases 0 and 1 are complete and verified by the coordinator on 2026-10-23: a clean `./gradlew clean test` ran 244 tests in 18 suites with 0 failures, 0 errors and 0 skipped. Phase 2 (UI foundation) is next.
 
 Standing rules:
 - Commit after each completed task.
@@ -52,27 +52,27 @@ Two agents work in parallel in this working tree, coordinated by the main Claude
 
 - [x] **0.1** `build: done` `tests: n/a` *(coordinator)* `git init`, add `.gitignore` and `.editorconfig` (2-space indent, 4-space continuation), and commit the requirement documents.
 - [x] **0.2** `build: done` `tests: n/a` *(coordinator)* Install GraalVM (JDK 25 LTS) and Gradle locally with SDKMAN (user-level). There is no JDK on this machine yet.
-- [ ] **0.3** `build: todo` `tests: todo` Create the Gradle (Kotlin DSL) Quarkus project:
+- [x] **0.3** `build: done` `tests: done` Create the Gradle (Kotlin DSL) Quarkus project:
   - Kotlin, plus Quarkus REST, Qute, Hibernate ORM Panache Kotlin, MariaDB JDBC, Flyway, Scheduler, SmallRye OpenAPI, YAML config and the MCP server (HTTP).
   - MapStruct through kapt.
   - H2, GreenMail, WireMock and Playwright for tests.
-- [ ] **0.4** `build: todo` `tests: todo` Write a custom `main` that takes the YAML config path as its single argument, plus the startup config: DB, encryption key and khal config path. Add a smoke test that boots the app on H2.
-- [ ] **0.5** `build: todo` `tests: n/a` Add `bin/` scripts for running in dev, running tests, and building the JVM and native packages.
+- [x] **0.4** `build: done` `tests: done` Write a custom `main` that takes the YAML config path as its single argument, plus the startup config: DB, encryption key and khal config path. Add a smoke test that boots the app on H2.
+- [x] **0.5** `build: done` `tests: n/a` Add `bin/` scripts for running in dev, running tests, and building the JVM and native packages.
 
 ## Phase 1: Data layer
 
-- [ ] **1.1** `build: todo` `tests: todo` Flyway migrations for all tables, using `Snake_case` table names and lower snake case columns. The migrations must work on both MariaDB and H2. Tables:
+- [x] **1.1** `build: done` `tests: done` Flyway migrations for all tables, using `Snake_case` table names and lower snake case columns. The migrations must work on both MariaDB and H2. Tables:
   - `Settings`, `Types`, `Calendars`, `Prompts`
   - `Rules`, `Conditions`, `Rule_actions`
   - `Emails`, `Email_events`, `Email_attachments`, `Email_rule_matches`, `Email_action_results`, `Email_errors`
   - `Processing_runs`
-- [ ] **1.2** `build: todo` `tests: todo` Seed migrations:
+- [x] **1.2** `build: done` `tests: done` Seed migrations:
   - default settings
   - the initial types, with `Bill` as a system type
   - the system prompts with fixed keys, including a new `identify_events` prompt and the Summarise prompt extended to return `action_required` and `action` (CLARIFICATIONS R1 and D19)
-- [ ] **1.3** `build: todo` `tests: todo` Entities (`…Entity`), Panache repositories, models where needed, and MapStruct mappers.
-- [ ] **1.4** `build: todo` `tests: todo` `Crypto` (AES-256-GCM with the `enc:` prefix) and `SettingsService`: typed values, validation, and full and simplified ISO 8601 duration parsing. Unit tests.
-- [ ] **1.5** `build: todo` `tests: todo` A known test data set and fixtures for the integration tests.
+- [x] **1.3** `build: done` `tests: done` Entities (`…Entity`), Panache repositories, models where needed, and MapStruct mappers.
+- [x] **1.4** `build: done` `tests: done` `Crypto` (AES-256-GCM with the `enc:` prefix) and `SettingsService`: typed values, validation, and full and simplified ISO 8601 duration parsing. Unit tests.
+- [x] **1.5** `build: done` `tests: done` A known test data set and fixtures for the integration tests.
 
 ## Phase 2: UI foundation
 
