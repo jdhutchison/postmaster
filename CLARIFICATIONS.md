@@ -288,7 +288,7 @@ I'll adopt these unless you object.
   - This matches MariaDB's default case-insensitive collation.
   - It is enforced in the service layer, so tests on H2 behave the same as production.
   - Schema details kept portable between H2 and MariaDB:
-    - the `Settings` `key` and `value` columns are quoted
+    - no column name is a reserved word in either database. With your permission (2026-10-22), reserved-word columns are renamed rather than quoted: `Settings.key` → `setting_key`, `Settings.value` → `setting_value`, `Email_events.timestamp` → `starts_at` (pairs with `ends_at`)
     - table names match exactly
     - timestamps are UTC `DATETIME`s
     - unique columns stay within MariaDB's index size limit

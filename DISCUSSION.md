@@ -84,3 +84,11 @@ This file records communication between us after the clarification round. The cl
 - **`TIMESTAMP` behaviour:** MariaDB's `TIMESTAMP` has a limited range and converts by time zone, so `DATETIME` is safer.
 
 H2 remains the test database as required. The one-off MariaDB run catches these problems before deployment.
+
+**Tester agent (relayed by Claude):** When a rule has several conditions, must all of them match, or any one?
+
+**You:** All must match (AND). *(Recorded as CLARIFICATIONS.md Q21.)*
+
+**You:** Columns can be renamed to avoid reserved words as needed.
+
+**Claude:** Thanks. Reserved-word columns will be renamed rather than quoted: `Settings.key` → `setting_key`, `Settings.value` → `setting_value`, and `Email_events.timestamp` → `starts_at`. The builder will check every column against both databases' reserved-word lists. Nothing has been deployed, so the migration is edited directly. This is recorded in CLARIFICATIONS.md D20.
