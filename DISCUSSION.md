@@ -69,3 +69,7 @@ This file records communication between us after the clarification round. The cl
 **You:** I'll add myself to the docker group.
 
 **Claude:** Thanks. A running process doesn't pick up a new group until you log in again, so this Claude session and its agents will reach Docker through `sg docker -c "…"`. That works as soon as you're in the group, with no restart needed. I've told the builder.
+
+**You:** Why is one agent looking at a tarball of MariaDB?
+
+**Claude:** Production uses MariaDB, but the requirements say tests use an in-memory database (H2 imitating MariaDB), and the imitation isn't exact. So I asked the builder to run the migrations once against real MariaDB, to catch SQL that H2 accepts but MariaDB rejects before it fails on tigerbear. Docker wasn't available, so the builder runs MariaDB's official tarball as your user in the session scratch folder. It's temporary, makes no system changes, and isn't part of the project or the test suite. Once you're in the docker group it can use a throwaway container instead, or I can drop the check if you prefer.
