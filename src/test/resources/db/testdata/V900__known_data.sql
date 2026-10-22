@@ -31,6 +31,10 @@ INSERT INTO Calendars (name, description, colour, enabled, notification_periods,
 ('Retired calendar', 'A calendar that was deleted', '#6272a4', TRUE, NULL, TRUE,
   TIMESTAMP '2026-01-01 00:00:00', TIMESTAMP '2026-02-01 00:00:00', TIMESTAMP '2026-02-01 00:00:00');
 
+-- name_key is the lower-cased name of an active calendar and NULL for a deleted one (CLAR D20)
+
+UPDATE Calendars SET name_key = LOWER(name) WHERE deleted = FALSE;
+
 -- Prompts: the six seeded system prompts, plus a user prompt and a deleted one
 
 INSERT INTO Prompts (prompt_key, name, contents, deleted, created_at, last_updated_at, deleted_at) VALUES
@@ -69,6 +73,10 @@ INSERT INTO Rules (name, description, rule_type, priority, enabled, deleted, cre
   TIMESTAMP '2026-05-09 00:00:00', TIMESTAMP '2026-05-09 00:00:00', NULL),
 ('Retired action', 'An action rule that was deleted', 'action', 40, TRUE, TRUE,
   TIMESTAMP '2026-05-10 00:00:00', TIMESTAMP '2026-06-01 00:00:00', TIMESTAMP '2026-06-01 00:00:00');
+
+-- name_key: the lower-cased name of an active rule, NULL for a deleted one (CLAR D20)
+
+UPDATE Rules SET name_key = LOWER(name) WHERE deleted = FALSE;
 
 INSERT INTO Conditions (rule_id, attribute, match_type, test, position, created_at, last_updated_at)
 SELECT r.id, c.attribute, c.match_type, c.test, c.position, TIMESTAMP '2026-05-01 00:00:00', TIMESTAMP '2026-05-01 00:00:00'
@@ -125,12 +133,12 @@ FROM Rules r JOIN (VALUES
 -- 60 "Weekly update" emails received hourly from 1 September 2026, so there
 -- are more than 30 (the default list) and more than 50 (a page) of them.
 
-INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender, sender_name, type_id, status,
+INSERT INTO Emails (message_id, message_hash, imap_uid, uid_validity, folder, subject, sender, sender_name, type_id, status,
   message, html_message, summary, link, link_contents, link_summary,
   bill_sender, bill_due_date, bill_amount, bill_pay_link, bill_download_url,
   response_required, action_required, action_description, moved_to, is_read,
   received_at, processed_at, deleted, created_at, last_updated_at, deleted_at) VALUES
-('bill-1@electriclight.example', 101, 1, 'Folders/Bills', 'Your electricity bill is ready',
+('bill-1@electriclight.example', 'tmp-101', 101, 1, 'Folders/Bills', 'Your electricity bill is ready',
   'billing@electriclight.example', 'Electric Light Company', (SELECT id FROM Types WHERE system_key = 'bill'), 'processed',
   'Your October bill of $123.45 is due by 25 Nov 2026. Pay now at https://electriclight.example/pay/abc',
   '<html><body><p>Your October bill of <b>$123.45</b> is due by 25 Nov 2026.</p><a href="https://electriclight.example/pay/abc">Pay now</a> <a href="https://electriclight.example/bill/abc.pdf">View bill</a></body></html>',
@@ -139,7 +147,7 @@ INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender,
   FALSE, FALSE, NULL, 'Folders/Bills', FALSE,
   TIMESTAMP '2026-10-20 09:15:00', TIMESTAMP '2026-10-20 10:00:00', FALSE,
   TIMESTAMP '2026-10-20 10:00:00', TIMESTAMP '2026-10-20 10:00:00', NULL),
-('excursion-1@brunswicksouth.example', 102, 1, 'INBOX', 'Zoo excursion permission form',
+('excursion-1@brunswicksouth.example', 'tmp-102', 102, 1, 'INBOX', 'Zoo excursion permission form',
   'office@brunswicksouth.example', 'Brunswick South PS', (SELECT id FROM Types WHERE name = 'Primary school'), 'processed',
   'Grade 3 are going to Melbourne Zoo on 5 November. Please sign and return the permission form by Friday 30 October. Parent teacher interviews are on 12 November. Read the newsletter at https://brunswicksouth.example/newsletter/42',
   '<html><body><p>Grade 3 are going to Melbourne Zoo on 5 November.</p><a href="https://brunswicksouth.example/newsletter/42">Newsletter</a></body></html>',
@@ -151,7 +159,7 @@ INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender,
   TRUE, TRUE, 'Sign and return the permission form by Friday 30 October', NULL, FALSE,
   TIMESTAMP '2026-10-21 08:30:00', TIMESTAMP '2026-10-21 09:00:00', FALSE,
   TIMESTAMP '2026-10-21 09:00:00', TIMESTAMP '2026-10-21 09:00:00', NULL),
-('camp-1@princeshill.example', 103, 1, 'INBOX', 'Year 9 camp',
+('camp-1@princeshill.example', 'tmp-103', 103, 1, 'INBOX', 'Year 9 camp',
   'admin@princeshill.example', 'Princes Hill SC', (SELECT id FROM Types WHERE name = 'High school'), 'processed',
   'Year 9 camp is on 20 November. Please pay the camp deposit by 1 November. Details: https://princeshill.example/camp',
   NULL, 'Year 9 camp on 20 November; deposit due 1 November.', 'https://princeshill.example/camp', NULL, NULL,
@@ -159,42 +167,42 @@ INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender,
   FALSE, TRUE, 'Pay the camp deposit by 1 November', NULL, FALSE,
   TIMESTAMP '2026-10-21 16:20:00', TIMESTAMP '2026-10-21 17:00:00', FALSE,
   TIMESTAMP '2026-10-21 17:00:00', TIMESTAMP '2026-10-21 17:00:00', NULL),
-('payslip-1@employer.example', 104, 1, 'INBOX', 'Payslip for October',
+('payslip-1@employer.example', 'tmp-104', 104, 1, 'INBOX', 'Payslip for October',
   'payroll@employer.example', 'Payroll', (SELECT id FROM Types WHERE name = 'Payslip'), 'processed',
   'Your payslip for October is attached.', NULL, 'October payslip attached.', NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
   FALSE, FALSE, NULL, NULL, TRUE,
   TIMESTAMP '2026-10-15 17:00:00', TIMESTAMP '2026-10-15 18:00:00', FALSE,
   TIMESTAMP '2026-10-15 18:00:00', TIMESTAMP '2026-10-15 18:00:00', NULL),
-('sale-1@shop.example', 105, 1, 'INBOX', 'Spring sale starts now',
+('sale-1@shop.example', 'tmp-105', 105, 1, 'INBOX', 'Spring sale starts now',
   'news@shop.example', 'Shop', NULL, 'processed',
   'Everything is 20% off this weekend.', NULL, 'A spring sale with 20% off.', NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
   FALSE, FALSE, NULL, NULL, FALSE,
   TIMESTAMP '2026-10-19 12:00:00', TIMESTAMP '2026-10-19 13:00:00', FALSE,
   TIMESTAMP '2026-10-19 13:00:00', TIMESTAMP '2026-10-19 13:00:00', NULL),
-('broken-1@example.test', 106, 1, 'INBOX', 'Unreadable message',
+('broken-1@example.test', 'tmp-106', 106, 1, 'INBOX', 'Unreadable message',
   'someone@example.test', NULL, NULL, 'failed',
   'Garbled', NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
   FALSE, FALSE, NULL, NULL, FALSE,
   TIMESTAMP '2026-10-18 07:45:00', TIMESTAMP '2026-10-18 08:00:00', FALSE,
   TIMESTAMP '2026-10-18 08:00:00', TIMESTAMP '2026-10-18 08:00:00', NULL),
-('autoreply-1@example.test', 107, 1, 'INBOX', 'Automatic reply',
+('autoreply-1@example.test', 'tmp-107', 107, 1, 'INBOX', 'Automatic reply',
   'noreply@example.test', NULL, NULL, 'skipped',
   'I am out of the office.', NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
   FALSE, FALSE, NULL, NULL, FALSE,
   TIMESTAMP '2026-10-17 11:00:00', TIMESTAMP '2026-10-17 11:30:00', FALSE,
   TIMESTAMP '2026-10-17 11:30:00', TIMESTAMP '2026-10-17 11:30:00', NULL),
-('deleted-1@example.test', 108, 1, 'Trash', 'Deleted email',
+('deleted-1@example.test', 'tmp-108', 108, 1, 'Trash', 'Deleted email',
   'spam@example.test', NULL, NULL, 'processed',
   'Unwanted', NULL, 'Unwanted mail.', NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
   FALSE, FALSE, NULL, 'Trash', FALSE,
   TIMESTAMP '2026-10-16 10:00:00', TIMESTAMP '2026-10-16 10:30:00', TRUE,
   TIMESTAMP '2026-10-16 10:30:00', TIMESTAMP '2026-10-16 11:00:00', TIMESTAMP '2026-10-16 11:00:00'),
-('pending-1@example.test', 109, 1, 'INBOX', 'Still processing',
+('pending-1@example.test', 'tmp-109', 109, 1, 'INBOX', 'Still processing',
   'someone@example.test', NULL, NULL, 'pending',
   'Hello', NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
@@ -202,15 +210,20 @@ INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender,
   TIMESTAMP '2026-10-22 06:00:00', NULL, FALSE,
   TIMESTAMP '2026-10-22 06:00:00', TIMESTAMP '2026-10-22 06:00:00', NULL);
 
-INSERT INTO Emails (message_id, imap_uid, uid_validity, folder, subject, sender, sender_name, type_id, status,
+INSERT INTO Emails (message_id, message_hash, imap_uid, uid_validity, folder, subject, sender, sender_name, type_id, status,
   message, summary, response_required, action_required, is_read, received_at, processed_at, deleted,
   created_at, last_updated_at)
-SELECT CONCAT('update-', X, '@club.example'), 1000 + X, 1, 'INBOX', CONCAT('Weekly update ', X),
+SELECT CONCAT('update-', X, '@club.example'), CONCAT('tmp-', 1000 + X), 1000 + X, 1, 'INBOX', CONCAT('Weekly update ', X),
   'updates@club.example', 'Club', NULL, 'processed',
   CONCAT('News for week ', X), CONCAT('Club news, week ', X), FALSE, FALSE, TRUE,
   DATEADD('HOUR', X, TIMESTAMP '2026-09-01 00:00:00'), DATEADD('HOUR', X + 1, TIMESTAMP '2026-09-01 00:00:00'), FALSE,
   DATEADD('HOUR', X + 1, TIMESTAMP '2026-09-01 00:00:00'), DATEADD('HOUR', X + 1, TIMESTAMP '2026-09-01 00:00:00')
 FROM SYSTEM_RANGE(1, 60);
+
+-- message_hash is the lower-case hex SHA-256 of the UTF-8 Message-ID (docs/dev/contracts.md).
+-- The rows above were inserted with temporary unique values; H2 computes the real ones.
+
+UPDATE Emails SET message_hash = LOWER(RAWTOHEX(HASH('SHA-256', STRINGTOUTF8(message_id))));
 
 -- Events: one added to a calendar, one waiting for a calendar (all day)
 

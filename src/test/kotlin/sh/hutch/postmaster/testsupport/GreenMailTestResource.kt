@@ -5,7 +5,10 @@ import com.icegreen.greenmail.util.ServerSetupTest
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager.TestInjector
 
-/** Marks a `GreenMail` field to receive the running server: `@field:InjectGreenMail lateinit var greenMail: GreenMail` */
+/**
+ * Marks a `GreenMail` field to receive the running server:
+ * `@field:InjectGreenMail lateinit var greenMail: GreenMail`
+ */
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class InjectGreenMail

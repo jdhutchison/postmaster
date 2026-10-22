@@ -5,7 +5,10 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager.TestInjector
 
-/** Marks a `WireMockServer` field to receive the running server: `@field:InjectWireMock lateinit var wireMock: WireMockServer` */
+/**
+ * Marks a `WireMockServer` field to receive the running server:
+ * `@field:InjectWireMock lateinit var wireMock: WireMockServer`
+ */
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class InjectWireMock

@@ -80,7 +80,7 @@ class SchemaTest {
     // to 4 bytes a character, so a unique VARCHAR can have at most 768 characters
     val unique = Regex("UNIQUE\\s*\\(([^)]+)\\)", RegexOption.IGNORE_CASE)
     val createTable = Regex("CREATE TABLE\\s+(\\w+)\\s*\\(", RegexOption.IGNORE_CASE)
-    val varchar = Regex("^VARCHAR\\((\\d+)\\)", RegexOption.IGNORE_CASE)
+    val varchar = Regex("^(?:VAR)?CHAR\\((\\d+)\\)", RegexOption.IGNORE_CASE)
     var checked = 0
     for (script in MigrationScripts.all().values) {
       for (table in createTable.findAll(script).map { it.groupValues[1] }) {
@@ -92,7 +92,7 @@ class SchemaTest {
               declaration.uppercase().startsWith("BIGINT") || declaration.uppercase().startsWith("INT") -> 8
               else -> {
                 val length = varchar.find(declaration)?.groupValues?.get(1)?.toInt()
-                    ?: error("$table.$column in a unique key must be a VARCHAR or integer, was: $declaration")
+                    ?: error("$table.$column in a unique key must be a CHAR, VARCHAR or integer, was: $declaration")
                 length * 4
               }
             }
@@ -102,7 +102,10 @@ class SchemaTest {
         }
       }
     }
-    val uniqueIndex = Regex("CREATE\\s+UNIQUE\\s+INDEX\\s+\\w+\\s+ON\\s+(\\w+)\\s*\\(([^)]+)\\)", RegexOption.IGNORE_CASE)
+    val uniqueIndex = Regex(
+        "CREATE\\s+UNIQUE\\s+INDEX\\s+\\w+\\s+ON\\s+(\\w+)\\s*\\(([^)]+)\\)",
+        RegexOption.IGNORE_CASE
+    )
     for (script in MigrationScripts.all().values) {
       for (index in uniqueIndex.findAll(script)) {
         val table = index.groupValues[1]
@@ -183,13 +186,32 @@ class SchemaTest {
 
   @Test
   @TestTransaction
-  fun `an email's message id is unique`() {
-    // CLAR D7 (message_id unique) and Q14 (processed email is recognised by its Message-ID)
-    val insert = "INSERT INTO Emails (message_id, status, received_at, created_at, last_updated_at) " +
-        "VALUES ('<duplicate@test>', 'processed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-    dataSource.update(insert)
+  fun `an email is unique by the hash of its Message-ID`() {
+    // CLAR D7, Q14 (processed email is recognised by its Message-ID) and D20
+    // (unique keys within MariaDB's index limit, so uniqueness is on a hash)
+    val insert = "INSERT INTO Emails (message_id, message_hash, status, received_at, created_at, last_updated_at) " +
+        "VALUES (?, ?, 'processed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    dataSource.update(insert, "duplicate@test", "a".repeat(64))
 
-    assertThrows<SQLException> { dataSource.update(insert) }
+    assertThrows<SQLException> { dataSource.update(insert, "duplicate-again@test", "a".repeat(64)) }
+  }
+
+  @Test
+  @TestTransaction
+  fun `a Message-ID of the maximum header line length is stored in full`() {
+    // Coordinator request / CLAR D7: a realistic maximum Message-ID is 998
+    // characters (the RFC 5322 line limit) and is kept whole. Stored without
+    // angle brackets (docs/dev/contracts.md).
+    val messageId = "m".repeat(985) + "@example.test"
+    assertEquals(998, messageId.length)
+    dataSource.update(
+        "INSERT INTO Emails (message_id, message_hash, status, received_at, created_at, last_updated_at) " +
+            "VALUES (?, ?, 'processed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        messageId, "b".repeat(64)
+    )
+
+    val stored = dataSource.row("SELECT message_id FROM Emails WHERE message_hash = ?", "b".repeat(64))
+    assertEquals(messageId, stored["message_id"])
   }
 
   @Test
@@ -199,14 +221,16 @@ class SchemaTest {
     // HTML body and the linked page's contents and summary
     val long = "x".repeat(200_000)
     dataSource.update(
-        "INSERT INTO Emails (message_id, status, message, html_message, summary, link_contents, link_summary, " +
-            "received_at, created_at, last_updated_at) " +
-            "VALUES ('<long@test>', 'processed', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        "INSERT INTO Emails (message_id, message_hash, status, message, html_message, summary, link_contents, " +
+            "link_summary, received_at, created_at, last_updated_at) " +
+            "VALUES ('<long@test>', '${"c".repeat(64)}', 'processed', ?, ?, ?, ?, ?, " +
+            "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         long, long, long, long, long
     )
 
     val email = dataSource.row(
-        "SELECT message, html_message, summary, link_contents, link_summary FROM Emails WHERE message_id = '<long@test>'"
+        "SELECT message, html_message, summary, link_contents, link_summary FROM Emails " +
+            "WHERE message_id = '<long@test>'"
     )
     for ((column, value) in email) {
       assertEquals(long.length, value.toString().length, "$column keeps all ${long.length} characters")
@@ -234,8 +258,9 @@ class SchemaTest {
   fun `a bill amount keeps its cents`() {
     // REQ Emails schema: bill_amount, the amount needed to pay
     dataSource.update(
-        "INSERT INTO Emails (message_id, status, bill_amount, received_at, created_at, last_updated_at) " +
-            "VALUES ('<amount@test>', 'processed', 1234.56, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        "INSERT INTO Emails (message_id, message_hash, status, bill_amount, received_at, created_at, " +
+            "last_updated_at) VALUES ('<amount@test>', '${"d".repeat(64)}', 'processed', 1234.56, CURRENT_TIMESTAMP, " +
+            "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
     )
 
     val email = dataSource.row("SELECT bill_amount FROM Emails WHERE message_id = '<amount@test>'")
@@ -246,7 +271,10 @@ class SchemaTest {
     private val TABLE_NAME = Regex("^[A-Z][a-z0-9]*(_[a-z0-9]+)*$")
     private val COLUMN_NAME = Regex("^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
 
-    /** Columns each table must have, from REQ "Database schema/entities" (adapted, see class doc) and the CLAR items noted */
+    /**
+     * Columns each table must have, from REQ "Database schema/entities"
+     * (adapted, see class doc) and the CLAR items noted
+     */
     val REQUIRED_COLUMNS: Map<String, Set<String>> = mapOf(
         // REQ Settings; CLAR D9 adds a type and a description
         "Settings" to setOf("id", "setting_key", "label", "setting_value", "value_type", "description"),
@@ -275,7 +303,8 @@ class SchemaTest {
             "id", "subject", "sender", "type_id", "message", "summary", "link",
             "bill_sender", "bill_due_date", "bill_amount", "bill_pay_link", "bill_download_url",
             "response_required", "moved_to", "received_at", "processed_at",
-            "message_id", "imap_uid", "uid_validity", "folder", "html_message", "link_contents", "link_summary",
+            "message_id", "message_hash", "imap_uid", "uid_validity", "folder", "html_message", "link_contents",
+            "link_summary",
             "status", "action_required", "action_description", "is_read", "deleted", "deleted_at"
         ),
         // REQ Email_events; CLAR D8

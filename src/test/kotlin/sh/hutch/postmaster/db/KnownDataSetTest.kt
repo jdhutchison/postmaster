@@ -6,6 +6,7 @@ import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.security.MessageDigest
 import sh.hutch.postmaster.testsupport.FakeTools
 import sh.hutch.postmaster.testsupport.KnownDataProfile
 import sh.hutch.postmaster.testsupport.row
@@ -68,6 +69,35 @@ class KnownDataSetTest {
     )
     assertEquals("Bills", action["name"])
   }
+
+  @Test
+  fun `every email's message hash is the SHA-256 of its Message-ID`() {
+    // CLAR D7/Q14: email is recognised by its Message-ID; docs/dev/contracts.md
+    // (message_hash is the lower-case hex SHA-256 of the UTF-8 Message-ID)
+    val emails = dataSource.rows("SELECT message_id, message_hash FROM Emails")
+
+    assertEquals(69, emails.size)
+    for (email in emails) {
+      val id = email["message_id"] as String
+      assertEquals(sha256(id), (email["message_hash"] as String).trim(), id)
+    }
+  }
+
+  @Test
+  fun `name keys are the lower-cased names of active rows only`() {
+    // CLAR D20 (case-insensitive names; deleted rows don't block a name)
+    for (table in listOf("Types", "Calendars", "Rules")) {
+      for (row in dataSource.rows("SELECT name, name_key, deleted FROM $table")) {
+        val expected = if (row["deleted"] == true) null else (row["name"] as String).lowercase()
+        assertEquals(expected, row["name_key"], "$table ${row["name"]}")
+      }
+    }
+  }
+
+  private fun sha256(text: String): String =
+      MessageDigest.getInstance("SHA-256")
+          .digest(text.toByteArray(Charsets.UTF_8))
+          .joinToString("") { "%02x".format(it) }
 
   private fun count(sql: String, vararg params: Any?): Long = (dataSource.row(sql, *params)["n"] as Number).toLong()
 }

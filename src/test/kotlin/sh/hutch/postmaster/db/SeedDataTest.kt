@@ -341,7 +341,8 @@ class SeedDataTest {
   @Test
   fun `nothing is seeded as deleted`() {
     for (table in listOf("Types", "Prompts")) {
-      assertEquals(0L, (dataSource.row("SELECT COUNT(*) AS n FROM $table WHERE deleted = TRUE")["n"] as Number).toLong())
+      val deleted = dataSource.row("SELECT COUNT(*) AS n FROM $table WHERE deleted = TRUE")["n"] as Number
+      assertEquals(0L, deleted.toLong(), "$table has no deleted rows")
     }
   }
 
