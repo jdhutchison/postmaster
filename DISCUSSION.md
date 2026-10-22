@@ -57,3 +57,11 @@ This file records communication between us after the clarification round. The cl
 - Clarification questions come to me, I ask you, and the answers go in CLARIFICATIONS.md.
 - Requirements win any disagreement, and neither agent may weaken the other's work to get a pass.
 - Both stop at the end of each phase so I can run the full suite and update PLAN.md.
+
+---
+
+**Builder agent (relayed by Claude):** Docker can't be used on this machine without sudo, because user `hutch` isn't in the `docker` group. This affects two things:
+- The temporary MariaDB check of the migrations. The builder is instead running MariaDB from the official binary tarball as an unprivileged user in the session scratchpad, with no root and no system changes.
+- The local image build check in task 8.2. This is still open.
+
+**Claude:** I confirmed it: `docker ps` gets permission denied, and `/var/run/docker.sock` is `root:docker 660`. **Open question for you, needed by Phase 8:** either add `hutch` to the `docker` group (`sudo usermod -aG docker hutch`, then log out and back in), or run the local image build yourself when we get there. The real arm64 build happens on tigerbear either way.
