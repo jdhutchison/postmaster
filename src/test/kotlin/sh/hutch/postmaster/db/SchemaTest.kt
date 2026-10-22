@@ -5,6 +5,7 @@ import io.quarkus.test.TestTransaction
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -13,6 +14,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import sh.hutch.postmaster.testsupport.applicationTables
 import sh.hutch.postmaster.testsupport.columns
 import sh.hutch.postmaster.testsupport.row
+import sh.hutch.postmaster.testsupport.rows
 import sh.hutch.postmaster.testsupport.update
 import java.sql.SQLException
 
@@ -41,6 +43,79 @@ class SchemaTest {
     for (table in REQUIRED_COLUMNS.keys) {
       assertTrue(table in tables, "table $table exists; found $tables")
     }
+  }
+
+  @Test
+  fun `table names match exactly, case included`() {
+    // REQ Coding style; CLAR D20 (table names match exactly: MariaDB on Linux
+    // compares table names case-sensitively). Queried from INFORMATION_SCHEMA
+    // with a case-sensitive comparison.
+    for (table in REQUIRED_COLUMNS.keys) {
+      val matches = dataSource.rows(
+          "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = ?",
+          table
+      )
+      assertEquals(listOf(table), matches.map { it["table_name"] }, "exactly one table named $table")
+    }
+    val variants = dataSource.applicationTables().filter { name ->
+      REQUIRED_COLUMNS.keys.any { it.equals(name, ignoreCase = true) && it != name }
+    }
+    assertTrue(variants.isEmpty(), "no tables differ from the planned names only by case: $variants")
+  }
+
+  @Test
+  fun `no table or column name is a reserved word in MariaDB or H2`() {
+    // CLAR D20: reserved-word columns are renamed rather than quoted
+    for (table in dataSource.applicationTables()) {
+      assertFalse(ReservedWords.isReserved(table), "table $table is a reserved word")
+      for (column in dataSource.columns(table)) {
+        assertFalse(ReservedWords.isReserved(column), "column $table.$column is a reserved word")
+      }
+    }
+  }
+
+  @Test
+  fun `unique columns fit MariaDB's index size limit`() {
+    // CLAR D20: InnoDB index keys are at most 3072 bytes, and utf8mb4 needs up
+    // to 4 bytes a character, so a unique VARCHAR can have at most 768 characters
+    val unique = Regex("UNIQUE\\s*\\(([^)]+)\\)", RegexOption.IGNORE_CASE)
+    val createTable = Regex("CREATE TABLE\\s+(\\w+)\\s*\\(", RegexOption.IGNORE_CASE)
+    val varchar = Regex("^VARCHAR\\((\\d+)\\)", RegexOption.IGNORE_CASE)
+    var checked = 0
+    for (script in MigrationScripts.all().values) {
+      for (table in createTable.findAll(script).map { it.groupValues[1] }) {
+        val body = MigrationScripts.createTable(table)
+        for (constraint in unique.findAll(body)) {
+          val bytes = constraint.groupValues[1].split(",").map { it.trim() }.sumOf { column ->
+            val declaration = MigrationScripts.columnDeclaration(body, column)
+            when {
+              declaration.uppercase().startsWith("BIGINT") || declaration.uppercase().startsWith("INT") -> 8
+              else -> {
+                val length = varchar.find(declaration)?.groupValues?.get(1)?.toInt()
+                    ?: error("$table.$column in a unique key must be a VARCHAR or integer, was: $declaration")
+                length * 4
+              }
+            }
+          }
+          assertTrue(bytes <= 3072, "unique key ${constraint.value} on $table needs up to $bytes bytes")
+          checked++
+        }
+      }
+    }
+    val uniqueIndex = Regex("CREATE\\s+UNIQUE\\s+INDEX\\s+\\w+\\s+ON\\s+(\\w+)\\s*\\(([^)]+)\\)", RegexOption.IGNORE_CASE)
+    for (script in MigrationScripts.all().values) {
+      for (index in uniqueIndex.findAll(script)) {
+        val table = index.groupValues[1]
+        val body = MigrationScripts.createTable(table)
+        val bytes = index.groupValues[2].split(",").map { it.trim() }.sumOf { column ->
+          val declaration = MigrationScripts.columnDeclaration(body, column)
+          varchar.find(declaration)?.groupValues?.get(1)?.toInt()?.times(4) ?: 8
+        }
+        assertTrue(bytes <= 3072, "unique index ${index.value} needs up to $bytes bytes")
+        checked++
+      }
+    }
+    assertTrue(checked > 0, "found the unique keys in the migrations")
   }
 
   @Test
