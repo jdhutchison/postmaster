@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Fake khal for tests. Every invocation is recorded in calls/ next to this
+# script: <n>.args holds the arguments separated by NUL bytes, and for
+# `import` the imported file is copied to <n>.ics.
+#
+# Behaviour:
+#   printcalendars  prints the calendar names from the -c/--config file
+#   import          copies the .ics into the chosen calendar's vdir as <UID>.ics
+#   anything else   prints nothing
+# If a file named "fail" exists next to this script, its contents are written
+# to stderr and the script exits with status 1 without doing anything.
+set -u
+dir="$(cd "$(dirname "$0")" && pwd)"
+calls="$dir/calls"
+mkdir -p "$calls"
+id="$(date +%s%N)-$$"
+printf '%s\0' "$@" > "$calls/$id.args"
+
+if [[ -f "$dir/fail" ]]; then
+  cat "$dir/fail" >&2
+  exit 1
+fi
+
+config="${KHAL_CONFIG:-$HOME/.config/khal/config}"
+calendar=""
+command=""
+positional=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -c|--config) config="$2"; shift 2 ;;
+    --config=*) config="${1#--config=}"; shift ;;
+    -a|--include-calendar) calendar="$2"; shift 2 ;;
+    --include-calendar=*) calendar="${1#--include-calendar=}"; shift ;;
+    --batch|--random-uid|-r|--color|--no-color) shift ;;
+    -*) shift ;;
+    *)
+      if [[ -z "$command" ]]; then command="$1"; else positional+=("$1"); fi
+      shift ;;
+  esac
+done
+
+# Prints "name<TAB>path" for each calendar in the config
+calendars() {
+  awk '
+    /^\[\[.*\]\]/ { name = $0; gsub(/^\[\[|\]\]$/, "", name); next }
+    /^\[[^[]/ { name = "" }
+    name != "" && /^[ \t]*path[ \t]*=/ {
+      path = $0; sub(/^[^=]*=[ \t]*/, "", path); gsub(/^"|"[ \t]*$/, "", path)
+      print name "\t" path
+    }' "$config"
+}
+
+case "$command" in
+  printcalendars)
+    calendars | cut -f1
+    ;;
+  import)
+    file="${positional[-1]:-}"
+    if [[ -z "$file" || ! -f "$file" ]]; then
+      echo "fake khal: import needs an existing file" >&2
+      exit 2
+    fi
+    cp "$file" "$calls/$id.ics"
+    if [[ -z "$calendar" ]]; then
+      echo "fake khal: import needs -a/--include-calendar" >&2
+      exit 2
+    fi
+    path="$(calendars | awk -F'\t' -v c="$calendar" '$1 == c { print $2 }')"
+    if [[ -z "$path" ]]; then
+      echo "fake khal: unknown calendar $calendar" >&2
+      exit 2
+    fi
+    path="${path/#\~/$HOME}"
+    uid="$(grep -m1 '^UID:' "$file" | cut -d: -f2- | tr -d '\r')"
+    mkdir -p "$path"
+    cp "$file" "$path/${uid:-$id}.ics"
+    ;;
+  *)
+    ;;
+esac
+exit 0

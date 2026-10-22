@@ -1,0 +1,29 @@
+# Test configuration. Everything is under the test profile so it takes
+# precedence over the main application.yaml's unprofiled values.
+#
+# The khal config, fake khal and fake Chromium paths come from
+# KhalTestResource, which creates them in a temporary directory per run.
+"%test":
+  quarkus:
+    http:
+      # Random port, so the builder's and tester's test runs never collide
+      test-port: 0
+    datasource:
+      db-kind: h2
+      username: sa
+      password: ""
+      jdbc:
+        # MariaDB mode with case-sensitive identifiers, like MariaDB on Linux
+        # (table names are case-sensitive there). VALUE is reserved in H2 but
+        # not in MariaDB. DB_CLOSE_DELAY keeps the in-memory database while the
+        # pool has no open connections.
+        url: jdbc:h2:mem:postmaster;MODE=MariaDB;DATABASE_TO_UPPER=FALSE;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1
+    flyway:
+      migrate-at-start: true
+      # Each application restart (e.g. a new test profile) starts from an
+      # empty database
+      clean-at-start: true
+      clean-disabled: false
+  postmaster:
+    # Base64 of 32 bytes: test-only AES-256 key
+    encryption-key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="

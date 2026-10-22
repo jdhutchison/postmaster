@@ -1,0 +1,4 @@
+# A startup configuration file like the one passed on the command line.
+# StartupConfigFileTest checks the application reads values from it.
+postmaster:
+  curl-command: /opt/from-config-file/curl
