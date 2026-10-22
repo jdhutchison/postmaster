@@ -20,6 +20,22 @@ class BrowserHarnessTest : BrowserTest() {
   }
 
   @Test
+  fun `requests outside the application are blocked and recorded`() {
+    // The guard every browser test relies on (REQ User interface style; CLAR S4: nothing from a CDN)
+    val page = visit("q/openapi?format=json")
+    page.setContent(
+        "<img src='https://cdn.example.com/logo.png'><link rel='stylesheet' href='https://fonts.example.com/a.css'>"
+    )
+    page.waitForLoadState()
+
+    assertEquals(
+        setOf("https://cdn.example.com/logo.png", "https://fonts.example.com/a.css"),
+        externalRequests.toSet()
+    )
+    externalRequests.clear()
+  }
+
+  @Test
   fun `pages can be opened in dark mode at phone width`() {
     val page = openPage(colorScheme = ColorScheme.DARK, width = 390, height = 844)
     page.navigate("q/openapi?format=json")
