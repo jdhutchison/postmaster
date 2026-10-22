@@ -1,0 +1,68 @@
+-- Default settings (CLARIFICATIONS.md D9). The set of settings is fixed: the UI edits values but
+-- doesn't add settings. value_type is one of text, int, bool, duration, encrypted, path, list,
+-- choice, timezone, url. Encrypted values are stored with an `enc:` prefix; NULL means not set.
+
+INSERT INTO Settings (setting_key, label, setting_value, value_type, allowed_values, description, position, created_at, last_updated_at) VALUES
+('processing.frequency', 'Processing frequency', '1h', 'duration', NULL,
+  'How often the inbox is checked for new email. A full or simplified ISO 8601 duration, e.g. PT1H, 1H or 1h.', 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('processing.lookback', 'Lookback window', '7d', 'duration', NULL,
+  'Only INBOX email received within this period is processed.', 20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('processing.timezone', 'Timezone', 'Australia/Melbourne', 'timezone', NULL,
+  'Timezone for event times that have no zone.', 30, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('imap.host', 'Dovecot server address', 'mail-dovecot', 'text', NULL,
+  'Host name or address of the Dovecot IMAP server.', 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.port', 'Dovecot IMAP port', '143', 'int', NULL,
+  'Port of the Dovecot IMAP server.', 110, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.security', 'Dovecot connection security', 'none', 'choice', 'none,starttls,tls',
+  'none, starttls or tls.', 120, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.username', 'Dovecot username', NULL, 'text', NULL,
+  'User name for logging in to Dovecot.', 130, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.password', 'Dovecot password', NULL, 'encrypted', NULL,
+  'Password for logging in to Dovecot. Stored AES encrypted.', 140, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.inbox_folder', 'Inbox folder', 'INBOX', 'text', NULL,
+  'Folder that new email is read from.', 150, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('imap.trash_folder', 'Trash folder', 'Trash', 'text', NULL,
+  'Folder that deleted email is moved to.', 160, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('smtp.host', 'SMTP server address', 'mail-opensmtp', 'text', NULL,
+  'Host name or address of the SMTP server used to forward email.', 200, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('smtp.port', 'SMTP port', '25', 'int', NULL,
+  'Port of the SMTP server.', 210, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('smtp.security', 'SMTP connection security', 'none', 'choice', 'none,starttls,tls',
+  'none, starttls or tls.', 220, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('smtp.username', 'SMTP username', NULL, 'text', NULL,
+  'User name for the SMTP server. Leave empty if it does not need authentication.', 230, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('smtp.password', 'SMTP password', NULL, 'encrypted', NULL,
+  'Password for the SMTP server. Stored AES encrypted.', 240, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('smtp.from_address', 'Forwarding from address', NULL, 'text', NULL,
+  'Address that forwarded email is sent from.', 250, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('llm.url', 'LLM address', 'http://kodiakbear:9931/v1', 'url', NULL,
+  'Base URL of the OpenAI-compatible llama.cpp API.', 300, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('llm.api_key', 'LLM API key', NULL, 'encrypted', NULL,
+  'API key for the LLM, if it needs one. Stored AES encrypted.', 310, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('llm.model', 'LLM model', 'qwen3.8-9b-100k', 'text', NULL,
+  'Name of the model to request from the LLM server.', 320, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('llm.timeout', 'LLM request timeout', '2m', 'duration', NULL,
+  'How long to wait for the LLM to answer a request.', 330, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('llm.max_input_chars', 'Maximum LLM input characters', '60000', 'int', NULL,
+  'Email and page content is cut to this many characters before it is sent to the LLM.', 340, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('attachments.path', 'Path to save attachments', '/data/attachments', 'path', NULL,
+  'Directory that downloaded attachments and bills are saved in.', 400, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('attachments.extensions', 'Attachment extensions to process', 'pdf', 'list', NULL,
+  'Comma separated list of file extensions, e.g. pdf, ics. Attachments with other extensions are ignored.', 410, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('events.default_duration', 'Default event duration', '1h', 'duration', NULL,
+  'Length of events whose end time is not known.', 500, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('fetch.user_agent', 'Browser user agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36', 'text', NULL,
+  'User agent used when fetching pages and files. Simulates Chrome on Windows.', 600, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('fetch.timeout', 'Page fetch timeout', '30s', 'duration', NULL,
+  'How long to wait when fetching a page or file.', 610, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+('bills.pay_link_text', 'Pay link text', 'Pay now, Pay your bill, Pay bill, Make a payment, Pay online', 'list', NULL,
+  'Comma separated anchor texts used to find the payment link in a bill (case-insensitive).', 700, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('bills.bill_link_text', 'Bill link text', 'View bill, View your bill, Download bill, Download your bill, View statement, Download PDF', 'list', NULL,
+  'Comma separated anchor texts used to find the link to download a bill (case-insensitive).', 710, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

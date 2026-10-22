@@ -20,9 +20,9 @@ quarkus:
     migrate-at-start: true
     locations: db/migration
     placeholders:
-      # Applied to every CREATE TABLE. Tests on H2 can override this with an
-      # empty string if H2 rejects the MariaDB table options.
-      table_options: ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      # Applied to every CREATE TABLE; the collation is the database default.
+      # H2 in MariaDB mode accepts these options too.
+      table_options: ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   smallrye-openapi:
     info-title: Postmaster
     info-description: Email processing, classification and actions
