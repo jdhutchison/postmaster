@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Builds the JVM package in build/quarkus-app/. Run it with:
+#   java -jar build/quarkus-app/quarkus-run.jar /path/to/postmaster.yml
+#
+# Extra arguments go to Gradle. Tests are skipped; run bin/test for those.
+set -euo pipefail
+source "$(dirname "$0")/_common.sh"
+
+exec ./gradlew quarkusBuild "$@"

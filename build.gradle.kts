@@ -91,6 +91,12 @@ kapt {
   }
 }
 
+// kapt's stub generation reads the directory Quarkus generates code into, so Gradle needs it
+// ordered after Quarkus code generation (it fails dev mode otherwise)
+tasks.matching { it.name == "kaptGenerateStubsKotlin" }.configureEach {
+  mustRunAfter("quarkusGenerateCode", "quarkusGenerateCodeDev", "quarkusGenerateCodeTests")
+}
+
 // Tests use no annotation processors, and kapt's incremental snapshots for the test source set
 // break when main and test change together ("Number of loaded files in snapshots differs")
 tasks.matching { it.name == "kaptTestKotlin" || it.name == "kaptGenerateStubsTestKotlin" }.configureEach {

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Builds a native executable with GraalVM, for the machine's own architecture, in
+# build/postmaster-<version>-runner. Run it with:
+#   build/postmaster-<version>-runner /path/to/postmaster.yml
+#
+# Needs GraalVM's native-image and about 6 GB of free memory. The arm64 production
+# image is built by the Dockerfile instead. Extra arguments go to Gradle.
+set -euo pipefail
+source "$(dirname "$0")/_common.sh"
+
+if ! command -v native-image >/dev/null 2>&1; then
+  echo "native-image not found. Use GraalVM for JDK 25 (e.g. sdk install java 25.4.4.1+1-graalce)." >&2
+  exit 1
+fi
+
+exec ./gradlew quarkusBuild \
+    -Dquarkus.native.enabled=true \
+    -Dquarkus.package.jar.enabled=false \
+    "$@"
