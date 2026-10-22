@@ -131,6 +131,11 @@ This is my reconstruction of the table:
 
 *Answer (2026-10-22):* As proposed.
 
+**Q21. How do several conditions on one rule combine?** *(Raised by the tester agent, 2026-10-22.)*
+A rule has "one or more" conditions, but the requirements don't say how they combine.
+*Proposed:* all conditions must match (AND). For "either X or Y", create two rules.
+*Answer (2026-10-22):* All must match (AND).
+
 ### Emails and processing
 
 **Q13. What does "action required" mean?**
