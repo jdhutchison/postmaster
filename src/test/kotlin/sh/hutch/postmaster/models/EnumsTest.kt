@@ -1,4 +1,4 @@
-package sh.hutch.postmaster.domain
+package sh.hutch.postmaster.models
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 /** The stored values and rules behind the rule, email and setting enums */
-class DomainEnumsTest {
+class EnumsTest {
   @Test
   fun `the match types that apply to each attribute are the Q9 matrix`() {
     // CLAR Q9 (the condition compatibility table, confirmed by the user)

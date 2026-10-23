@@ -100,7 +100,7 @@ Each distinct profile starts its own application. Tests in the same profile shar
 |---|---|
 | `sh.hutch.postmaster` | startup: command line argument, config file, application boot |
 | `sh.hutch.postmaster.db` | schema, naming conventions, portability (CLAR D20), seeds, the known data set |
-| `sh.hutch.postmaster.domain` | stored values and the condition compatibility matrix (CLAR Q9, Q10) |
+| `sh.hutch.postmaster.models` | the enums' stored values, the condition compatibility matrix (CLAR Q9, Q10) and the built-in action types |
 | `sh.hutch.postmaster.entities` | entity rules, such as "never action required for a bill" (CLAR Q13 revision) |
 | `sh.hutch.postmaster.util` | ISO 8601 durations |
 | `sh.hutch.postmaster.services` | encryption, settings and Message-IDs |

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
-import sh.hutch.postmaster.domain.SettingType
+import sh.hutch.postmaster.models.SettingType
 import sh.hutch.postmaster.repositories.SettingRepository
 import sh.hutch.postmaster.testsupport.row
 import sh.hutch.postmaster.testsupport.update

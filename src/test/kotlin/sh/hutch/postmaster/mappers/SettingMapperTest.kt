@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import sh.hutch.postmaster.domain.SettingType
+import sh.hutch.postmaster.models.SettingType
 import sh.hutch.postmaster.repositories.SettingRepository
 import sh.hutch.postmaster.services.SettingsService
 

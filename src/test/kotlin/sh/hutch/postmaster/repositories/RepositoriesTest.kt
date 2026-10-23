@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import sh.hutch.postmaster.domain.EmailStatus
-import sh.hutch.postmaster.domain.RuleType
+import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.services.MessageIds
 import sh.hutch.postmaster.testsupport.KnownDataProfile

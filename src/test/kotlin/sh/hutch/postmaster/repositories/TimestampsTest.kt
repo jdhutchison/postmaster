@@ -9,9 +9,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import sh.hutch.postmaster.domain.EmailStatus
-import sh.hutch.postmaster.domain.RunStatus
-import sh.hutch.postmaster.domain.RunTrigger
+import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.RunStatus
+import sh.hutch.postmaster.models.RunTrigger
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
