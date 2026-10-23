@@ -76,14 +76,14 @@ Two agents work in parallel in this working tree, coordinated by the main Claude
 
 ## Phase 2: UI foundation
 
-- [ ] **2.1** `build: todo` `tests: todo` The base Qute layout:
+- [ ] **2.1** `build: done` `tests: todo` The base Qute layout:
   - Dracula and Alucard palettes following the system dark/light mode
   - Atkinson Hyperlegible Next, bundled with the app
   - a frosted-glass hamburger menu
   - toasts (success fades out; errors stay until dismissed)
   - modal and confirm dialogs
   - HTMX, bundled with the app
-- [ ] **2.2** `build: todo` `tests: todo` A table component:
+- [ ] **2.2** `build: done` `tests: todo` A table component:
   - a sticky header
   - resizable columns
   - truncation with a full-text tooltip
