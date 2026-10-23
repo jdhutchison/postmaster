@@ -666,3 +666,234 @@ Tags in `templates/tags/`:
 
 - The layout includes `<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>`, because the CSP blocks HTMX's injected styles. `.htmx-indicator` styles are in `postmaster.css`.
 - `htmx.onLoad` initialises tables, times and confirm hooks in swapped content.
+
+---
+
+## Phase 3: admin pages
+
+General rules for every page below:
+- Routes are under `/mail`. Pages use the layout with the `page` key shown.
+- **HTMX actions** respond with fragments. Success adds an `HX-Trigger` `pm-toast` (`success`). Failures add an `error` toast, and validation failures use status **422**.
+- **Forms** show a field's error as `<p class="pm-field-error" data-testid="error-<field>">` after the field, and mark the field `aria-invalid="true"`.
+- **Not found:** unknown ids give **404**. Deleted rows count as unknown.
+- **Refused operations**, such as deleting a system type or prompt, give **409** with an error toast.
+- **Icon buttons** on table rows have `aria-label`s, e.g. `Edit Bill` and `Delete Bill`.
+
+### Service layer (`sh.hutch.postmaster.services`)
+
+- **`ValidationException(errors: Map<String, String>)`** is an `IllegalArgumentException`. The keys are form field names (below), and the message is the first error. **`DuplicateNameException(field: String, message: String)`** extends it with `errors = {field: message}`.
+- **`OperationNotAllowedException(message)`** is an `IllegalStateException`, mapped to 409. It covers deleting system types and prompts.
+- Missing or deleted ids throw `jakarta.ws.rs.NotFoundException`.
+- Inputs are models in `sh.hutch.postmaster.models` with raw string fields, so every problem can be reported:
+  - `TypeInput(name, description, colour)`
+  - `CalendarInput(name, description, colour, enabled: Boolean, notificationPeriods)`
+  - `PromptInput(name, contents)`
+  - `RuleInput(name, description, priority, conditions: List<ConditionInput>, actions: List<ActionInput>)`
+  - `ConditionInput(id: Long?, attribute, matchType, test)`
+  - `ActionInput(id: Long?, actionType, destination, typeId: String?, calendarId: String?, notifications, enabled: Boolean)`
+
+  All the string fields are `String?`.
+
+**`TypeService`**
+- Methods: `list()`, `get(id)`, `create(TypeInput)`, `update(id, TypeInput)` and `delete(id)`.
+- **name:** required, at most 100 characters after trimming, unique ignoring case among active types (D20).
+- **description:** optional (D2). Blank stores NULL.
+- **colour:** required, matching `#rrggbb` (case-insensitive), stored lower case.
+- **delete:** refused for system types.
+
+**`CalendarService`**
+- Methods: `list()`, `get(id)`, `create(CalendarInput)`, `update(id, …)`, `delete(id)`, `setEnabled(id, enabled)` and `khalCalendars(): KhalCalendars`.
+- **name:** required and unique ignoring case. It must be one of `khalCalendars().names`, or the calendar's current name when editing (D4).
+- **description:** required.
+- **colour:** as for types.
+- **notificationPeriods:** optional. If given it must pass `IsoDurations.isValidList` (comma plus space); blank stores NULL.
+
+**`KhalConfigService.calendars(): KhalCalendars(names: List<String>, error: String?)`**
+- It reads `postmaster.khal-config` and takes the `[[name]]` sections under `[calendars]`, in file order.
+- `error` describes why the file couldn't be read, with `names` then empty.
+
+**`PromptService`**
+- Methods: `list()`, `get(id)`, `create(PromptInput)`, `update(id, …)`, `delete(id)` and `preview(markdown): String`.
+- **name:** required, at most 100 characters.
+- **contents:** required.
+- **delete:** refused for system prompts.
+- **preview:** renders the markdown to HTML with commonmark 0.30.1, escaping raw HTML.
+- `sh.hutch.postmaster.models.Placeholders.ALL` is the list of `Placeholder(token, label)`, in this order:
+
+  | Token | Label |
+  |---|---|
+  | `{{calendars}}` | Enabled calendars and their purposes |
+  | `{{events}}` | Events found in the email |
+  | `{{subject}}` | Email subject |
+  | `{{sender}}` | Email sender |
+  | `{{text}}` | Plain text of the email |
+  | `{{html}}` | HTML of the email |
+  | `{{page}}` | Contents of the page linked from the email |
+  | `{{types}}` | Email types and their descriptions |
+
+**`RuleService`**
+- Methods: `list(ruleType)` (active, by priority descending then id), `get(ruleType, id)`, `create(ruleType, RuleInput)`, `update(ruleType, id, RuleInput)`, `delete(ruleType, id)` and `setEnabled(ruleType, id, enabled)`.
+- **name:** required and at most 100 characters, unique ignoring case within the rule type. It's ignored by `update`, because the name can't be edited.
+- **description:** required.
+- **priority:** blank means 0. Otherwise it's a whole number of 0 or more.
+- **Conditions:** at least one.
+  - `attribute` and `matchType` are valid codes, and `matchType.appliesTo(attribute)` holds (Q9).
+  - `test` is required (non-blank, at most 1000 characters) when `needsTest`, and stored as NULL otherwise (Q10).
+  - A `regex` test must compile.
+- **Actions:** at least one.
+  - `actionType` must be in `ActionTypes.BUILT_IN`.
+  - `move` needs a non-blank `destination`, the folder.
+  - `forward_email` needs a non-blank `destination` that looks like an email address.
+  - `set_type` needs `typeId`, an active type.
+  - `process_bill` needs `calendarId`, an active calendar (Q16).
+  - `create_events` takes an optional `calendarId` (when it's missing, the LLM picks a calendar, Q15) and optional `notifications` (an `IsoDurations` list).
+  - Fields that don't apply to the action type are stored as NULL.
+- **Updates:**
+  - Conditions with an `id` are updated, those without are added, and those left out are deleted.
+  - Actions with an `id` are updated, including `enabled`; those without are added, and those left out are soft-deleted.
+- Error keys for a condition or action row are e.g. `conditions[3].test` and `actions[0].destination`, using the row's form index. Rule-level keys are `name`, `description`, `priority`, `conditions` and `actions`.
+
+### 3.1 Configuration (`page="configuration"`)
+
+| Route | Result |
+|---|---|
+| `GET /configuration` | the page, with `table#settings-table` (`data-testid="settings-table"`) of every setting in `position` order |
+| `GET /configuration/{key}/edit` | the edit fragment |
+| `PUT /configuration/{key}` (form field `value`) | **200** with the display fragment and toast `Saved <label>`. No toast when nothing changed, including a blank encrypted value. **422** returns the edit fragment, with the typed value, `aria-invalid` and `[data-testid=setting-error-<key>]`, plus an error toast. |
+| `DELETE /configuration/{key}` | clears an **encrypted** setting and returns the display fragment with toast `Cleared <label>`. 409 for other types. |
+
+- **Rows** are `tr[data-testid="setting-row-<key>"]`. The label cell has the label, and the description is in `.pm-muted`.
+- **Display fragment:** `button.pm-setting-value[data-testid="setting-value-<key>"]`, showing `displayValue` (encrypted ones masked, Q17) or `Not set` (class `pm-muted`). Clicking it swaps in the edit fragment (`hx-get`).
+- **Edit fragment:** `span.pm-setting-edit` containing an `input[name=value][data-testid="setting-input-<key>"]` with `autofocus`.
+  - The input is `type=password` and empty for encrypted settings, and `type=text` holding the current value otherwise.
+  - Losing focus (**blur**) sends the `PUT`. **Enter** blurs, and so saves.
+- **Clear button:** encrypted settings that are set also show `button[data-testid="setting-clear-<key>"]`, with a confirm. It sends the `DELETE`.
+
+### 3.2 Types (`page="types"`)
+
+| Route | Result |
+|---|---|
+| `GET /types` | the page |
+| `GET /types/new` | the empty form fragment; `HX-Trigger-After-Swap` opens `type-dialog` |
+| `GET /types/{id}/edit` | the filled form fragment; same trigger |
+| `POST /types` (create) and `PUT /types/{id}` (update), with form fields `name`, `description`, `colour` | **200** with the table fragment, `HX-Retarget: #types-table-container`, `HX-Reswap: innerHTML`, and `HX-Trigger` with the toast `Created type <name>` or `Saved type <name>` plus `pm-dialog-close` for `type-dialog`. **422** returns the form fragment with errors and an error toast. |
+| `DELETE /types/{id}` | the table fragment with toast `Deleted type <name>`; 409 for system types |
+
+- **Page:** `button[data-testid="new-type"]` opens the dialog. The table sits in `#types-table-container`.
+- **Table:** `{#table id="types-table"}` with columns `name` (p1), `description` (p3), `colour` (p2, a swatch `span.pm-swatch` plus hex) and `actions` (p1, not resizable).
+  - Rows are `tr[data-testid="type-row-<id>"]`.
+  - Each row has `button[data-testid="edit-type-<id>"]` and, except system types, `button[data-testid="delete-type-<id>"]` (`hx-confirm` `Delete type <name>?`, OK label `Delete`).
+  - System types show a `span.pm-badge[data-testid="system-badge"]` reading `System`.
+- **Dialog:** `{#modal id="type-dialog"}`; its title is `New type` or `Edit type`. The form is `form#type-form[data-testid="type-form"]`, with:
+  - inputs `input[name=name]` and `textarea[name=description]`
+  - the colour: `input[type=color][data-testid="colour-picker"]` (no `name`) synced with `input[name=colour][data-testid="colour-hex"]`. Changing either updates the other; the hex is what's submitted.
+  - the submit button `button[type=submit][data-testid="save-type"]`
+- **New type colour:** a new type's colour defaults to `#6272a4`.
+
+### 3.3 Calendars (`page="calendars"`)
+
+- **Routes:** like types, with the paths `/calendars`, `/calendars/new`, `/calendars/{id}/edit`, `POST /calendars`, `PUT /calendars/{id}` and `DELETE /calendars/{id}`, plus `POST /calendars/{id}/enabled` (form field `enabled=true|false`). That returns the table fragment with toast `Enabled calendar <name>` or `Disabled calendar <name>`.
+- **Form:** `form#calendar-form` with these fields:
+  - `select[name=name]`: the khal calendars, plus the current name when editing
+  - `textarea[name=description]`
+  - the colour fields as for types
+  - `input[name=notificationPeriods]` (placeholder `e.g. 4h, 1d`)
+  - `input[type=checkbox][name=enabled][value=true]` (unchecked means false)
+  - submit `save-calendar`
+- If khal's config can't be read, or lists no calendars, the form shows `[data-testid="khal-error"]` with the reason.
+- **Table** (`#calendars-table`, in `#calendars-table-container`):
+  - columns `name` (p1), `colour` (p1), `description` (p3), `notifications` (p4), `enabled` (p1) and `actions` (p1)
+  - rows `tr[data-testid="calendar-row-<id>"]`
+  - the enable switch is `input[type=checkbox][role=switch].pm-switch[data-testid="enabled-calendar-<id>"]`, with `checked` matching the state and `aria-label` `Enabled`. Changing it sends `POST …/enabled`.
+  - the row buttons are `edit-calendar-<id>` and `delete-calendar-<id>` (confirm `Delete calendar <name>?`)
+  - the dialog is `calendar-dialog`
+- **Toasts:** `Created calendar <name>`, `Saved calendar <name>` and `Deleted calendar <name>`.
+
+### 3.4 Prompts (`page="prompts"`)
+
+| Route | Result |
+|---|---|
+| `GET /prompts` | the list page |
+| `GET /prompts/new` | the editor page |
+| `POST /prompts` (form fields `name`, `contents`) | **303** to `/mail/prompts` with flash `Created prompt <name>`; **422** re-renders the editor with errors and an error toast |
+| `GET /prompts/{id}/edit` | the editor page |
+| `POST /prompts/{id}` | **303** to `/mail/prompts` with flash `Saved prompt <name>`; **422** as above |
+| `DELETE /prompts/{id}` | the table fragment (`#prompts-table-container`) with toast `Deleted prompt <name>`; 409 for system prompts |
+| `POST /prompts/preview` (form field `contents`) | the HTML fragment of the rendered markdown |
+
+- **List page:**
+  - `a[data-testid="new-prompt"]` links to the editor.
+  - `{#table id="prompts-table"}` has columns `name` (p1), `key` (p3, showing the system badge and key), `updated` (p4, `{#time}`) and `actions` (p1).
+  - Rows are `tr[data-testid="prompt-row-<id>"]`, with `a[data-testid="edit-prompt-<id>"]` and, except system prompts, `button[data-testid="delete-prompt-<id>"]` (confirm `Delete prompt <name>?`).
+- **Editor page** (`form#prompt-form[data-testid="prompt-form"]`, `method=post`):
+  - `input[name=name]`
+  - a toolbar with:
+    - `select#placeholder-select[data-testid="placeholder-select"]`: one option per placeholder, `value` = the token, text = label + token
+    - `button[data-testid="insert-placeholder"]`, which inserts the selected token at the cursor in the text area, replacing any selection, and leaves the cursor after it
+    - `button[data-testid="preview-toggle"]` (`aria-pressed`), which switches between the text area and `div#prompt-preview[data-testid="prompt-preview"]`, filled by `POST /prompts/preview`
+  - `textarea#prompt-contents[name=contents][data-testid="prompt-contents"]`
+  - submit `button[data-testid="save-prompt"]` and a `Cancel` link `cancel-prompt` back to the list
+- **Editor layout:**
+  - The page body gets the class `pm-full-height`. The editor fills the viewport height: the text area grows to fill the remaining space, at least 10rem.
+  - The page never scrolls vertically, except when the viewport is too short for that minimum.
+- **Read-only key:** system prompts show their key read-only, `[data-testid="prompt-key"]`.
+
+### 3.5 Rule lists (`page="rules-classification"` / `"rules-action"`)
+
+| Route | Result |
+|---|---|
+| `GET /rules/{type}` (`classification` or `action`; anything else is 404) | the list page |
+| `DELETE /rules/{type}/{id}` | the table fragment (`#rules-table-container`) with toast `Deleted rule <name>` |
+| `POST /rules/{type}/{id}/enabled` (`enabled=true|false`) | the table fragment with toast `Enabled rule <name>` or `Disabled rule <name>` |
+
+- **Page:**
+  - The heading is `Classification rules` or `Action rules`.
+  - `a[data-testid="new-rule"]` links to `/rules/{type}/new`.
+- **Table** (`{#table id="rules-table"}`):
+  - Columns are `name` (p1), `description` (p3), `priority` (p2), `conditions` (p4, a count), `actions` (p4, a count), `enabled` (p1) and `controls` (p1).
+  - Rows are `tr[data-testid="rule-row-<id>"]`.
+  - Each row has the switch `enabled-rule-<id>` (as for calendars), `a[data-testid="edit-rule-<id>"]` and `button[data-testid="delete-rule-<id>"]` (confirm `Delete rule <name>?`).
+
+### 3.6 Create and edit rule pages
+
+| Route | Result |
+|---|---|
+| `GET /rules/{type}/new` | the create page |
+| `POST /rules/{type}` | **303** to `/mail/rules/{type}` with flash `Created rule <name>`; **422** re-renders the page with errors |
+| `GET /rules/{type}/{id}/edit` | the edit page |
+| `POST /rules/{type}/{id}` | **303** to the list with flash `Saved rule <name>`; 422 as above |
+
+**Form** (`form#rule-form[data-testid="rule-form"]`, `method=post`), with these field names:
+- **Rule fields:**
+  - `name`: on the edit page a read-only `[data-testid="rule-name"]` text, not an input
+  - `description` (textarea)
+  - `priority` (`input[type=number][min=0]`, blank means 0)
+  - `enabled` (`input[type=checkbox][value=true]`, edit page only)
+- **Conditions:** inside `#conditions[data-testid="conditions"]`, each row is `div.pm-rule-row[data-testid="condition-row"]` with:
+  - `conditions[i].id` (hidden, for existing rows)
+  - `conditions[i].attribute` (select)
+  - `conditions[i].matchType` (select)
+  - `conditions[i].test` (input)
+  - `button[data-testid="remove-condition"]`
+
+  `i` is any distinct integer (not necessarily contiguous); rows keep their order. `button[data-testid="add-condition"]` appends a new row from a `<template>`.
+  - The match type options have `data-attributes="<codes they apply to>"`. Options that don't apply to the chosen attribute are disabled and hidden, and an invalid selection moves to the first valid one.
+  - The test input is hidden and disabled when the match type takes no test.
+- **Actions:** inside `#actions[data-testid="actions"]`, each row is `div.pm-rule-row[data-testid="action-row"]` with:
+  - `actions[i].id` (hidden)
+  - `actions[i].actionType` (select)
+  - `actions[i].destination` (input, labelled `to:`), shown for `move` and `forward_email`
+  - `actions[i].typeId` (select of active types), shown for `set_type`
+  - `actions[i].calendarId` (select of active calendars, with a `(Choose with the LLM)` empty option for `create_events`), shown for `create_events` and `process_bill`
+  - `actions[i].notifications` (input), shown for `create_events`
+  - `actions[i].enabled` (`checkbox value=true`; new rows are checked)
+  - `button[data-testid="remove-action"]`
+
+  `add-action` appends a row. Hidden fields are disabled, so they aren't submitted.
+- **Buttons:**
+  - submit `button[data-testid="save-rule"]`
+  - `a[data-testid="cancel-rule"]` back to the list
+  - on the edit page, `button[data-testid="delete-rule"]`: `hx-delete` with confirm, and on success the response has `HX-Redirect` to the list plus flash `Deleted rule <name>`
+- **Remove buttons** are disabled while only one row of their kind is left.
+- **Errors** appear as `[data-testid="error-<key>"]`, where the key is e.g. `name`, `conditions`, `conditions[3].test` or `actions[0].calendarId`.
+- **The page** gets `page="rules-<type>"`, and its title is `New classification rule`, `Edit action rule` and so on.
