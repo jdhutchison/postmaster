@@ -104,3 +104,7 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** *(chose)* Enums to models.
 
 **Claude:** The enums and `ActionTypes` move to `models`, the converter moves to `entities`, and `domain` is removed. `config`, `mappers` and `util` stay and will be documented. From now on, the agents must propose any package outside the specified structure before creating it. This is recorded as CLARIFICATIONS.md Q22.
+
+**You:** Pause the tester agent at the completion of its current task to conserve tokens.
+
+**Claude:** I've asked the tester to finish and commit its current task, make sure the suite compiles after the Q22 import changes, and then stop with a short report saying where to resume. The builder carries on with Phase 2.
