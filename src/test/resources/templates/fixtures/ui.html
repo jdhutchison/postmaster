@@ -1,0 +1,74 @@
+{#include layout page="types"}
+  {#title}UI fixture{/title}
+  {#content}
+  <section data-testid="fixture">
+    <p>
+      <button type="button" class="pm-button" data-pm-open="fixture-dialog" data-testid="open-dialog">Open dialog</button>
+      <button type="button" class="pm-button" hx-get="{base}/test-fixtures/ui/dialog-body" hx-target="#loaded-dialog-body"
+          data-testid="load-dialog">Load dialog</button>
+    </p>
+    {#modal id="fixture-dialog" title="Fixture dialog"}
+      <label>Name <input name="name" autofocus data-testid="dialog-input"></label>
+      <div class="pm-dialog__actions">
+        <button type="button" class="pm-button" data-pm-close data-testid="dialog-cancel">Cancel</button>
+      </div>
+    {/modal}
+    {#modal id="loaded-dialog" title="Loaded dialog"}{/modal}
+
+    <p>
+      <button type="button" class="pm-button pm-button--danger" hx-post="{base}/test-fixtures/ui/action"
+          hx-confirm="Delete fixture thing?" data-pm-confirm-label="Delete" hx-target="#action-result"
+          data-testid="confirm-htmx">Delete with HTMX</button>
+      <span id="action-result" data-testid="action-result"></span>
+    </p>
+    <form method="post" action="{base}/test-fixtures/ui/form-action">
+      <button type="submit" class="pm-button" data-pm-confirm="Submit fixture form?" data-testid="confirm-form">Submit form</button>
+    </form>
+    <p>
+      <a href="{base}/test-fixtures/ui?followed=yes" data-pm-confirm="Follow fixture link?" data-testid="confirm-link">Follow link</a>
+      <span data-testid="followed">{followed}</span>
+    </p>
+
+    <p>
+      <button type="button" class="pm-button" hx-post="{base}/test-fixtures/ui/toast?level=success&amp;message=Saved%20by%20HTMX"
+          hx-swap="none" data-testid="htmx-success">HTMX success</button>
+      <button type="button" class="pm-button" hx-post="{base}/test-fixtures/ui/toast?level=error&amp;message=Failed%20by%20HTMX"
+          hx-swap="none" data-testid="htmx-error">HTMX error</button>
+      <button type="button" class="pm-button" hx-post="{base}/test-fixtures/ui/fail" hx-swap="none"
+          data-testid="htmx-fail">HTMX failure</button>
+      <a href="{base}/test-fixtures/ui" data-testid="plain-link">A link</a>
+    </p>
+
+    <p data-testid="times">
+      {#for t in times}<span data-testid="time-{t.key}">{#time value=t.value /}</span> {/for}
+    </p>
+
+    {#table id="fixture-table"}
+      <thead><tr>
+        {#th col="name" label="Name" priority=1 /}
+        {#th col="sender" label="Sender" priority=2 /}
+        {#th col="subject" label="Subject" priority=3 /}
+        {#th col="received" label="Received" priority=4 /}
+        {#th col="notes" label="Notes" priority=5 /}
+        {#th col="actions" label="Actions" priority=1 resizable=false /}
+      </tr></thead>
+      <tbody>
+        {#for row in rows}
+        <tr data-testid="fixture-row">
+          {#td col="name" priority=1}{row.name}{/td}
+          {#td col="sender" priority=2}{row.sender}{/td}
+          {#td col="subject" priority=3}{row.subject}{/td}
+          {#td col="received" priority=4}{#time value=row.received /}{/td}
+          {#if row.title}
+          {#td col="notes" priority=5 title=row.title}{row.notes}{/td}
+          {#else}
+          {#td col="notes" priority=5}{row.notes}{/td}
+          {/if}
+          {#td col="actions" priority=1 truncate=false}<button type="button" class="pm-button">Edit</button>{/td}
+        </tr>
+        {/for}
+      </tbody>
+    {/table}
+  </section>
+  {/content}
+{/include}
