@@ -118,3 +118,17 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** Restart the testing agent.
 
 **Claude:** The tester is resumed. It will add its staged Phase 2 tests to the tree and run them, then write the Phase 3 tests (including the deferred D20 case-insensitive name checks) against the contract while the builder finishes Phase 3.
+
+---
+
+## 2026-10-24
+
+**Claude:** Phases 2 and 3 are verified. My clean run passed 431 tests in 40 suites, with 0 failures, 0 errors and 0 skipped. Phases 0–3 are ticked in PLAN.md.
+
+**You:** Yes, start both agents.
+
+**Claude:** Both agents are on Phase 4 (integration helpers):
+- IMAP and SMTP
+- LLM client and prompt renderer
+- page fetching and HTML parsing
+- khal calendar client
