@@ -9,6 +9,7 @@ package sh.hutch.postmaster.testsupport
 object Palettes {
   val DRACULA: Map<String, String> = linkedMapOf(
       "background" to "#282A36",
+      "current-line" to "#6272A4",
       "selection" to "#44475A",
       "foreground" to "#F8F8F2",
       "comment" to "#6272A4",
@@ -28,6 +29,7 @@ object Palettes {
 
   val ALUCARD: Map<String, String> = linkedMapOf(
       "background" to "#FFFBEB",
+      "current-line" to "#6C664B",
       "selection" to "#CFCFDE",
       "foreground" to "#1F1F1F",
       "comment" to "#6C664B",
@@ -44,6 +46,9 @@ object Palettes {
       "background-dark" to "#CECCC0",
       "background-darker" to "#BCBAB3"
   )
+
+  /** Functional Purple, the spec's focus indicator colour (the same in both palettes) */
+  const val FOCUS = "#815CD6"
 
   /** A `#rrggbb` colour as the `rgb(r, g, b)` string browsers report in computed styles */
   fun rgb(hex: String): String {
