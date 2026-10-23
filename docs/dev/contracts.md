@@ -900,3 +900,139 @@ General rules for every page below:
 - **Remove buttons** are disabled while only one row of their kind is left.
 - **Errors** appear as `[data-testid="error-<key>"]`, where the key is e.g. `name`, `conditions`, `conditions[3].test` or `actions[0].calendarId`.
 - **The page** gets `page="rules-<type>"`, and its title is `New classification rule`, `Edit action rule` and so on.
+
+---
+
+## Phase 4: integration helpers
+
+These are reusable services (`sh.hutch.postmaster.services`) for the actions and the pipeline. Each reads its settings from `SettingsService` on every call, so a settings change applies at once. Encrypted settings are decrypted there.
+
+Errors from the outside world use one exception per area. Each is a `RuntimeException` whose message is fit to show the user and to store in `Email_errors`:
+- `MailboxException`
+- `LlmException`
+- `FetchException`
+- `CalendarException`
+
+The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
+
+### 4.1 `MailboxClient` (IMAP and SMTP with Angus Mail 2.0.5)
+
+**Settings:**
+- IMAP: `imap.host`, `imap.port`, `imap.security` (`none`, `starttls` or `tls`), `imap.username`, `imap.password`, `imap.inbox_folder` and `imap.trash_folder`
+- SMTP: `smtp.host`, `smtp.port`, `smtp.security`, `smtp.username`, `smtp.password` and `smtp.from_address`
+
+**Connections:**
+- Every call opens its own connection and closes it.
+- Timeouts are 20 s to connect and 60 s to read.
+- Messages are read with `mail.imap.peek=true`, so **reading never sets `\Seen`** (D16).
+
+**Methods:**
+
+| Method | Behaviour |
+|---|---|
+| `listInbox(since: Instant?): List<MailboxMessage>` | INBOX messages received at or after `since` (all of them when null), **newest first** |
+| `fetch(folder: String, uid: Long): ParsedMessage` | the message, parsed. Throws `MailboxException` when there's no such UID. |
+| `saveAttachment(folder, uid, partPath, target: Path): Long` | writes the part's decoded bytes to `target`, creating parent directories, and returns the size in bytes |
+| `move(folder, uid, destination: String)` | uses `MOVE` when the server supports it, otherwise copy, flag `\Deleted` and expunge. The destination folder must exist (`MailboxException` otherwise). |
+| `delete(folder, uid)` | moves to `imap.trash_folder` (Q6) |
+| `setRead(folder, uid, read: Boolean)` | sets or clears `\Seen` |
+| `listFolders(): List<String>` | full names of the folders that hold messages, sorted |
+| `forward(folder, uid, to: String)` | sends an inline forward through SMTP (Q7), described below |
+
+**Message types:**
+- `MailboxMessage(uid: Long, uidValidity: Long, messageId: String, receivedAt: Instant, subject: String?, sender: String?)`
+  - `messageId` is `MessageIds.normalise(header)`. When there's no Message-ID header, it's `MessageIds.generated(receivedAt, sender, subject, uidValidity, uid)`.
+  - `receivedAt` is the IMAP INTERNALDATE, or the Date header when that's missing.
+- `ParsedMessage(uid, uidValidity, folder, messageId, receivedAt, subject, sender, senderName, recipients: List<String>, text: String?, html: String?, attachments: List<AttachmentPart>, isRead: Boolean)`
+  - `sender` is the From address and `senderName` its personal name.
+  - `text` is the first `text/plain` part that isn't an attachment. When there's none but there is HTML, it's `HtmlParser.text(html)`.
+  - `html` is the first `text/html` part that isn't an attachment.
+- `AttachmentPart(filename: String, contentType: String, size: Long, partPath: String)`
+  - Attachments are parts with a filename, except inline parts that have a `Content-ID` (embedded images).
+  - `partPath` is the 1-based dotted path through the multipart tree, e.g. `2` or `1.2`.
+  - `size` is the encoded size the server reports, or -1.
+
+**Inline forward:**
+- Subject: `Fwd: <subject>`. From: `smtp.from_address`, or `imap.username` if that's blank.
+- The body is `multipart/mixed`, holding:
+  - a `multipart/alternative` with a text part and, when the original has HTML, an HTML part. Each starts with the header block below and quotes the original's text or HTML.
+  - each original attachment, copied unchanged
+
+  The header block:
+
+  ```
+  ---------- Forwarded message ---------
+  From: <name> <<address>>
+  Date: <date header>
+  Subject: <subject>
+  To: <recipients>
+  ```
+- `to` must be a valid address (`MailboxException` otherwise).
+
+### 4.2 `LlmClient` and `PromptRenderer`
+
+**`LlmClient`**
+- Settings: `llm.url`, `llm.api_key` (when set, it's sent as `Authorization: Bearer …`), `llm.model` and `llm.timeout`.
+- `chat(prompt: String, json: Boolean = false): String` sends `POST <llm.url>/chat/completions` (an OpenAI-compatible API) with this body:
+
+  ```json
+  {"model": "<llm.model>", "messages": [{"role": "user", "content": "<prompt>"}],
+   "temperature": 0, "stream": false,
+   "chat_template_kwargs": {"enable_thinking": false},
+   "response_format": {"type": "json_object"}}
+  ```
+
+  `response_format` is only sent when `json` is true.
+  - It returns `choices[0].message.content`, with any `<think>…</think>` block and surrounding whitespace removed.
+- `chatJson(prompt: String): JsonNode` calls `chat(prompt, json = true)`. It also strips a surrounding `` ```json `` code fence, and requires the result to be a JSON object.
+- Errors raise `LlmException`:
+  - `LLM request timed out after <duration>`
+  - `LLM returned HTTP <status>: <first 200 characters of the body>`
+  - `LLM could not be reached: …`
+  - `LLM response had no content`
+  - `LLM response is not valid JSON: …`
+
+**`PromptRenderer.render(promptKey: String, context: PromptContext): String`**
+- It loads the active prompt by key and replaces every `{{placeholder}}` in its contents. It throws `IllegalStateException` for an unknown key. Unknown placeholders are left as they are.
+- `PromptContext(subject, sender, text, html, page, events: List<PromptEvent>)`, with every field nullable. `PromptEvent(id: Long, title, when: String, location: String?, notes: String?)`.
+
+| Placeholder | Value |
+|---|---|
+| `{{subject}}`, `{{sender}}` | as given, or empty |
+| `{{text}}`, `{{html}}`, `{{page}}` | as given, each **cut to `llm.max_input_chars`** characters |
+| `{{calendars}}` | the enabled calendars, one line each: `- <name>: <description>` |
+| `{{types}}` | the active types, one line each: `- <name>: <description>` (or just `- <name>`) |
+| `{{events}}` | a JSON array of `{"id", "title", "when", "location", "notes"}` |
+
+### 4.3 `HttpFetcher` and `HtmlParser`
+
+**`HttpFetcher`**
+- Settings: `fetch.user_agent` and `fetch.timeout`. Commands: `postmaster.chromium-command` and `postmaster.curl-command`.
+- Only `http` and `https` URLs are accepted (`FetchException` otherwise).
+- **`fetchPage(url): String`** returns the rendered DOM. It runs `<chromium> --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage --no-first-run --user-agent=<ua> --dump-dom <url>`. Failures and timeouts raise `FetchException`.
+- **`download(url, target: Path): DownloadedFile(path, contentType: String?, size: Long)`** runs `<curl> --silent --show-error --location --fail --max-time <seconds> --user-agent <ua> --output <target> --write-out %{content_type} <url>`.
+  - It creates parent directories.
+  - A non-zero exit raises `FetchException`, with curl's stderr.
+- Commands run with arguments in an array (no shell), and the timeout kills the process.
+
+**`HtmlParser`** (object)
+- `text(html): String`: readable text, with blocks and `<br>` on separate lines and runs of blank lines collapsed.
+- `links(html, baseUrl: String? = null): List<Link(text, href)>`: every `a[href]`, resolved against `baseUrl`.
+- `findLinks(html, anchorTexts: List<String>, baseUrl: String? = null): List<Link>`: links whose trimmed text (or `aria-label`, or `title`) **contains** any of `anchorTexts`, ignoring case. They're returned in the order of `anchorTexts`, then document order.
+
+### 4.4 `CalendarClient` (khal)
+
+- Settings: `processing.timezone`. Commands: `postmaster.khal-command` and `postmaster.khal-config`.
+- **`calendars(): List<KhalCalendar(name, path: Path)>`** comes from the khal config's `[[name]]` sections and their `path`. A leading `~` is expanded to the user's home directory, and quotes are removed.
+- **`addEvent(calendar: String, event: CalendarEvent): String`**
+  - It writes a temporary `.ics` and runs `<khal> -c <khal-config> import --batch -a <calendar> <file>`. A non-zero exit raises `CalendarException` with khal's output. It returns the UID.
+  - `CalendarEvent(uid: String?, title, startsAt: LocalDateTime, endsAt: LocalDateTime?, allDay: Boolean, location: String?, notes: String?, alarms: List<Duration>)`. A missing `uid` is generated as `pm-<uuid>`.
+- **`moveEvent(uid, from: String, to: String)`** moves the vdir file holding `UID:<uid>` from one calendar's directory to the other's.
+- **`deleteEvent(uid, calendar)`** deletes that file.
+- A missing event or an unknown calendar raises `CalendarException`.
+
+**The `.ics` written** (`IcsWriter.event(event, zone): String`, an object):
+- `PRODID:-//hutch.sh//Postmaster//EN`, `VERSION:2.0`, CRLF line endings, lines folded at 75 octets, and text escaped (`\`, `;`, `,` and newlines).
+- **Timed events:** `DTSTART`/`DTEND` in UTC (`…Z`), converted from the local wall-clock time in `processing.timezone`. `DTEND` is `endsAt`, or `startsAt` plus 1h.
+- **All-day events:** `DTSTART;VALUE=DATE:yyyyMMdd` and `DTEND;VALUE=DATE` the next day.
+- One `VALARM` (`ACTION:DISPLAY`, `TRIGGER:-<ISO duration>`) per alarm.
