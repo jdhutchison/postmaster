@@ -48,6 +48,7 @@ dependencies {
   implementation("io.quarkiverse.mcp:quarkus-mcp-server-http")
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
   implementation("org.jsoup:jsoup")
+  implementation("org.eclipse.angus:angus-mail")
   implementation("org.commonmark:commonmark:$commonmarkVersion")
   implementation("org.mapstruct:mapstruct:$mapstructVersion")
   kapt("org.mapstruct:mapstruct-processor:$mapstructVersion")

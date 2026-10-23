@@ -988,7 +988,7 @@ The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
 - Errors raise `LlmException`:
   - `LLM request timed out after <duration>`
   - `LLM returned HTTP <status>: <first 200 characters of the body>`
-  - `LLM could not be reached: …`
+  - `LLM could not be reached at <url>: …`
   - `LLM response had no content`
   - `LLM response is not valid JSON: …`
 
