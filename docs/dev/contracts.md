@@ -496,7 +496,7 @@ Structure rendered by the layout:
   These are the routes later phases implement.
 - **Behaviour:**
   - Click, Enter or Space on the button toggles the panel, keeping `aria-expanded` in step.
-  - Opening moves focus to the first item. Up and Down arrows move between items, and Home and End jump to the first and last.
+  - Opening moves focus to the first item. Up and Down arrows move between items and **wrap**: Up on the first item goes to the last, and Down on the last goes to the first (WAI-ARIA menu pattern). Home and End jump to the first and last.
   - **Escape** closes the panel and returns focus to the button.
   - A click outside the button and panel closes it.
   - Moving focus out of the panel (Tab past the last item) closes it.
@@ -555,6 +555,7 @@ Structure rendered by the layout:
 
   - The optional `testid=` parameter overrides `data-testid` (default: the id).
   - Footer buttons go in the body inside `<div class="pm-dialog__actions">`.
+  - The body may be empty, e.g. `{#modal id="x" title="X"}{/modal}` when HTMX fills it. The tag renders it with `{#insert}`.
 - **Opening a dialog:**
   - a click on any element with `data-pm-open="<dialog id>"`
   - `Postmaster.openDialog(id)`
@@ -689,8 +690,10 @@ General rules for every page below:
   - `CalendarInput(name, description, colour, enabled: Boolean, notificationPeriods)`
   - `PromptInput(name, contents)`
   - `RuleInput(name, description, priority, conditions: List<ConditionInput>, actions: List<ActionInput>)`
-  - `ConditionInput(id: Long?, attribute, matchType, test)`
-  - `ActionInput(id: Long?, actionType, destination, typeId: String?, calendarId: String?, notifications, enabled: Boolean)`
+  - `ConditionInput(index: Int, id: Long?, attribute, matchType, test)`
+  - `ActionInput(index: Int, id: Long?, actionType, destination, typeId: String?, calendarId: String?, notifications, enabled: Boolean)`
+
+  `index` is the row's form index, used in error keys. `RuleInput` also has `enabled: Boolean?`: null on create, where rules start enabled.
 
   All the string fields are `String?`.
 
@@ -832,7 +835,7 @@ General rules for every page below:
     - `button[data-testid="insert-placeholder"]`, which inserts the selected token at the cursor in the text area, replacing any selection, and leaves the cursor after it
     - `button[data-testid="preview-toggle"]` (`aria-pressed`), which switches between the text area and `div#prompt-preview[data-testid="prompt-preview"]`, filled by `POST /prompts/preview`
   - `textarea#prompt-contents[name=contents][data-testid="prompt-contents"]`
-  - submit `button[data-testid="save-prompt"]` and a `Cancel` link `cancel-prompt` back to the list
+  - submit `button[data-testid="save-prompt"]` and a `Cancel` link `cancel-prompt` back to the list, both in the header row beside the name. Toasts at the bottom right would cover them otherwise, and this page doesn't scroll.
 - **Editor layout:**
   - The page body gets the class `pm-full-height`. The editor fills the viewport height: the text area grows to fill the remaining space, at least 10rem.
   - The page never scrolls vertically, except when the viewport is too short for that minimum.
@@ -843,7 +846,7 @@ General rules for every page below:
 | Route | Result |
 |---|---|
 | `GET /rules/{type}` (`classification` or `action`; anything else is 404) | the list page |
-| `DELETE /rules/{type}/{id}` | the table fragment (`#rules-table-container`) with toast `Deleted rule <name>` |
+| `DELETE /rules/{type}/{id}` | the table fragment (`#rules-table-container`) with toast `Deleted rule <name>`. With `?from=edit` (the edit page's delete button) it sends `HX-Redirect: /mail/rules/{type}` and flashes the toast. |
 | `POST /rules/{type}/{id}/enabled` (`enabled=true|false`) | the table fragment with toast `Enabled rule <name>` or `Disabled rule <name>` |
 
 - **Page:**

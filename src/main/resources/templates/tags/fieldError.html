@@ -1,0 +1,2 @@
+{! A field's validation error: {#fieldError field="name" message=form.error('name') /}; nothing when there's no message. !}
+{#if message??}<p class="pm-field-error" data-testid="error-{field}">{message}</p>{/if}

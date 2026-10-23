@@ -1,0 +1,10 @@
+{#include layout page="calendars"}
+  {#title}Calendars{/title}
+  {#content}
+    <div class="pm-page-actions">
+      <button type="button" class="pm-button pm-button--primary" data-testid="new-calendar" hx-get="{base}/calendars/new" hx-target="#calendar-dialog-body">New calendar</button>
+    </div>
+    <div id="calendars-table-container">{#include CalendarsController/calendarsTable calendars=calendars /}</div>
+    {#modal id="calendar-dialog" title="Calendar"}<p class="pm-muted">Loading…</p>{/modal}
+  {/content}
+{/include}

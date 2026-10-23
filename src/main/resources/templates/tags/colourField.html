@@ -1,0 +1,9 @@
+{! A colour chosen with a colour picker or typed as an RGB hex code; the hex input (name "colour") is submitted: {#colourField value=form.colour error=form.error('colour') /} !}
+<div class="pm-field">
+  <label for="colour-hex">Colour</label>
+  <div class="pm-colour-field" data-pm-colour>
+    <input type="color" value="{value}" data-testid="colour-picker" aria-label="Colour picker">
+    <input type="text" id="colour-hex" name="colour" class="pm-input" value="{value}" maxlength="7" spellcheck="false" autocomplete="off" data-testid="colour-hex"{#if error??} aria-invalid="true"{/if}>
+  </div>
+  {#fieldError field="colour" message=error /}
+</div>

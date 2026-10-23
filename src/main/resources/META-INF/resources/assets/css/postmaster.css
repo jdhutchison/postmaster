@@ -636,6 +636,390 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------------------------
+ * Forms
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.pm-field > label {
+  font-weight: 600;
+}
+
+.pm-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-field--inline > label {
+  font-weight: 400;
+}
+
+.pm-field--inline input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--pm-purple);
+}
+
+.pm-field--narrow {
+  max-width: 14rem;
+}
+
+.pm-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: calc(var(--pm-radius) - 0.15rem);
+  background: var(--pm-background);
+  color: var(--pm-foreground);
+  font: inherit;
+}
+
+textarea.pm-input {
+  resize: vertical;
+}
+
+.pm-input:focus-visible {
+  outline: 3px solid var(--pm-focus);
+  outline-offset: 0;
+}
+
+.pm-input[aria-invalid="true"] {
+  border-color: var(--pm-red);
+  border-width: 2px;
+}
+
+.pm-field-error {
+  margin: 0;
+  color: var(--pm-red);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pm-hint {
+  margin: 0;
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+}
+
+.pm-readonly {
+  margin: 0;
+  padding: 0.45rem 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pm-colour-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-colour-field input[type="color"] {
+  flex: none;
+  width: 3rem;
+  height: 2.5rem;
+  padding: 0.15rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: calc(var(--pm-radius) - 0.15rem);
+  background: var(--pm-background);
+  cursor: pointer;
+}
+
+.pm-colour-field .pm-input {
+  max-width: 9rem;
+}
+
+.pm-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+}
+
+.pm-fieldset > legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.pm-fieldset > .pm-button {
+  align-self: flex-start;
+}
+
+.pm-rule-form {
+  max-width: 64rem;
+}
+
+.pm-rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-floating);
+}
+
+.pm-rule-row > .pm-field {
+  flex: 0 1 12rem;
+}
+
+.pm-rule-row > .pm-field--grow {
+  flex: 1 1 14rem;
+}
+
+.pm-rule-row > .pm-field--inline {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+}
+
+.pm-rule-row__remove {
+  margin-left: auto;
+}
+
+.pm-form-actions,
+.pm-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.pm-page-actions {
+  margin-bottom: 1rem;
+}
+
+.pm-form-actions__start {
+  margin-right: auto;
+}
+
+.pm-button--small {
+  min-height: 2rem;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.pm-icon-button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pm-icon-button--danger:hover {
+  color: var(--pm-red);
+}
+
+.pm-row-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.pm-badge {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--pm-selection);
+  color: var(--pm-foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.pm-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: 0.25rem;
+  vertical-align: -0.15rem;
+}
+
+/* An on/off switch: a checkbox with role="switch" whose look follows its checked state */
+input.pm-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.6rem;
+  height: 1.45rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--pm-selection);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+input.pm-switch::before {
+  content: "";
+  position: absolute;
+  top: 0.175rem;
+  left: 0.175rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--pm-background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transition: transform 150ms ease;
+}
+
+input.pm-switch:checked {
+  background: var(--pm-green);
+}
+
+input.pm-switch:checked::before {
+  transform: translateX(1.15rem);
+}
+
+/* Settings edited in place */
+.pm-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-setting-edit {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.pm-setting-value {
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px dashed transparent;
+  border-radius: calc(var(--pm-radius) - 0.15rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.pm-setting-value:hover,
+.pm-setting-value:focus-visible {
+  border-color: var(--pm-selection);
+  background: var(--pm-bg-lighter);
+}
+
+.pm-setting-label {
+  display: block;
+  font-weight: 600;
+}
+
+.pm-setting-description {
+  display: block;
+  font-size: 0.9rem;
+}
+
+/* Prompt editor: the text area fills the rest of the viewport */
+.pm-full-height .pm-main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: var(--pm-gutter);
+}
+
+.pm-prompt-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.75rem;
+}
+
+.pm-prompt-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.pm-prompt-header .pm-field {
+  flex: 1 1 16rem;
+  max-width: 30rem;
+}
+
+.pm-prompt-header .pm-form-actions {
+  margin-left: auto;
+}
+
+.pm-prompt-key {
+  margin: 0;
+  padding-bottom: 0.5rem;
+}
+
+.pm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-toolbar select {
+  flex: 1 1 14rem;
+  width: auto;
+  min-width: 0;
+}
+
+.pm-prompt-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 10rem;
+}
+
+.pm-prompt-text,
+.pm-prompt-preview {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 10rem;
+  overflow: auto;
+}
+
+textarea.pm-prompt-text {
+  resize: none;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+}
+
+.pm-prompt-preview {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: calc(var(--pm-radius) - 0.15rem);
+  background: var(--pm-bg-floating);
+}
+
+.pm-prompt-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------------------------
  * Small screens
  * ------------------------------------------------------------------------------------------- */
 

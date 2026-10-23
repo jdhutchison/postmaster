@@ -1,0 +1,9 @@
+{#include layout page=pageKey}
+  {#title}{title}{/title}
+  {#content}
+    <div class="pm-page-actions">
+      <a class="pm-button pm-button--primary" data-testid="new-rule" href="{base}/rules/{ruleType}/new">New rule</a>
+    </div>
+    <div id="rules-table-container">{#include RulesController/rulesTable ruleType=ruleType rules=rules /}</div>
+  {/content}
+{/include}

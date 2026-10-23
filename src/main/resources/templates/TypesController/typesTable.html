@@ -1,0 +1,23 @@
+{#table id="types-table"}
+  <thead><tr>
+    {#th col="name" label="Name" priority=1 /}
+    {#th col="description" label="Description" priority=3 /}
+    {#th col="colour" label="Colour" priority=2 /}
+    {#th col="actions" label="Actions" priority=1 resizable=false /}
+  </tr></thead>
+  <tbody>
+    {#for t in types}
+    <tr data-testid="type-row-{t.id}">
+      {#td col="name" priority=1}{t.name}{#if t.isSystem} <span class="pm-badge" data-testid="system-badge">System</span>{/if}{/td}
+      {#td col="description" priority=3}{t.description ?: ''}{/td}
+      {#td col="colour" priority=2}<span class="pm-swatch" style="background: {t.colour}"></span> {t.colour}{/td}
+      {#td col="actions" priority=1 truncate=false}<span class="pm-row-actions">
+        <button type="button" class="pm-icon-button" aria-label="Edit {t.name}" data-testid="edit-type-{t.id}" hx-get="{base}/types/{t.id}/edit" hx-target="#type-dialog-body">{#icon name="edit" /}</button>
+        {#if !t.isSystem}<button type="button" class="pm-icon-button pm-icon-button--danger" aria-label="Delete {t.name}" data-testid="delete-type-{t.id}" hx-delete="{base}/types/{t.id}" hx-target="#types-table-container" hx-confirm="Delete type {t.name}?" data-pm-confirm-label="Delete">{#icon name="delete" /}</button>{/if}
+      </span>{/td}
+    </tr>
+    {#else}
+    <tr><td colspan="4" class="pm-muted">No types yet.</td></tr>
+    {/for}
+  </tbody>
+{/table}

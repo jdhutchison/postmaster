@@ -1,0 +1,25 @@
+{! A condition row in the rule form: {#conditionRow row=c form=form /} !}
+<div class="pm-rule-row" data-testid="condition-row" data-pm-row>
+  <input type="hidden" name="conditions[{row.index}].id" value="{row.id}">
+  <div class="pm-field">
+    <label for="condition-{row.index}-attribute">Attribute</label>
+    <select id="condition-{row.index}-attribute" name="conditions[{row.index}].attribute" class="pm-input" data-pm-attribute{#if row.invalid('attribute')} aria-invalid="true"{/if}>
+      {#for o in form.attributes}<option value="{o.value}"{#if o.value == row.attribute} selected{/if}>{o.label}</option>{/for}
+    </select>
+    {#if row.error('attribute')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].attribute">{row.error('attribute')}</p>{/if}
+  </div>
+  <div class="pm-field">
+    <label for="condition-{row.index}-match">Match</label>
+    <select id="condition-{row.index}-match" name="conditions[{row.index}].matchType" class="pm-input" data-pm-match{#if row.invalid('matchType')} aria-invalid="true"{/if}>
+      {#for m in form.matchTypes}<option value="{m.value}" data-attributes="{m.attributes}" data-needs-test="{m.needsTest}"{#if m.value == row.matchType} selected{/if}>{m.label}</option>{/for}
+    </select>
+    {#if row.error('matchType')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].matchType">{row.error('matchType')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--grow" data-pm-test>
+    <label for="condition-{row.index}-test">Value</label>
+    <input id="condition-{row.index}-test" name="conditions[{row.index}].test" class="pm-input" value="{row.test}" maxlength="1000" autocomplete="off"{#if row.invalid('test')} aria-invalid="true"{/if}>
+    {#if row.error('test')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].test">{row.error('test')}</p>{/if}
+  </div>
+  {#if row.error('id')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].id">{row.error('id')}</p>{/if}
+  <button type="button" class="pm-icon-button pm-icon-button--danger pm-rule-row__remove" aria-label="Remove condition" data-testid="remove-condition" data-pm-remove-row{#if !removable} disabled{/if}>{#icon name="delete" /}</button>
+</div>

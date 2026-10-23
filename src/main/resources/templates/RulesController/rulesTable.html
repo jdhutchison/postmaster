@@ -1,0 +1,29 @@
+{#table id="rules-table"}
+  <thead><tr>
+    {#th col="name" label="Name" priority=1 /}
+    {#th col="description" label="Description" priority=3 /}
+    {#th col="priority" label="Priority" priority=2 /}
+    {#th col="conditions" label="Conditions" priority=4 /}
+    {#th col="actions" label="Actions" priority=4 /}
+    {#th col="enabled" label="Enabled" priority=1 resizable=false /}
+    {#th col="controls" label="Edit" priority=1 resizable=false /}
+  </tr></thead>
+  <tbody>
+    {#for r in rules}
+    <tr data-testid="rule-row-{r.id}">
+      {#td col="name" priority=1}{r.name}{/td}
+      {#td col="description" priority=3}{r.description}{/td}
+      {#td col="priority" priority=2}{r.priority}{/td}
+      {#td col="conditions" priority=4}{r.conditionCount}{/td}
+      {#td col="actions" priority=4}{r.actionCount}{/td}
+      {#td col="enabled" priority=1 truncate=false}<input type="checkbox" role="switch" class="pm-switch" name="enabled" value="true" aria-label="Enabled" data-testid="enabled-rule-{r.id}"{#if r.enabled} checked{/if} hx-post="{base}/rules/{ruleType}/{r.id}/enabled" hx-target="#rules-table-container">{/td}
+      {#td col="controls" priority=1 truncate=false}<span class="pm-row-actions">
+        <a class="pm-icon-button" aria-label="Edit {r.name}" data-testid="edit-rule-{r.id}" href="{base}/rules/{ruleType}/{r.id}/edit">{#icon name="edit" /}</a>
+        <button type="button" class="pm-icon-button pm-icon-button--danger" aria-label="Delete {r.name}" data-testid="delete-rule-{r.id}" hx-delete="{base}/rules/{ruleType}/{r.id}" hx-target="#rules-table-container" hx-confirm="Delete rule {r.name}?" data-pm-confirm-label="Delete">{#icon name="delete" /}</button>
+      </span>{/td}
+    </tr>
+    {#else}
+    <tr><td colspan="7" class="pm-muted">No rules yet.</td></tr>
+    {/for}
+  </tbody>
+{/table}

@@ -1,0 +1,58 @@
+{#include layout page=form.pageKey}
+  {#title}{#if form.id}Edit {form.ruleTypeCode} rule{#else}New {form.ruleTypeCode} rule{/if}{/title}
+  {#content}
+    <form id="rule-form" class="pm-form pm-rule-form" data-testid="rule-form" method="post" action="{base}/rules/{form.ruleTypeCode}{#if form.id}/{form.id}{/if}">
+      <div class="pm-field">
+        <label for="rule-name">Name</label>
+        {#if form.id}
+        <p class="pm-readonly" data-testid="rule-name">{form.name}</p>
+        {#else}
+        <input id="rule-name" name="name" class="pm-input" value="{form.name}" maxlength="100" autocomplete="off" autofocus{#if form.invalid('name')} aria-invalid="true"{/if}>
+        {#fieldError field="name" message=form.error('name') /}
+        {/if}
+      </div>
+      <div class="pm-field">
+        <label for="rule-description">Description</label>
+        <textarea id="rule-description" name="description" class="pm-input" rows="2"{#if form.invalid('description')} aria-invalid="true"{/if}>{form.description}</textarea>
+        {#fieldError field="description" message=form.error('description') /}
+      </div>
+      <div class="pm-field pm-field--narrow">
+        <label for="rule-priority">Priority <span class="pm-muted">(higher runs first)</span></label>
+        <input id="rule-priority" name="priority" type="number" min="0" step="1" class="pm-input" value="{form.priority}"{#if form.invalid('priority')} aria-invalid="true"{/if}>
+        {#fieldError field="priority" message=form.error('priority') /}
+      </div>
+      {#if form.id}
+      <div class="pm-field pm-field--inline">
+        <input type="checkbox" id="rule-enabled" name="enabled" value="true"{#if form.enabled} checked{/if}>
+        <label for="rule-enabled">Enabled</label>
+      </div>
+      {/if}
+
+      <fieldset class="pm-fieldset">
+        <legend>Conditions <span class="pm-muted">(all must match)</span></legend>
+        {#fieldError field="conditions" message=form.error('conditions') /}
+        <div id="conditions" data-testid="conditions">
+          {#for c in form.conditions}{#conditionRow row=c form=form removable=form.canRemoveCondition /}{/for}
+        </div>
+        <button type="button" class="pm-button" data-testid="add-condition" data-pm-add-row="condition-template" data-pm-rows="conditions">Add condition</button>
+        <template id="condition-template">{#conditionRow row=form.conditionTemplate form=form removable=true /}</template>
+      </fieldset>
+
+      <fieldset class="pm-fieldset">
+        <legend>Actions</legend>
+        {#fieldError field="actions" message=form.error('actions') /}
+        <div id="actions" data-testid="actions">
+          {#for a in form.actions}{#actionRow row=a form=form removable=form.canRemoveAction /}{/for}
+        </div>
+        <button type="button" class="pm-button" data-testid="add-action" data-pm-add-row="action-template" data-pm-rows="actions">Add action</button>
+        <template id="action-template">{#actionRow row=form.actionTemplate form=form removable=true /}</template>
+      </fieldset>
+
+      <div class="pm-form-actions">
+        {#if form.id}<button type="button" class="pm-button pm-button--danger pm-form-actions__start" data-testid="delete-rule" hx-delete="{base}/rules/{form.ruleTypeCode}/{form.id}?from=edit" hx-confirm="Delete rule {form.name}?" data-pm-confirm-label="Delete">Delete rule</button>{/if}
+        <a class="pm-button" data-testid="cancel-rule" href="{base}/rules/{form.ruleTypeCode}">Cancel</a>
+        <button type="submit" class="pm-button pm-button--primary" data-testid="save-rule">Save</button>
+      </div>
+    </form>
+  {/content}
+{/include}

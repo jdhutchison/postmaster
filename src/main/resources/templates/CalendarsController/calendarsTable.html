@@ -1,0 +1,27 @@
+{#table id="calendars-table"}
+  <thead><tr>
+    {#th col="name" label="Name" priority=1 /}
+    {#th col="colour" label="Colour" priority=1 /}
+    {#th col="description" label="Description" priority=3 /}
+    {#th col="notifications" label="Notifications" priority=4 /}
+    {#th col="enabled" label="Enabled" priority=1 resizable=false /}
+    {#th col="actions" label="Actions" priority=1 resizable=false /}
+  </tr></thead>
+  <tbody>
+    {#for c in calendars}
+    <tr data-testid="calendar-row-{c.id}">
+      {#td col="name" priority=1}{c.name}{/td}
+      {#td col="colour" priority=1}<span class="pm-swatch" style="background: {c.colour}"></span> {c.colour}{/td}
+      {#td col="description" priority=3}{c.description}{/td}
+      {#td col="notifications" priority=4}{c.notificationPeriods ?: ''}{/td}
+      {#td col="enabled" priority=1 truncate=false}<input type="checkbox" role="switch" class="pm-switch" name="enabled" value="true" aria-label="Enabled" data-testid="enabled-calendar-{c.id}"{#if c.enabled} checked{/if} hx-post="{base}/calendars/{c.id}/enabled" hx-target="#calendars-table-container">{/td}
+      {#td col="actions" priority=1 truncate=false}<span class="pm-row-actions">
+        <button type="button" class="pm-icon-button" aria-label="Edit {c.name}" data-testid="edit-calendar-{c.id}" hx-get="{base}/calendars/{c.id}/edit" hx-target="#calendar-dialog-body">{#icon name="edit" /}</button>
+        <button type="button" class="pm-icon-button pm-icon-button--danger" aria-label="Delete {c.name}" data-testid="delete-calendar-{c.id}" hx-delete="{base}/calendars/{c.id}" hx-target="#calendars-table-container" hx-confirm="Delete calendar {c.name}?" data-pm-confirm-label="Delete">{#icon name="delete" /}</button>
+      </span>{/td}
+    </tr>
+    {#else}
+    <tr><td colspan="6" class="pm-muted">No calendars yet.</td></tr>
+    {/for}
+  </tbody>
+{/table}

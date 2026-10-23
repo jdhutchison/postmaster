@@ -1,0 +1,31 @@
+<form id="calendar-form" class="pm-form" data-testid="calendar-form" data-pm-dialog-title="{#if form.id}Edit calendar{#else}New calendar{/if}" {#if form.id}hx-put="{base}/calendars/{form.id}"{#else}hx-post="{base}/calendars"{/if} hx-target="#calendar-dialog-body">
+  <div class="pm-field">
+    <label for="calendar-name">Calendar</label>
+    <select id="calendar-name" name="name" class="pm-input" autofocus{#if form.invalid('name')} aria-invalid="true"{/if}>
+      {#if !form.name}<option value="">Choose a khal calendar</option>{/if}
+      {#for n in form.nameOptions}<option value="{n}"{#if n == form.name} selected{/if}>{n}</option>{/for}
+    </select>
+    {#if form.khal.error}<p class="pm-field-error" data-testid="khal-error">{form.khal.error}</p>{/if}
+    {#fieldError field="name" message=form.error('name') /}
+  </div>
+  <div class="pm-field">
+    <label for="calendar-description">Description</label>
+    <textarea id="calendar-description" name="description" class="pm-input" rows="3" placeholder="What the calendar is for and which events belong in it"{#if form.invalid('description')} aria-invalid="true"{/if}>{form.description}</textarea>
+    {#fieldError field="description" message=form.error('description') /}
+  </div>
+  {#colourField value=form.colour error=form.error('colour') /}
+  <div class="pm-field">
+    <label for="calendar-notifications">Durations <span class="pm-muted">(optional)</span></label>
+    <input id="calendar-notifications" name="notificationPeriods" class="pm-input" value="{form.notificationPeriods}" placeholder="e.g. 4h, 1d" autocomplete="off"{#if form.invalid('notificationPeriods')} aria-invalid="true"{/if}>
+    <p class="pm-hint">When to add notifications before events, separated by a comma and a space.</p>
+    {#fieldError field="notificationPeriods" message=form.error('notificationPeriods') /}
+  </div>
+  <div class="pm-field pm-field--inline">
+    <input type="checkbox" id="calendar-enabled" name="enabled" value="true"{#if form.enabled} checked{/if}>
+    <label for="calendar-enabled">Use this calendar when processing email</label>
+  </div>
+  <div class="pm-dialog__actions">
+    <button type="button" class="pm-button" data-pm-close>Cancel</button>
+    <button type="submit" class="pm-button pm-button--primary" data-testid="save-calendar">Save</button>
+  </div>
+</form>

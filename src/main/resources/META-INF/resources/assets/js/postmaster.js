@@ -679,6 +679,200 @@
   }
 
   // -------------------------------------------------------------------------------------------
+  // Forms: colour fields, settings edited in place, rule rows, prompt editor, dialog titles
+  // -------------------------------------------------------------------------------------------
+
+  var HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
+
+  function syncColour(input) {
+    var field = input.closest("[data-pm-colour]");
+    if (!field) {
+      return;
+    }
+    var picker = field.querySelector("input[type=color]");
+    var hex = field.querySelector("input[name=colour]");
+    if (input === picker) {
+      hex.value = picker.value;
+    } else if (input === hex && HEX_COLOUR.test(hex.value.trim())) {
+      picker.value = hex.value.trim().toLowerCase();
+    }
+  }
+
+  function setVisible(element, visible) {
+    element.hidden = !visible;
+    Array.prototype.forEach.call(element.querySelectorAll("input, select, textarea"), function (control) {
+      control.disabled = !visible;
+    });
+  }
+
+  // Shows only the match types that apply to the attribute (Q9), the value only for match types
+  // that take one (Q10), and only the fields the chosen action uses
+  function updateRuleRow(row) {
+    var attribute = row.querySelector("[data-pm-attribute]");
+    var match = row.querySelector("[data-pm-match]");
+    if (attribute && match) {
+      var options = Array.prototype.slice.call(match.options);
+      options.forEach(function (option) {
+        var applies = (option.getAttribute("data-attributes") || "").split(" ").indexOf(attribute.value) >= 0;
+        option.disabled = !applies;
+        option.hidden = !applies;
+      });
+      if (match.selectedOptions.length === 0 || match.selectedOptions[0].disabled) {
+        var first = options.filter(function (option) {
+          return !option.disabled;
+        })[0];
+        if (first) {
+          match.value = first.value;
+        }
+      }
+      var test = row.querySelector("[data-pm-test]");
+      var selected = match.selectedOptions[0];
+      if (test) {
+        setVisible(test, !selected || selected.getAttribute("data-needs-test") === "true");
+      }
+    }
+    var actionType = row.querySelector("[data-pm-action-type]");
+    if (actionType) {
+      Array.prototype.forEach.call(row.querySelectorAll("[data-pm-for]"), function (field) {
+        setVisible(field, field.getAttribute("data-pm-for").split(" ").indexOf(actionType.value) >= 0);
+      });
+      var empty = row.querySelector("option[data-llm-label]");
+      if (empty) {
+        empty.textContent = actionType.value === "create_events" ?
+            empty.getAttribute("data-llm-label") : empty.getAttribute("data-plain-label");
+      }
+    }
+  }
+
+  function updateRemoveButtons(container) {
+    var rows = container.querySelectorAll(":scope > [data-pm-row]");
+    Array.prototype.forEach.call(rows, function (row) {
+      var button = row.querySelector("[data-pm-remove-row]");
+      if (button) {
+        button.disabled = rows.length <= 1;
+      }
+    });
+  }
+
+  function addRow(button) {
+    var template = byId(button.getAttribute("data-pm-add-row"));
+    var container = byId(button.getAttribute("data-pm-rows"));
+    if (!template || !container) {
+      return;
+    }
+    var next = 0;
+    Array.prototype.forEach.call(container.querySelectorAll("[name]"), function (control) {
+      var match = /\[(-?\d+)\]/.exec(control.getAttribute("name"));
+      if (match) {
+        next = Math.max(next, parseInt(match[1], 10) + 1);
+      }
+    });
+    container.insertAdjacentHTML("beforeend", template.innerHTML.split("__i__").join(String(next)));
+    var row = container.lastElementChild;
+    updateRuleRow(row);
+    updateRemoveButtons(container);
+    var first = row.querySelector("select, input:not([type=hidden])");
+    if (first) {
+      first.focus();
+    }
+  }
+
+  function removeRow(button) {
+    var row = button.closest("[data-pm-row]");
+    var container = row && row.parentElement;
+    if (!container || container.querySelectorAll(":scope > [data-pm-row]").length <= 1) {
+      return;
+    }
+    row.remove();
+    updateRemoveButtons(container);
+  }
+
+  function insertPlaceholder(button) {
+    var select = byId(button.getAttribute("data-pm-insert-from"));
+    var text = byId(button.getAttribute("data-pm-insert-into"));
+    if (!select || !text) {
+      return;
+    }
+    var start = text.selectionStart;
+    var end = text.selectionEnd;
+    text.focus();
+    text.setRangeText(select.value, start, end, "end");
+    text.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  // The request for the preview is made by HTMX (hx-post on the button)
+  function togglePreview(button) {
+    var text = byId(button.getAttribute("data-pm-preview"));
+    var preview = byId(button.getAttribute("aria-controls"));
+    if (!text || !preview) {
+      return;
+    }
+    var previewing = button.getAttribute("aria-pressed") !== "true";
+    button.setAttribute("aria-pressed", previewing ? "true" : "false");
+    button.textContent = previewing ? "Edit" : "Preview";
+    text.hidden = previewing;
+    preview.hidden = !previewing;
+    if (!previewing) {
+      text.focus();
+    }
+  }
+
+  function initForms() {
+    document.addEventListener("input", function (event) {
+      if (event.target instanceof HTMLInputElement) {
+        syncColour(event.target);
+      }
+    });
+    document.addEventListener("change", function (event) {
+      var row = event.target instanceof Element ? event.target.closest("[data-pm-row]") : null;
+      if (row) {
+        updateRuleRow(row);
+      }
+    });
+    // Enter saves a setting edited in place, by leaving the field (it saves on blur)
+    document.addEventListener("keydown", function (event) {
+      var target = event.target;
+      if (event.key === "Enter" && target instanceof HTMLInputElement && target.closest(".pm-setting-edit")) {
+        event.preventDefault();
+        target.blur();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      var target = event.target instanceof Element ? event.target : null;
+      var button = target && target.closest("button");
+      if (!button || button.disabled) {
+        return;
+      }
+      if (button.hasAttribute("data-pm-add-row")) {
+        addRow(button);
+      } else if (button.hasAttribute("data-pm-remove-row")) {
+        removeRow(button);
+      } else if (button.hasAttribute("data-pm-insert-from")) {
+        insertPlaceholder(button);
+      } else if (button.hasAttribute("data-pm-preview")) {
+        togglePreview(button);
+      }
+    });
+  }
+
+  function initFormContent(root) {
+    each(root, "[data-pm-row]", updateRuleRow);
+    each(root, "[data-pm-rows]", function (button) {
+      var container = byId(button.getAttribute("data-pm-rows"));
+      if (container) {
+        updateRemoveButtons(container);
+      }
+    });
+    each(root, "[data-pm-dialog-title]", function (element) {
+      var dialog = element.closest("dialog");
+      var title = dialog && dialog.querySelector(".pm-dialog__title");
+      if (title) {
+        title.textContent = element.getAttribute("data-pm-dialog-title");
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------------------------
   // Start up
   // -------------------------------------------------------------------------------------------
 
@@ -686,6 +880,7 @@
     each(root, "[data-pm-table]", initTable);
     each(root, "dialog", initDialog);
     each(root, ".pm-toast", initToast);
+    initFormContent(root);
   }
 
   function start() {
@@ -694,6 +889,7 @@
     initConfirmDialog();
     initDialogEvents();
     initCellTitles();
+    initForms();
     if (window.htmx && typeof window.htmx.onLoad === "function") {
       // Runs for the initial page and for all content HTMX swaps in later
       window.htmx.onLoad(initContent);

@@ -1,0 +1,4 @@
+<span class="pm-setting" id="{setting.domId}">
+  <button type="button" class="pm-setting-value" data-testid="setting-value-{setting.key}" aria-label="Edit {setting.label}" hx-get="{base}/configuration/{setting.key}/edit" hx-target="closest .pm-setting" hx-swap="outerHTML">{#if setting.hasValue}{setting.displayValue}{#else}<span class="pm-muted">Not set</span>{/if}</button>
+  {#if setting.encrypted && setting.hasValue}<button type="button" class="pm-button pm-button--small" data-testid="setting-clear-{setting.key}" hx-delete="{base}/configuration/{setting.key}" hx-target="closest .pm-setting" hx-swap="outerHTML" hx-confirm="Clear {setting.label}?" data-pm-confirm-label="Clear">Clear</button>{/if}
+</span>

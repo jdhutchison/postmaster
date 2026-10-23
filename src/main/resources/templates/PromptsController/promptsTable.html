@@ -1,0 +1,23 @@
+{#table id="prompts-table"}
+  <thead><tr>
+    {#th col="name" label="Name" priority=1 /}
+    {#th col="key" label="Key" priority=3 /}
+    {#th col="updated" label="Updated" priority=4 /}
+    {#th col="actions" label="Actions" priority=1 resizable=false /}
+  </tr></thead>
+  <tbody>
+    {#for p in prompts}
+    <tr data-testid="prompt-row-{p.id}">
+      {#td col="name" priority=1}{p.name}{/td}
+      {#td col="key" priority=3}{#if p.isSystem}<span class="pm-badge" data-testid="system-badge">System</span> {p.promptKey}{/if}{/td}
+      {#td col="updated" priority=4}{#time value=p.lastUpdatedAt /}{/td}
+      {#td col="actions" priority=1 truncate=false}<span class="pm-row-actions">
+        <a class="pm-icon-button" aria-label="Edit {p.name}" data-testid="edit-prompt-{p.id}" href="{base}/prompts/{p.id}/edit">{#icon name="edit" /}</a>
+        {#if !p.isSystem}<button type="button" class="pm-icon-button pm-icon-button--danger" aria-label="Delete {p.name}" data-testid="delete-prompt-{p.id}" hx-delete="{base}/prompts/{p.id}" hx-target="#prompts-table-container" hx-confirm="Delete prompt {p.name}?" data-pm-confirm-label="Delete">{#icon name="delete" /}</button>{/if}
+      </span>{/td}
+    </tr>
+    {#else}
+    <tr><td colspan="4" class="pm-muted">No prompts yet.</td></tr>
+    {/for}
+  </tbody>
+{/table}

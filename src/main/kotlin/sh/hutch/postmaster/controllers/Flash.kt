@@ -76,7 +76,8 @@ object Flash {
 
   private fun cookiePath(): String = base().ifEmpty { "/" }
 
-  private fun resolve(location: String): String {
+  /** [location] with the root path prefixed if it starts with `/` and isn't already under it. */
+  fun resolve(location: String): String {
     val base = base()
     if (!location.startsWith("/") || base.isEmpty() || location == base || location.startsWith("$base/")) {
       return location

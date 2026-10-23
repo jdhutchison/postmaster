@@ -1,0 +1,4 @@
+<span class="pm-setting pm-setting-edit" id="{setting.domId}">
+  <input class="pm-input" name="value" type="{#if setting.encrypted}password{#else}text{/if}" value="{value}" aria-label="{setting.label}" data-testid="setting-input-{setting.key}" autocomplete="{#if setting.encrypted}new-password{#else}off{/if}"{#if setting.encrypted} placeholder="Enter a new value"{/if}{#if error} aria-invalid="true"{/if} hx-put="{base}/configuration/{setting.key}" hx-trigger="blur" hx-target="closest .pm-setting" hx-swap="outerHTML" autofocus>
+  {#if error}<span class="pm-field-error" data-testid="setting-error-{setting.key}">{error}</span>{/if}
+</span>

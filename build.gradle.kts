@@ -21,6 +21,7 @@ val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
 val mapstructVersion: String by project
+val commonmarkVersion: String by project
 val greenmailVersion: String by project
 val wiremockVersion: String by project
 val playwrightVersion: String by project
@@ -47,6 +48,7 @@ dependencies {
   implementation("io.quarkiverse.mcp:quarkus-mcp-server-http")
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
   implementation("org.jsoup:jsoup")
+  implementation("org.commonmark:commonmark:$commonmarkVersion")
   implementation("org.mapstruct:mapstruct:$mapstructVersion")
   kapt("org.mapstruct:mapstruct-processor:$mapstructVersion")
 

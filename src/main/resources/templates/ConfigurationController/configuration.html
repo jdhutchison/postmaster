@@ -1,0 +1,20 @@
+{#include layout page="configuration"}
+  {#title}Configuration{/title}
+  {#content}
+    <p class="pm-muted">Click a value to change it. Changes are saved when you leave the field.</p>
+    {#table id="settings-table"}
+      <thead><tr>
+        {#th col="setting" label="Setting" priority=1 /}
+        {#th col="value" label="Value" priority=1 resizable=false /}
+      </tr></thead>
+      <tbody>
+        {#for s in settings}
+        <tr data-testid="setting-row-{s.key}">
+          {#td col="setting" priority=1 truncate=false}<span class="pm-setting-label">{s.label}</span>{#if s.description}<span class="pm-muted pm-setting-description">{s.description}</span>{/if}{/td}
+          {#td col="value" priority=1 truncate=false}{#include ConfigurationController/value setting=s /}{/td}
+        </tr>
+        {/for}
+      </tbody>
+    {/table}
+  {/content}
+{/include}

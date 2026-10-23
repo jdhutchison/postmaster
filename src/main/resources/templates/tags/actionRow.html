@@ -1,0 +1,43 @@
+{! An action row in the rule form: {#actionRow row=a form=form /} !}
+<div class="pm-rule-row" data-testid="action-row" data-pm-row>
+  <input type="hidden" name="actions[{row.index}].id" value="{row.id}">
+  <div class="pm-field">
+    <label for="action-{row.index}-type">Action</label>
+    <select id="action-{row.index}-type" name="actions[{row.index}].actionType" class="pm-input" data-pm-action-type{#if row.invalid('actionType')} aria-invalid="true"{/if}>
+      {#for o in form.actionTypes}<option value="{o.value}"{#if o.value == row.actionType} selected{/if}>{o.label}</option>{/for}
+    </select>
+    {#if row.error('actionType')}<p class="pm-field-error" data-testid="error-actions[{row.index}].actionType">{row.error('actionType')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--grow" data-pm-for="move forward_email">
+    <label for="action-{row.index}-destination">to:</label>
+    <input id="action-{row.index}-destination" name="actions[{row.index}].destination" class="pm-input" value="{row.destination}" maxlength="500" autocomplete="off"{#if row.invalid('destination')} aria-invalid="true"{/if}>
+    {#if row.error('destination')}<p class="pm-field-error" data-testid="error-actions[{row.index}].destination">{row.error('destination')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--grow" data-pm-for="set_type">
+    <label for="action-{row.index}-typeId">Type</label>
+    <select id="action-{row.index}-typeId" name="actions[{row.index}].typeId" class="pm-input"{#if row.invalid('typeId')} aria-invalid="true"{/if}>
+      <option value="">Choose a type</option>
+      {#for o in form.types}<option value="{o.value}"{#if o.value == row.typeId} selected{/if}>{o.label}</option>{/for}
+    </select>
+    {#if row.error('typeId')}<p class="pm-field-error" data-testid="error-actions[{row.index}].typeId">{row.error('typeId')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--grow" data-pm-for="create_events process_bill">
+    <label for="action-{row.index}-calendarId">Calendar</label>
+    <select id="action-{row.index}-calendarId" name="actions[{row.index}].calendarId" class="pm-input"{#if row.invalid('calendarId')} aria-invalid="true"{/if}>
+      <option value="" data-llm-label="(Choose with the LLM)" data-plain-label="Choose a calendar">(Choose with the LLM)</option>
+      {#for o in form.calendars}<option value="{o.value}"{#if o.value == row.calendarId} selected{/if}>{o.label}</option>{/for}
+    </select>
+    {#if row.error('calendarId')}<p class="pm-field-error" data-testid="error-actions[{row.index}].calendarId">{row.error('calendarId')}</p>{/if}
+  </div>
+  <div class="pm-field" data-pm-for="create_events">
+    <label for="action-{row.index}-notifications">Notifications</label>
+    <input id="action-{row.index}-notifications" name="actions[{row.index}].notifications" class="pm-input" value="{row.notifications}" placeholder="e.g. 4h, 1d" autocomplete="off"{#if row.invalid('notifications')} aria-invalid="true"{/if}>
+    {#if row.error('notifications')}<p class="pm-field-error" data-testid="error-actions[{row.index}].notifications">{row.error('notifications')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--inline">
+    <input type="checkbox" id="action-{row.index}-enabled" name="actions[{row.index}].enabled" value="true"{#if row.enabled} checked{/if}>
+    <label for="action-{row.index}-enabled">Enabled</label>
+  </div>
+  {#if row.error('id')}<p class="pm-field-error" data-testid="error-actions[{row.index}].id">{row.error('id')}</p>{/if}
+  <button type="button" class="pm-icon-button pm-icon-button--danger pm-rule-row__remove" aria-label="Remove action" data-testid="remove-action" data-pm-remove-row{#if !removable} disabled{/if}>{#icon name="delete" /}</button>
+</div>
