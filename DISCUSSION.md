@@ -114,3 +114,7 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** Start the builder on phase 3.
 
 **Claude:** The builder is now on Phase 3 (admin pages 3.1–3.6) and the tester stays paused. The builder records every route and selector in `docs/dev/contracts.md` so the tester can catch up on Phases 2 and 3 later. Neither phase will be ticked until the tester's tests run and I've done a full-suite run.
+
+**You:** Restart the testing agent.
+
+**Claude:** The tester is resumed. It will add its staged Phase 2 tests to the tree and run them, then write the Phase 3 tests (including the deferred D20 case-insensitive name checks) against the contract while the builder finishes Phase 3.
