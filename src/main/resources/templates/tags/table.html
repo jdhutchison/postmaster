@@ -1,0 +1,6 @@
+{! A data table: {#table id="types-table" [testid="…"]}<thead>…{#th …/}…</thead><tbody>…{#td …}…{/td}…</tbody>{/table} !}
+<div class="pm-table-wrap" data-testid="{testid ?: id}-wrap">
+  <table class="pm-table" id="{id}" data-pm-table data-testid="{testid ?: id}">
+    {nested-content}
+  </table>
+</div>

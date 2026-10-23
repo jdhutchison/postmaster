@@ -1,0 +1,2 @@
+{! A table cell: {#td col="name" priority=1 [title="fixed tooltip"] [truncate=false]}…{/td}. The priority must match the column's {#th}. !}
+<td data-col="{col}" data-priority="{priority}"><span class="pm-cell{#if !truncate.or(true)} pm-cell--wrap{/if}" data-testid="cell-{col}"{#if title??} title="{title}" data-pm-title-fixed{/if}>{nested-content}</span></td>

@@ -1,0 +1,2 @@
+{! A table header cell: {#th col="name" label="Name" priority=1 [resizable=false] /}. Priority 1 is always shown; 2 to 5 hide as the table narrows. !}
+<th scope="col" class="pm-th" data-col="{col}" data-priority="{priority}" data-testid="th-{col}"><span class="pm-th__label">{label}</span>{#if resizable.or(true)}<span class="pm-resizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize {label} column" data-testid="resize-{col}"></span>{/if}</th>

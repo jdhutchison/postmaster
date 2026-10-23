@@ -1,0 +1,10 @@
+{! A modal dialog: {#modal id="type-dialog" title="Edit type" [testid="…"]}…body…{/modal}. Put footer buttons in <div class="pm-dialog__actions"> inside the body. !}
+<dialog id="{id}" class="pm-dialog" data-testid="{testid ?: id}" aria-labelledby="{id}-title">
+  <div class="pm-dialog__header">
+    <h2 id="{id}-title" class="pm-dialog__title">{title}</h2>
+    <button type="button" class="pm-dialog__close" data-pm-close aria-label="Close" data-testid="dialog-close">×</button>
+  </div>
+  <div class="pm-dialog__body" id="{id}-body">
+    {nested-content}
+  </div>
+</dialog>

@@ -1,0 +1,2 @@
+{! A time shown relative to now ("14m ago"), with the absolute time as its tooltip: {#time value=email.receivedAt /} !}
+{#if value??}<time class="pm-time" datetime="{inject:times.iso(value)}" title="{inject:times.absolute(value)}" data-pm-relative data-testid="time">{inject:times.relative(value)}</time>{/if}

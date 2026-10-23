@@ -1,0 +1,65 @@
+{#let current=page.or('')}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  {! HTMX's injected indicator styles are off because the CSP blocks inline style elements. 422
+     responses (forms with validation errors) are swapped like successful ones. !}
+  <meta name="htmx-config" content='{|{"includeIndicatorStyles":false,"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true},{"code":"...","swap":false}]}|}'>
+  <title>{#insert title}Postmaster{/} · Postmaster</title>
+  <link rel="icon" href="{base}/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="{base}/assets/fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{base}/assets/css/postmaster.css?v={appVersion}">
+  <script src="{base}/assets/vendor/htmx/htmx.min.js?v=2.0.11" defer></script>
+  <script src="{base}/assets/js/postmaster.js?v={appVersion}" defer></script>
+</head>
+<body class="pm-body" data-page="{current}">
+  <a class="pm-skip-link" href="#pm-main">Skip to content</a>
+
+  <button type="button" id="pm-menu-button" class="pm-menu-button" aria-label="Menu" aria-controls="pm-menu" aria-expanded="false" data-testid="menu-button">
+    <svg class="pm-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+  <nav id="pm-menu" class="pm-menu" aria-label="Main" data-testid="menu" hidden>
+    <ul>
+      <li><a href="{base}/" data-testid="menu-dashboard"{#if current == 'dashboard'} aria-current="page"{/if}>Dashboard</a></li>
+      <li><a href="{base}/emails" data-testid="menu-emails"{#if current == 'emails'} aria-current="page"{/if}>Emails</a></li>
+      <li><a href="{base}/types" data-testid="menu-types"{#if current == 'types'} aria-current="page"{/if}>Types</a></li>
+      <li><a href="{base}/calendars" data-testid="menu-calendars"{#if current == 'calendars'} aria-current="page"{/if}>Calendars</a></li>
+      <li><a href="{base}/prompts" data-testid="menu-prompts"{#if current == 'prompts'} aria-current="page"{/if}>Prompts</a></li>
+      <li><a href="{base}/rules/classification" data-testid="menu-rules-classification"{#if current == 'rules-classification'} aria-current="page"{/if}>Classification rules</a></li>
+      <li><a href="{base}/rules/action" data-testid="menu-rules-action"{#if current == 'rules-action'} aria-current="page"{/if}>Action rules</a></li>
+      <li><a href="{base}/configuration" data-testid="menu-configuration"{#if current == 'configuration'} aria-current="page"{/if}>Configuration</a></li>
+    </ul>
+  </nav>
+
+  <main id="pm-main" class="pm-main" data-testid="main">
+    <h1 class="pm-page-title" data-testid="page-title">{#insert title}Postmaster{/}</h1>
+    {#insert content}{/}
+  </main>
+
+  <div id="pm-toasts" class="pm-toasts" data-testid="toasts">
+    {#for toast in inject:pageToasts.all}
+    <div class="pm-toast pm-toast--{toast.level.code}" data-testid="toast" data-level="{toast.level.code}" role="{#if toast.level.code == 'error'}alert{#else}status{/if}">
+      <span class="pm-toast__message" data-testid="toast-message">{toast.message}</span>
+      <button type="button" class="pm-toast__close" data-testid="toast-close" aria-label="Dismiss">×</button>
+    </div>
+    {/for}
+  </div>
+
+  <dialog id="pm-confirm" class="pm-dialog pm-dialog--confirm" data-testid="confirm-dialog" aria-labelledby="pm-confirm-title" aria-describedby="pm-confirm-message">
+    <div class="pm-dialog__header">
+      <h2 id="pm-confirm-title" class="pm-dialog__title">Please confirm</h2>
+    </div>
+    <div class="pm-dialog__body">
+      <p id="pm-confirm-message" class="pm-confirm__message" data-testid="confirm-message"></p>
+      <div class="pm-dialog__actions">
+        <button type="button" class="pm-button" data-testid="confirm-cancel">Cancel</button>
+        <button type="button" class="pm-button pm-button--primary" data-testid="confirm-ok">OK</button>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>
+{/let}

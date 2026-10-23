@@ -517,10 +517,11 @@ Structure rendered by the layout:
   - **success and info:** fading starts after **4000 ms** (class `pm-toast--leaving`, a 300 ms opacity transition), and the toast is removed from the DOM by **4500 ms**. While the pointer is over the toast, removal waits until it leaves.
   - **error:** never removed automatically. Only the close button removes it.
   - The close button removes any toast at once.
+- **While a modal dialog is open**, toasts are shown inside it, so they appear above its backdrop and stay clickable. The dialog's modality makes the rest of the page inert. A `div.pm-toasts[data-testid="dialog-toasts"]` is appended to the dialog, and toasts already on the page move into it. When the dialog closes, remaining toasts move back to `#pm-toasts`. Selectors on `[data-testid=toast]` therefore work in both places.
 - **Raising toasts:**
   1. **Full page load.**
      - Toasts added to the request-scoped bean `sh.hutch.postmaster.controllers.PageToasts` (`@Named("pageToasts")`, methods `success(message)`, `info(message)` and `error(message)`) are rendered by the layout as toast elements.
-     - So are **flash** toasts from the cookie `pm_flash`. To redirect with toasts, use `Flash.redirect(location: String, vararg toasts: Toast): Response`. It returns `303 See Other` and sets `pm_flash`: base64url JSON, `Path=/mail`, `HttpOnly`, `SameSite=Lax`, `Max-Age=60`.
+     - So are **flash** toasts from the cookie `pm_flash`. To redirect with toasts, use `Flash.redirect(location: String, vararg toasts: Toast): Response`. It returns `303 See Other` with a **path-only** `Location` header (`/types` becomes `/mail/types`; a location already under `/mail` is kept as is) and sets `pm_flash`: base64url JSON, `Path=/mail`, `HttpOnly`, `SameSite=Lax`, `Max-Age=60`.
      - The next full-page (non-HTMX) HTML response renders the toasts and clears the cookie.
   2. **HTMX response.**
      - The header is `HX-Trigger: {"pm-toast":{"toasts":[{"level":"success","message":"Saved"}]}}`. Build it with `Toasts.hxTrigger(vararg toasts: Toast): String`, or `Toasts.hxTrigger(toasts: List<Toast>, events: Map<String, Any?>)` to add other events. Non-ASCII characters are escaped as `\uXXXX` so the header stays ASCII.

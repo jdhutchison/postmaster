@@ -1,0 +1,658 @@
+/*
+ * Postmaster styles.
+ *
+ * Palette: Dracula (dark) and Alucard (light) Classic, with values exactly as published in the
+ * official specification, https://draculatheme.com/spec ("Color Palette" and "UI Color Palette";
+ * --pm-focus is the spec's Functional Purple). The light palette is the default and the dark one
+ * applies when the device prefers a dark colour scheme.
+ */
+
+/* Fonts: Atkinson Hyperlegible Next variable font (SIL OFL 1.1), from
+   @fontsource-variable/atkinson-hyperlegible-next 5.3.0. See ../VENDOR.md. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-ext-wght-italic.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-italic.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Palette
+ * ------------------------------------------------------------------------------------------- */
+
+:root {
+  /* Alucard Classic */
+  --pm-background: #FFFBEB;
+  --pm-current-line: #6C664B;
+  --pm-selection: #CFCFDE;
+  --pm-foreground: #1F1F1F;
+  --pm-comment: #6C664B;
+  --pm-red: #CB3A2A;
+  --pm-orange: #A34D14;
+  --pm-yellow: #846E15;
+  --pm-green: #14710A;
+  --pm-cyan: #036A96;
+  --pm-purple: #644AC9;
+  --pm-pink: #A3144D;
+  /* Alucard UI colour palette */
+  --pm-bg-floating: #EFEDDC;
+  --pm-bg-lighter: #ECE9DF;
+  --pm-bg-light: #DEDCCF;
+  --pm-bg-dark: #CECCC0;
+  --pm-bg-darker: #BCBAB3;
+  /* Functional Purple: focus indicators */
+  --pm-focus: #815CD6;
+
+  --pm-font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --pm-radius: 0.5rem;
+  --pm-gutter: 1rem;
+  --pm-menu-button-size: 2.75rem;
+  --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.18);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dracula Classic */
+    --pm-background: #282A36;
+    --pm-current-line: #6272A4;
+    --pm-selection: #44475A;
+    --pm-foreground: #F8F8F2;
+    --pm-comment: #6272A4;
+    --pm-red: #FF5555;
+    --pm-orange: #FFB86C;
+    --pm-yellow: #F1FA8C;
+    --pm-green: #50FA7B;
+    --pm-cyan: #8BE9FD;
+    --pm-purple: #BD93F9;
+    --pm-pink: #FF79C6;
+    /* Dracula UI colour palette */
+    --pm-bg-floating: #343746;
+    --pm-bg-lighter: #424450;
+    --pm-bg-light: #343746;
+    --pm-bg-dark: #21222C;
+    --pm-bg-darker: #191A21;
+
+    --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.45);
+
+    color-scheme: dark;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--pm-background);
+  color: var(--pm-foreground);
+  font-family: var(--pm-font);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+::selection {
+  background: var(--pm-selection);
+  color: var(--pm-foreground);
+}
+
+a {
+  color: var(--pm-cyan);
+  text-underline-offset: 0.15em;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+:focus-visible {
+  outline: 3px solid var(--pm-focus);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.pm-muted {
+  color: var(--pm-comment);
+}
+
+.pm-skip-link {
+  position: absolute;
+  left: -100vw;
+  top: 0;
+  z-index: 200;
+  padding: 0.5rem 1rem;
+  background: var(--pm-background);
+  color: var(--pm-foreground);
+}
+
+.pm-skip-link:focus {
+  left: calc(var(--pm-menu-button-size) + 1.25rem);
+  top: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Page layout
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-main {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0.75rem var(--pm-gutter) 6rem;
+}
+
+.pm-page-title {
+  /* Leaves room for the floating menu button */
+  margin: 0 0 1.25rem;
+  padding-left: calc(var(--pm-menu-button-size) + 0.75rem);
+  min-height: var(--pm-menu-button-size);
+  display: flex;
+  align-items: center;
+  font-size: 1.6rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Buttons
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-light);
+  color: var(--pm-foreground);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pm-button:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-button--primary {
+  border-color: var(--pm-purple);
+  background: var(--pm-purple);
+  color: var(--pm-background);
+}
+
+.pm-button--primary:hover {
+  background: var(--pm-purple);
+  filter: brightness(1.08);
+}
+
+.pm-button--danger {
+  border-color: var(--pm-red);
+  background: var(--pm-red);
+  color: var(--pm-background);
+}
+
+.pm-button--danger:hover {
+  background: var(--pm-red);
+  filter: brightness(1.08);
+}
+
+.pm-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--pm-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pm-icon-button:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+/* HTMX request indicators; HTMX's own injected styles are turned off (includeIndicatorStyles) */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Menu: one hamburger button floating over the content on frosted glass
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-menu-button,
+.pm-menu {
+  background: color-mix(in srgb, var(--pm-bg-floating) 60%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--pm-selection) 70%, transparent);
+  box-shadow: var(--pm-shadow);
+}
+
+.pm-menu-button {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--pm-menu-button-size);
+  height: var(--pm-menu-button-size);
+  padding: 0;
+  border-radius: 50%;
+  color: var(--pm-foreground);
+  cursor: pointer;
+}
+
+.pm-menu-button .pm-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.pm-menu {
+  position: fixed;
+  top: calc(var(--pm-menu-button-size) + 1.25rem);
+  left: 0.75rem;
+  z-index: 100;
+  width: min(18rem, calc(100vw - 1.5rem));
+  max-height: calc(100vh - var(--pm-menu-button-size) - 2rem);
+  overflow-y: auto;
+  border-radius: var(--pm-radius);
+  padding: 0.5rem;
+}
+
+.pm-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-menu a {
+  display: block;
+  padding: 0.6rem 0.85rem;
+  border-radius: calc(var(--pm-radius) - 0.15rem);
+  color: var(--pm-foreground);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.pm-menu a:hover,
+.pm-menu a:focus-visible {
+  background: color-mix(in srgb, var(--pm-selection) 80%, transparent);
+}
+
+.pm-menu a[aria-current="page"] {
+  color: var(--pm-purple);
+  box-shadow: inset 3px 0 0 var(--pm-purple);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Toasts
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-toasts {
+  position: fixed;
+  right: var(--pm-gutter);
+  bottom: var(--pm-gutter);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(24rem, calc(100vw - 2 * var(--pm-gutter)));
+  pointer-events: none;
+}
+
+.pm-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem 0.75rem 1rem;
+  border-radius: var(--pm-radius);
+  border: 1px solid var(--pm-selection);
+  border-left: 0.35rem solid var(--pm-comment);
+  background: var(--pm-bg-floating);
+  color: var(--pm-foreground);
+  box-shadow: var(--pm-shadow);
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+.pm-toast--success {
+  border-left-color: var(--pm-green);
+}
+
+.pm-toast--info {
+  border-left-color: var(--pm-cyan);
+}
+
+.pm-toast--error {
+  border-left-color: var(--pm-red);
+}
+
+.pm-toast--leaving {
+  opacity: 0;
+}
+
+.pm-toast__message {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.pm-toast__close {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: -0.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pm-toast__close:hover {
+  background: var(--pm-bg-lighter);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Dialogs
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-dialog {
+  width: min(36rem, calc(100vw - 2 * var(--pm-gutter)));
+  max-height: calc(100vh - 2 * var(--pm-gutter));
+  padding: 0;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-background);
+  color: var(--pm-foreground);
+  box-shadow: var(--pm-shadow);
+}
+
+.pm-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.pm-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem 0.5rem 1.25rem;
+}
+
+.pm-dialog__title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.pm-dialog__close {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pm-dialog__close:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-dialog__body {
+  padding: 0.5rem 1.25rem 1.25rem;
+}
+
+.pm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.pm-dialog--confirm {
+  width: min(28rem, calc(100vw - 2 * var(--pm-gutter)));
+}
+
+.pm-confirm__message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Tables
+ *
+ * The header sticks to the top of the viewport: the wrapper clips (overflow-x: clip creates no
+ * scroll container) instead of scrolling, so the page is the scroller. Columns hide by priority as
+ * the wrapper narrows (container queries), and cell text is truncated with an ellipsis.
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-table-wrap {
+  container-type: inline-size;
+  width: 100%;
+  overflow-x: clip;
+}
+
+.pm-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+}
+
+.pm-table th,
+.pm-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--pm-selection);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.pm-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pm-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--pm-bg-light);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pm-table thead th:first-child {
+  border-top-left-radius: var(--pm-radius);
+}
+
+.pm-table thead th:last-child {
+  border-top-right-radius: var(--pm-radius);
+}
+
+.pm-table tbody tr:hover td {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-th {
+  position: relative;
+  padding-right: 1rem;
+}
+
+.pm-th__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The handle sits inside its own header cell: each sticky header cell is its own stacking
+   context, so any part sticking out would be covered by the next cell */
+.pm-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  width: 0.75rem;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pm-resizer::after {
+  content: "";
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  right: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--pm-selection);
+}
+
+.pm-resizer:hover::after,
+.pm-resizer:focus-visible::after,
+.pm-resizer--active::after {
+  background: var(--pm-focus);
+}
+
+.pm-resizer--hidden {
+  display: none;
+}
+
+.pm-cell {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-cell--wrap {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* Lower-priority columns are hidden first as the table narrows (CLARIFICATIONS.md D12) */
+@container (max-width: 1023.98px) {
+  .pm-table [data-priority="5"] {
+    display: none;
+  }
+}
+
+@container (max-width: 831.98px) {
+  .pm-table [data-priority="4"] {
+    display: none;
+  }
+}
+
+@container (max-width: 639.98px) {
+  .pm-table [data-priority="3"] {
+    display: none;
+  }
+}
+
+@container (max-width: 479.98px) {
+  .pm-table [data-priority="2"] {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Small screens
+ * ------------------------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .pm-page-title {
+    font-size: 1.35rem;
+  }
+
+  .pm-table th,
+  .pm-table td {
+    padding: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-toast,
+  .htmx-indicator {
+    transition: none;
+  }
+}
