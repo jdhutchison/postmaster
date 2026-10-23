@@ -108,3 +108,9 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** Pause the tester agent at the completion of its current task to conserve tokens.
 
 **Claude:** I've asked the tester to finish and commit its current task, make sure the suite compiles after the Q22 import changes, and then stop with a short report saying where to resume. The builder carries on with Phase 2.
+
+**Claude:** The builder finished its Phase 2 work (ed23c9e). All 246 existing tests pass, and its own 82 throwaway Chromium checks passed. Phase 2 isn't ticked yet, because the tester's Phase 2 tests are still held outside the tree, unrun. I asked whether to resume the tester first.
+
+**You:** Start the builder on phase 3.
+
+**Claude:** The builder is now on Phase 3 (admin pages 3.1–3.6) and the tester stays paused. The builder records every route and selector in `docs/dev/contracts.md` so the tester can catch up on Phases 2 and 3 later. Neither phase will be ticked until the tester's tests run and I've done a full-suite run.
