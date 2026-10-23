@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has run the full test suite.
 
-**Status:** Phases 0 and 1 are complete and verified by the coordinator on 2026-10-23: a clean `./gradlew clean test` ran 244 tests in 18 suites with 0 failures, 0 errors and 0 skipped. Phase 2 (UI foundation) is next.
+**Status:** Phases 0–3 are complete and verified by the coordinator on 2026-10-24: a clean `./gradlew clean test` ran 431 tests in 40 suites with 0 failures, 0 errors and 0 skipped. Phase 4 (integration helpers) is next.
 
 Standing rules:
 - Commit after each completed task.
@@ -76,45 +76,45 @@ Two agents work in parallel in this working tree, coordinated by the main Claude
 
 ## Phase 2: UI foundation
 
-- [ ] **2.1** `build: done` `tests: todo` The base Qute layout:
+- [x] **2.1** `build: done` `tests: done` The base Qute layout:
   - Dracula and Alucard palettes following the system dark/light mode
   - Atkinson Hyperlegible Next, bundled with the app
   - a frosted-glass hamburger menu
   - toasts (success fades out; errors stay until dismissed)
   - modal and confirm dialogs
   - HTMX, bundled with the app
-- [ ] **2.2** `build: done` `tests: todo` A table component:
+- [x] **2.2** `build: done` `tests: done` A table component:
   - a sticky header
   - resizable columns
   - truncation with a full-text tooltip
   - columns hidden by priority on narrow screens
   - relative timestamps, with the absolute time in a tooltip
-- [ ] **2.3** `build: todo` `tests: todo` Test harness: RestAssured and Jsoup helpers for the HTML, and Playwright browser test setup.
+- [x] **2.3** `build: n/a` `tests: done` Test harness: RestAssured and Jsoup helpers for the HTML, and Playwright browser test setup.
 
 ## Phase 3: Admin pages
 
 Each page gets OpenAPI annotations, HTTP-level tests and Playwright tests.
 
-- [ ] **3.1** `build: done` `tests: todo` Configuration page:
+- [x] **3.1** `build: done` `tests: done` Configuration page:
   - click a value to edit it, and it saves when the field loses focus
   - encrypted values are masked
   - values are validated by type
-- [ ] **3.2** `build: done` `tests: todo` Types page:
+- [x] **3.2** `build: done` `tests: done` Types page:
   - a table with edit and delete icons
   - create and edit modals with a colour picker and a hex field
   - soft delete after confirmation
   - system types can't be deleted
-- [ ] **3.3** `build: done` `tests: todo` Calendars page:
+- [x] **3.3** `build: done` `tests: done` Calendars page:
   - names are chosen from the calendars in the khal config
   - colour, an enable toggle, and validated Durations
   - soft delete
-- [ ] **3.4** `build: done` `tests: todo` Prompts page and editor:
+- [x] **3.4** `build: done` `tests: done` Prompts page and editor:
   - the textarea fills the viewport
   - a markdown preview toggle
   - a placeholder inserter
   - system prompts can't be deleted
-- [ ] **3.5** `build: done` `tests: todo` Rule list pages (classification and action), with enable toggles, edit, and delete after confirmation.
-- [ ] **3.6** `build: done` `tests: todo` Create rule and edit rule pages:
+- [x] **3.5** `build: done` `tests: done` Rule list pages (classification and action), with enable toggles, edit, and delete after confirmation.
+- [x] **3.6** `build: done` `tests: done` Create rule and edit rule pages:
   - conditions validated against the Q9 matrix
   - actions with type-specific fields (destination, type, calendar, notifications) and a per-action enable toggle
   - soft delete from the edit page
