@@ -95,26 +95,26 @@ Two agents work in parallel in this working tree, coordinated by the main Claude
 
 Each page gets OpenAPI annotations, HTTP-level tests and Playwright tests.
 
-- [ ] **3.1** `build: todo` `tests: todo` Configuration page:
+- [ ] **3.1** `build: done` `tests: todo` Configuration page:
   - click a value to edit it, and it saves when the field loses focus
   - encrypted values are masked
   - values are validated by type
-- [ ] **3.2** `build: todo` `tests: todo` Types page:
+- [ ] **3.2** `build: done` `tests: todo` Types page:
   - a table with edit and delete icons
   - create and edit modals with a colour picker and a hex field
   - soft delete after confirmation
   - system types can't be deleted
-- [ ] **3.3** `build: todo` `tests: todo` Calendars page:
+- [ ] **3.3** `build: done` `tests: todo` Calendars page:
   - names are chosen from the calendars in the khal config
   - colour, an enable toggle, and validated Durations
   - soft delete
-- [ ] **3.4** `build: todo` `tests: todo` Prompts page and editor:
+- [ ] **3.4** `build: done` `tests: todo` Prompts page and editor:
   - the textarea fills the viewport
   - a markdown preview toggle
   - a placeholder inserter
   - system prompts can't be deleted
-- [ ] **3.5** `build: todo` `tests: todo` Rule list pages (classification and action), with enable toggles, edit, and delete after confirmation.
-- [ ] **3.6** `build: todo` `tests: todo` Create rule and edit rule pages:
+- [ ] **3.5** `build: done` `tests: todo` Rule list pages (classification and action), with enable toggles, edit, and delete after confirmation.
+- [ ] **3.6** `build: done` `tests: todo` Create rule and edit rule pages:
   - conditions validated against the Q9 matrix
   - actions with type-specific fields (destination, type, calendar, notifications) and a per-action enable toggle
   - soft delete from the edit page
