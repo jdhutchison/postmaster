@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need).
 
-**Status:** Phases 0–3 are complete and verified by the coordinator on 2026-10-24: a clean `./gradlew clean test` ran 431 tests in 40 suites with 0 failures, 0 errors and 0 skipped. Phase 4 (integration helpers) is next.
+**Status:** Phases 0–4 are complete. Phase 4 was assessed by the coordinator on 2026-10-24 from the tester's run on 3896b0c: 488 tests in 48 suites, with 0 failures, 0 errors and 0 skipped. The only later commit (670417e) wraps lines in tests and was confirmed to compile. Phase 5 (processing pipeline) is next.
 
 Standing rules:
 - Commit after each completed task.
@@ -123,15 +123,15 @@ Each page gets OpenAPI annotations, HTTP-level tests and Playwright tests.
 
 These are reusable, so the action handlers can share them.
 
-- [ ] **4.1** `build: done` `tests: todo` `MailboxClient` (IMAP):
+- [x] **4.1** `build: done` `tests: done` `MailboxClient` (IMAP):
   - list INBOX newest first, and fetch with `BODY.PEEK`
   - parse MIME into text, HTML and attachments
   - move, delete to trash, set flags, and list folders
 
   Plus an SMTP inline forwarder. Tested with GreenMail.
-- [ ] **4.2** `build: done` `tests: todo` `LlmClient`: OpenAI-compatible, JSON mode, timeouts, input truncation, thinking turned off. `PromptRenderer` fills in the `{{placeholder}}` values. Tested with WireMock.
-- [ ] **4.3** `build: done` `tests: todo` `HttpFetcher`: headless Chromium `--dump-dom` and curl downloads, using a Chrome-on-Windows user agent. `HtmlParser` (Jsoup): text extraction, and finding links by their anchor text.
-- [ ] **4.4** `build: done` `tests: todo` `CalendarClient` (khal):
+- [x] **4.2** `build: done` `tests: done` `LlmClient`: OpenAI-compatible, JSON mode, timeouts, input truncation, thinking turned off. `PromptRenderer` fills in the `{{placeholder}}` values. Tested with WireMock.
+- [x] **4.3** `build: done` `tests: done` `HttpFetcher`: headless Chromium `--dump-dom` and curl downloads, using a Chrome-on-Windows user agent. `HtmlParser` (Jsoup): text extraction, and finding links by their anchor text.
+- [x] **4.4** `build: done` `tests: done` `CalendarClient` (khal):
   - read the calendars from the khal config
   - generate `.ics` files with our UID and alarms, and add them with `khal import`
   - move or delete an event by its vdir file
