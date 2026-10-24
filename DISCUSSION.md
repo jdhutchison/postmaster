@@ -136,3 +136,16 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 **You:** You can assess the tester's results but do not run the full suite yourself unless you explain why and there is a need.
 
 **Claude:** Understood. At each checkpoint I'll assess the tester's own full-suite results (its JUnit reports in `build-tests/`, checked against the commit they ran on) instead of re-running. I'll only run the suite myself when there's a specific need, such as results that are missing, stale or contradictory, and I'll say why first. PLAN.md is updated to match.
+
+**Claude:** Phase 4 was assessed from the tester's run on 3896b0c (488 tests, 0 failures). The one later commit only wraps lines and was confirmed to compile. Phases 0–4 are ticked.
+
+**You:** yes *(start both agents on Phase 5)*
+
+**Claude:** Both agents are on Phase 5 (processing pipeline):
+- the rule engine
+- the action framework and handlers
+- `process_bill`
+- the orchestrator
+- the scheduler
+
+To avoid another deadlock, the tester owns full-suite runs and runs the suite as soon as the builder commits.
