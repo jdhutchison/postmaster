@@ -43,6 +43,7 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
     val page = open("configuration")
 
     page.testId("setting-value-llm.model").click()
+    page.waitForHtmx()
     val input = page.testId("setting-input-llm.model")
     assertThat(input).isFocused()
     input.fill("model-from-browser")
@@ -58,8 +59,10 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
     val page = open("configuration")
 
     page.testId("setting-value-llm.max_input_chars").click()
+    page.waitForHtmx()
     page.testId("setting-input-llm.max_input_chars").fill("lots")
     page.keyboard().press("Enter")
+    page.waitForHtmx()
 
     assertThat(page.testId("setting-input-llm.max_input_chars")).hasAttribute("aria-invalid", "true")
     assertThat(page.testId("setting-error-llm.max_input_chars")).isVisible()
@@ -79,6 +82,7 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
       assertThat(page.testId("setting-value-llm.api_key")).hasText(SettingsService.MASK)
       assertFalse(page.content().contains("browser-secret"))
       page.testId("setting-value-llm.api_key").click()
+    page.waitForHtmx()
       assertThat(page.testId("setting-input-llm.api_key")).hasAttribute("type", "password")
       assertThat(page.testId("setting-input-llm.api_key")).hasValue("")
     } finally {
@@ -94,6 +98,7 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
 
     page.testId("new-type").click()
     assertThat(page.testId("type-dialog")).isVisible()
+    page.waitForHtmx()
     page.locator("#type-form input[name=name]").fill("Garden")
     page.testId("colour-hex").fill("#14710a")
     page.testId("colour-hex").dispatchEvent("input")

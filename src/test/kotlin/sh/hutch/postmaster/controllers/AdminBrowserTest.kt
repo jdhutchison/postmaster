@@ -18,4 +18,9 @@ abstract class AdminBrowserTest : BrowserTest() {
   }
 
   fun Page.testId(id: String) = locator("[data-testid=\"$id\"]")
+
+  /** Waits until HTMX has no request in flight and has finished swapping and settling content */
+  fun Page.waitForHtmx() {
+    waitForFunction("() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling, .htmx-added')")
+  }
 }
