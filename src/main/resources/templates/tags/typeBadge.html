@@ -1,0 +1,2 @@
+{! An email type as a badge in its colour: {#typeBadge name=row.type colour=row.typeColour /}; nothing when there's no type. !}
+{#if name??}<span class="pm-type" style="--pm-type-colour: {colour}" data-testid="type-badge">{name}</span>{/if}

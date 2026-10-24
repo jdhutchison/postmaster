@@ -1248,22 +1248,25 @@ It records results through the orchestrator.
 ### 6.1 Emails list (`page="emails"`)
 
 `GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true` and `page`. Values that don't parse are ignored.
-- **Filter form:** `form[data-testid=email-filters]` (`method=get`), with:
-  - `filter-from`, `filter-to`, `filter-status`, `filter-type`, `filter-sender`
+- **Filter form:** `form[data-testid=email-filters]` (`method=get`), inside `details[data-testid=filter-panel]`, which starts closed. Its summary `toggle-filters` reads "Filters" plus, when filters are set, `[data-testid=active-filters]` with how many (the date range counts once). The form has:
+  - the date range `filter-from` and `filter-to` (one fieldset)
+  - `filter-status`, `filter-type`, `filter-sender`
   - checkboxes `filter-response`, `filter-action` and `filter-errors`
-  - `apply-filters` and the link `clear-filters`
+  - `apply-filters`
+
+  The link `clear-filters` ("Clear filters") is outside the panel, and only shown when filters are set.
 - **Count line:** `[data-testid=email-count]` reads `The N most recently received emails` (unfiltered) or `N matching emails`.
-- **Table** `{#table id="emails-table"}`, with columns:
+- **Table** `{#table id="emails-table"}`, with columns (default widths in CSS; the subject takes the rest):
   - `received` (p1, `{#time}`)
   - `subject` (p1, a link `email-link-<id>`)
   - `sender` (p2, the name, with the address as a tooltip)
-  - `status` (p4)
-  - `type` (p2, swatch and name)
-  - `needs` (p3, badges `needs-response` "Reply" and `needs-action` "Action")
-  - `events` (p5), `attachments` (p5)
-  - `errors` (p3, empty when there are none)
+  - `type` (p3, the type as a badge in its colour, `type-badge`)
+  - `needs` (p2, badges `needs-response` "Reply" and `needs-action` "Action")
+  - `status` (p4, a badge `status-badge` only for statuses other than `processed`)
+  - `counts` "Items" (p3): `count-events` and `count-attachments` (icon and number, faded when 0), and `error-count` only when there are errors
 - **Rows** are `tr[data-testid=email-row-<id>][data-pm-href=/mail/emails/<id>]`. A click anywhere on a row, other than on a control, opens the email. Ctrl/Cmd-click opens it in a new tab.
 - **Rows with errors** have class `pm-row--error` and `data-error="true"`, with a red tint.
+- **Unread emails** have class `pm-row--unread` and `data-unread="true"`, and are bold.
 - **Empty list:** `[data-testid=no-emails]`.
 - **Pagination**, filtered with more than one page: `nav[data-testid=pagination]` with `previous-page`, `page-number` (`Page 2 of 3`) and `next-page`. The links keep the filters.
 
@@ -1286,15 +1289,15 @@ It records results through the orchestrator.
 
 - **Manual actions** that succeed respond `HX-Redirect` to `/mail/emails/{id}`, flashing a success toast with the result's message. Failures are **502** with an error toast; nothing is swapped.
 - **Page:**
-  - **Actions bar** `email-actions`: `back-to-emails`, `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm).
+  - **In order, under the title:**
+    - the byline `email-byline`, holding `email-from`, the received time and the type badge
+    - the flags `email-flags`, shown only when set: `email-action-required` ("Action needed", the description and `clear-action-required` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
+    - the summary `email-summary`
+  - **Actions bar** `email-actions`: `back-to-emails`, `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm), and `delete-email` (confirm) set apart at the right.
+  - **Layout:** below the actions, the details panel is beside the contents from 960px wide, and above them when narrower.
   - **Details** `dl[data-testid=email-details]`:
-    - `email-from`, `email-received`, `email-processed`, `email-status`
-    - the type form `type-form` (`select[name=typeId]` `email-type`, and `set-type`)
-    - `email-folder`, `email-read`
-    - `email-response-required` (with `clear-response-required`)
-    - `email-action-required` (with the description and `clear-action-required`)
-    - `email-link`
-  - **Summary:** `email-summary`.
+    - the type form `type-form` (`select[name=typeId]` `email-type`), which saves when the selection changes (`hx-trigger="change"`)
+    - `email-received`, `email-processed`, `email-status`, `email-folder`, `email-read`, `email-link`
   - **Bill:** `bill-details`, holding `bill-biller`, `bill-amount`, `bill-due`, `bill-pay-link` and `bill-download-url`.
   - **Collapsed contents:** `details[data-testid=full-message]` (closed at first) and `details[data-testid=linked-page]` (with `link-summary` and `link-contents`), the latter only when a page was fetched.
   - **Events:** `ul[data-testid=events]`. Each is `button[data-testid=event-<id>]`, with the CSS variable `--pm-event-colour` set to its calendar's colour and `[data-testid=event-calendar]` showing the calendar, or `Not added (suggested: …)`. Events not added have class `pm-event--pending`. Clicking one opens the calendar dialog.
@@ -1303,7 +1306,7 @@ It records results through the orchestrator.
     - `classification-rule` / `action-rule` blocks (`data-rule-id`) linking to the rule, or `no-classification-rule` / `no-action-rules`
     - `manual-actions` for actions done by hand
 
-    Each action result is `li[data-testid=action-result][data-action=<type>][data-status=<status>]`.
+    Each action result is `li[data-testid=action-result][data-action=<type>][data-status=<status>]`. It shows the action's label (`ActionRegistry.label`, e.g. "Set reply needed"), with the type as a tooltip.
   - **Errors:** `ul[data-testid=email-errors]`.
 
 ### 6.3 Dashboard (`page="dashboard"`)
@@ -1315,9 +1318,8 @@ It records results through the orchestrator.
 | `POST /runs` | starts a run in the background (`runNowAsync`): the fragment with toast `Processing started`, or **409** with the error toast `Processing is already running` |
 
 - **Fragment** `section#dashboard[data-testid=home-page]`. While a run is in progress it has `data-running="true"` and polls itself (`hx-get=/mail/dashboard`, `hx-trigger="every 2s"`, `hx-swap=outerHTML`). Polling stops when the run ends.
-- **Cards:**
-  - `processing-status`, with `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running)
-  - links to the filtered list: `count-total`, `count-response`, `count-action`, `count-unclassified` and `count-errors`
+- **Run banner** `processing-status`, the full width, with a red edge when the last run failed. It holds `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running).
+- **Count tiles** in one row (`.pm-tiles`), each a link to the filtered list: `count-total` (with the last 24 hours), `count-response`, `count-action`, `count-unclassified` and `count-errors`. Each is highlighted only when its count is above 0.
 - **Recent runs:** `{#table id="runs-table"}`, rows `run-row-<id>`. Failed runs have `pm-row--error`.
 
 ---

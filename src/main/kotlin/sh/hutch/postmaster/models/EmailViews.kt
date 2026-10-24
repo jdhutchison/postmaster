@@ -32,6 +32,13 @@ data class EmailFilter(
     get() = from != null || to != null || status != null || typeId != null || !sender.isNullOrBlank() ||
         responseRequired || actionRequired || withErrors
 
+  /** How many filters are set, for the "Filters" button. */
+  val activeCount: Int
+    get() = listOf(
+        from != null || to != null, status != null, typeId != null, !sender.isNullOrBlank(),
+        responseRequired, actionRequired, withErrors
+    ).count { it }
+
   fun hasStatus(candidate: EmailStatus): Boolean = status == candidate
 
   fun hasType(id: Long?): Boolean = typeId != null && typeId == id
@@ -74,6 +81,7 @@ data class EmailRow(
     val typeColour: String?,
     val responseRequired: Boolean,
     val actionRequired: Boolean,
+    val isRead: Boolean,
     val events: Long,
     val attachments: Long,
     val errors: Long
@@ -147,6 +155,8 @@ data class AttachmentView(
 @TemplateData
 data class ActionResultView(
     val actionType: String,
+    /** How the action is named in the UI, e.g. "Mark read". */
+    val label: String,
     val source: ActionSource,
     val status: ActionResultStatus,
     val detail: String?,

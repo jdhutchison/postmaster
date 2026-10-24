@@ -1,45 +1,22 @@
 <section id="dashboard" class="pm-dashboard" data-testid="home-page"{#if dashboard.running} data-running="true" hx-get="{base}/dashboard" hx-trigger="every 2s" hx-swap="outerHTML"{/if}>
-  <div class="pm-cards">
-    <div class="pm-card" data-testid="processing-status">
-      <h2 class="pm-card__title">Processing</h2>
-      {#if dashboard.running}
-      <p class="pm-card__value" data-testid="run-state">Running now…</p>
-      {#else if dashboard.latest}
-      <p class="pm-card__value" data-testid="run-state">Last run {dashboard.latest.status.code}</p>
-      <p class="pm-muted">
-        {dashboard.latest.emailsFound} new, {dashboard.latest.emailsProcessed} processed{#if dashboard.latest.emailsFailed > 0}, {dashboard.latest.emailsFailed} failed{/if}; started {#time value=dashboard.latest.startedAt /}
-      </p>
+  <div class="pm-run-banner{#if dashboard.latest && dashboard.latest.status.code == 'failed'} pm-run-banner--failed{/if}" data-testid="processing-status">
+    <div class="pm-run-banner__text">
+      <p class="pm-run-banner__state" data-testid="run-state">{#if dashboard.running}Running now…{#else if dashboard.latest}Last run {dashboard.latest.status.code}{#else}No runs yet{/if}</p>
+      {#if !dashboard.running && dashboard.latest}
+      <p class="pm-muted">{dashboard.latest.emailsFound} new, {dashboard.latest.emailsProcessed} processed{#if dashboard.latest.emailsFailed > 0}, {dashboard.latest.emailsFailed} failed{/if}; started {#time value=dashboard.latest.startedAt /}</p>
       {#if dashboard.latest.error}<p class="pm-field-error" data-testid="run-error">{dashboard.latest.error}</p>{/if}
-      {#else}
-      <p class="pm-card__value" data-testid="run-state">No runs yet</p>
       {/if}
-      <p class="pm-muted" data-testid="next-run">
-        {#if dashboard.schedulerEnabled}Every {dashboard.frequency}; next {#if dashboard.nextRunAt}<time class="pm-time" datetime="{inject:times.iso(dashboard.nextRunAt)}" title="{inject:times.absolute(dashboard.nextRunAt)}">{inject:times.absolute(dashboard.nextRunAt)}</time>{/if}
-        {#else}Scheduled processing is off{/if}
-      </p>
-      <button type="button" class="pm-button pm-button--primary" data-testid="run-now" hx-post="{base}/runs" hx-target="#dashboard" hx-swap="outerHTML"{#if dashboard.running} disabled{/if}>Run now</button>
+      <p class="pm-muted" data-testid="next-run">{#if dashboard.schedulerEnabled}Every {dashboard.frequency}; next {#if dashboard.nextRunAt}<time class="pm-time" datetime="{inject:times.iso(dashboard.nextRunAt)}" title="{inject:times.absolute(dashboard.nextRunAt)}">{inject:times.absolute(dashboard.nextRunAt)}</time>{/if}{#else}Scheduled processing is off{/if}</p>
     </div>
-    <a class="pm-card pm-card--link" href="{base}/emails" data-testid="count-total">
-      <h2 class="pm-card__title">Emails</h2>
-      <p class="pm-card__value">{dashboard.counts.total}</p>
-      <p class="pm-muted">{dashboard.counts.lastDay} in the last day</p>
-    </a>
-    <a class="pm-card pm-card--link" href="{base}/emails?response=true" data-testid="count-response">
-      <h2 class="pm-card__title">Response required</h2>
-      <p class="pm-card__value">{dashboard.counts.responseRequired}</p>
-    </a>
-    <a class="pm-card pm-card--link" href="{base}/emails?action=true" data-testid="count-action">
-      <h2 class="pm-card__title">Action required</h2>
-      <p class="pm-card__value">{dashboard.counts.actionRequired}</p>
-    </a>
-    <a class="pm-card pm-card--link" href="{base}/emails?type=none" data-testid="count-unclassified">
-      <h2 class="pm-card__title">Unclassified</h2>
-      <p class="pm-card__value">{dashboard.counts.unclassified}</p>
-    </a>
-    <a class="pm-card pm-card--link{#if dashboard.counts.withErrors > 0} pm-card--error{/if}" href="{base}/emails?errors=true" data-testid="count-errors">
-      <h2 class="pm-card__title">With errors</h2>
-      <p class="pm-card__value">{dashboard.counts.withErrors}</p>
-    </a>
+    <button type="button" class="pm-button pm-button--primary" data-testid="run-now" hx-post="{base}/runs" hx-target="#dashboard" hx-swap="outerHTML"{#if dashboard.running} disabled{/if}>Run now</button>
+  </div>
+
+  <div class="pm-tiles">
+    <a class="pm-tile" href="{base}/emails" data-testid="count-total"><span class="pm-tile__value">{dashboard.counts.total}</span><span class="pm-tile__label">Emails <span class="pm-muted">({dashboard.counts.lastDay} in 24h)</span></span></a>
+    <a class="pm-tile{#if dashboard.counts.responseRequired > 0} pm-tile--reply{/if}" href="{base}/emails?response=true" data-testid="count-response"><span class="pm-tile__value">{dashboard.counts.responseRequired}</span><span class="pm-tile__label">Reply needed</span></a>
+    <a class="pm-tile{#if dashboard.counts.actionRequired > 0} pm-tile--action{/if}" href="{base}/emails?action=true" data-testid="count-action"><span class="pm-tile__value">{dashboard.counts.actionRequired}</span><span class="pm-tile__label">Action needed</span></a>
+    <a class="pm-tile" href="{base}/emails?type=none" data-testid="count-unclassified"><span class="pm-tile__value">{dashboard.counts.unclassified}</span><span class="pm-tile__label">Unclassified</span></a>
+    <a class="pm-tile{#if dashboard.counts.withErrors > 0} pm-tile--error{/if}" href="{base}/emails?errors=true" data-testid="count-errors"><span class="pm-tile__value">{dashboard.counts.withErrors}</span><span class="pm-tile__label">With errors</span></a>
   </div>
 
   <h2 class="pm-section__title">Recent runs</h2>

@@ -1061,67 +1061,242 @@ textarea.pm-prompt-text {
  * Dashboard
  * ------------------------------------------------------------------------------------------- */
 
-.pm-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.pm-card {
+/* The latest run, with "Run now" */
+.pm-run-banner {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
   padding: 0.9rem 1rem;
   border: 1px solid var(--pm-selection);
+  border-left: 0.35rem solid var(--pm-green);
   border-radius: var(--pm-radius);
   background: var(--pm-bg-floating);
-  color: var(--pm-foreground);
 }
 
-.pm-card p {
+.pm-run-banner--failed {
+  border-left-color: var(--pm-red);
+}
+
+.pm-run-banner p {
   margin: 0;
 }
 
-/* The processing card is the widest */
-.pm-card:first-child {
-  grid-column: span 2;
+.pm-run-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.pm-card--link {
-  text-decoration: none;
-}
-
-.pm-card--link:hover {
-  background: var(--pm-bg-lighter);
-}
-
-.pm-card--error {
-  border-color: var(--pm-red);
-}
-
-.pm-card__title {
-  margin: 0;
-  color: var(--pm-comment);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.pm-card__value {
-  font-size: 1.6rem;
+.pm-run-banner__state {
+  font-size: 1.2rem;
   font-weight: 700;
 }
 
-@media (max-width: 480px) {
-  .pm-card:first-child {
-    grid-column: auto;
-  }
+/* Email counts: compact tiles in one row, wrapping on small screens */
+.pm-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.pm-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--pm-selection);
+  border-top: 0.25rem solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-floating);
+  color: var(--pm-foreground);
+  text-decoration: none;
+}
+
+.pm-tile:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-tile__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pm-tile__label {
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pm-tile--reply {
+  border-top-color: var(--pm-cyan);
+}
+
+.pm-tile--action {
+  border-top-color: var(--pm-orange);
+}
+
+.pm-tile--error {
+  border-color: var(--pm-red);
+  border-top-color: var(--pm-red);
 }
 
 /* ---------------------------------------------------------------------------------------------
  * Emails list and email detail
  * ------------------------------------------------------------------------------------------- */
+
+/* "Filters", "Clear filters" and the count, above the list */
+.pm-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.pm-list-header__count {
+  margin: 0;
+  align-self: center;
+}
+
+/* When open, the panel takes a row of its own; "Clear filters" and the count follow it */
+.pm-filter-panel[open] {
+  flex: 1 1 100%;
+}
+
+.pm-filter-panel > summary {
+  list-style: none;
+}
+
+.pm-filter-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pm-filter-panel > summary::after {
+  content: "▾";
+  margin-left: 0.4rem;
+  color: var(--pm-purple);
+}
+
+.pm-filter-panel[open] > summary::after {
+  content: "▴";
+}
+
+.pm-filter-panel > .pm-filters {
+  margin-top: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-floating);
+}
+
+.pm-badge--count {
+  background: var(--pm-purple);
+  color: var(--pm-background);
+}
+
+.pm-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  grid-column: span 2;
+}
+
+.pm-date-range > legend {
+  margin-bottom: 0.3rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.pm-date-range .pm-input {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+/* Default column widths; the subject takes the rest. Resized widths override them. */
+#emails-table th[data-col="received"] {
+  width: 6.5rem;
+}
+
+#emails-table th[data-col="sender"] {
+  width: 18%;
+}
+
+#emails-table th[data-col="type"] {
+  width: 10rem;
+}
+
+#emails-table th[data-col="needs"] {
+  width: 8.5rem;
+}
+
+#emails-table th[data-col="status"] {
+  width: 6rem;
+}
+
+#emails-table th[data-col="counts"] {
+  width: 9.5rem;
+}
+
+/* Unread email, as in a mail client */
+.pm-table tbody tr.pm-row--unread td {
+  font-weight: 700;
+}
+
+.pm-counts {
+  display: inline-flex;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+
+.pm-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-weight: 400;
+}
+
+.pm-count .pm-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pm-count--none {
+  color: var(--pm-comment);
+  opacity: 0.6;
+}
+
+.pm-count--error {
+  color: var(--pm-red);
+  font-weight: 700;
+}
+
+/* An email type, in its colour */
+.pm-type {
+  --pm-type-colour: var(--pm-comment);
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--pm-type-colour) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pm-type-colour) 22%, var(--pm-background));
+  color: var(--pm-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
 
 .pm-filters {
   display: grid;
@@ -1156,9 +1331,20 @@ textarea.pm-prompt-text {
   background: color-mix(in srgb, var(--pm-red) 26%, var(--pm-background));
 }
 
-.pm-badge--action,
-.pm-badge--failed {
+.pm-badge--action {
   background: color-mix(in srgb, var(--pm-orange) 30%, var(--pm-background));
+}
+
+.pm-badge--reply {
+  background: color-mix(in srgb, var(--pm-cyan) 25%, var(--pm-background));
+}
+
+.pm-badge--pending {
+  background: color-mix(in srgb, var(--pm-yellow) 35%, var(--pm-background));
+}
+
+.pm-badge--skipped {
+  background: var(--pm-selection);
 }
 
 .pm-badge--failed {
@@ -1179,6 +1365,104 @@ textarea.pm-prompt-text {
 
 .pm-email-actions {
   justify-content: flex-start;
+}
+
+/* Delete stands apart from the other actions */
+.pm-email-actions__delete {
+  margin-left: auto;
+}
+
+.pm-email-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: -0.5rem 0 1rem;
+  color: var(--pm-comment);
+}
+
+/* Reply needed and action needed: what to act on, first */
+.pm-callouts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pm-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  max-width: 70ch;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--pm-selection);
+  border-left: 0.35rem solid var(--pm-comment);
+  border-radius: var(--pm-radius);
+}
+
+.pm-callout--action {
+  border-left-color: var(--pm-orange);
+  background: color-mix(in srgb, var(--pm-orange) 12%, var(--pm-background));
+}
+
+.pm-callout--reply {
+  border-left-color: var(--pm-cyan);
+  background: color-mix(in srgb, var(--pm-cyan) 10%, var(--pm-background));
+}
+
+.pm-callout__label {
+  font-weight: 700;
+}
+
+.pm-callout__text {
+  flex: 1 1 12rem;
+}
+
+.pm-prose.pm-summary {
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+}
+
+/* The details beside the contents on wide screens; above them on narrow ones */
+.pm-email-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 1.5rem;
+}
+
+@media (min-width: 960px) {
+  .pm-email-layout {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    grid-template-areas: "main aside";
+  }
+
+  .pm-email-main {
+    grid-area: main;
+  }
+
+  .pm-email-aside {
+    grid-area: aside;
+  }
+}
+
+.pm-panel {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-floating);
+}
+
+/* Two columns even on phones, where other detail lists stack */
+.pm-panel .pm-details {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.4rem 1rem;
+  align-items: baseline;
+}
+
+.pm-panel .pm-inline-form .pm-input {
+  min-width: 0;
+  width: 100%;
 }
 
 .pm-section {
@@ -1255,6 +1539,7 @@ textarea.pm-prompt-text {
 }
 
 .pm-message {
+  max-width: 90ch;
   max-height: 60vh;
   overflow: auto;
   white-space: pre-wrap;
@@ -1336,6 +1621,12 @@ textarea.pm-prompt-text {
   background: var(--pm-bg-lighter);
 }
 
+.pm-attachments .pm-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--pm-comment);
+}
+
 .pm-attachments li {
   display: flex;
   align-items: center;
@@ -1365,8 +1656,7 @@ textarea.pm-prompt-text {
 }
 
 .pm-result__type {
-  font-family: ui-monospace, monospace;
-  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .pm-result__detail {

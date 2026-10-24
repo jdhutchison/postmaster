@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
 import org.jboss.logging.Logger
+import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.actions.AttachmentStore
 import sh.hutch.postmaster.actions.location
 import sh.hutch.postmaster.actions.movedTo
@@ -58,7 +59,8 @@ class EmailService(
     private val calendar: CalendarClient,
     private val settings: SettingsService,
     private val store: AttachmentStore,
-    private val processing: ProcessingService
+    private val processing: ProcessingService,
+    private val registry: ActionRegistry
 ) {
 
   /**
@@ -336,7 +338,7 @@ class EmailService(
   // ---------------------------------------------------------------------------------------------
 
   private fun view(result: EmailActionResultEntity) =
-    ActionResultView(result.actionType, result.source, result.status, result.detail, result.executedAt)
+    ActionResultView(result.actionType, registry.label(result.actionType), result.source, result.status, result.detail, result.executedAt)
 
   private fun view(attachment: EmailAttachmentEntity) =
     AttachmentView(
@@ -405,7 +407,7 @@ class EmailService(
     return list.map {
       EmailRow(
           it.id!!, it.receivedAt, it.subject, it.sender, it.senderName, it.status, it.type?.name, it.type?.colour,
-          it.responseRequired, it.actionRequired, events[it.id] ?: 0, attachments[it.id] ?: 0, errors[it.id] ?: 0
+          it.responseRequired, it.actionRequired, it.isRead, events[it.id] ?: 0, attachments[it.id] ?: 0, errors[it.id] ?: 0
       )
     }
   }

@@ -1,72 +1,77 @@
 {#include layout page="emails"}
   {#title}Emails{/title}
   {#content}
-    <form class="pm-filters" method="get" action="{base}/emails" data-testid="email-filters">
-      <div class="pm-field">
-        <label for="filter-from">Received from</label>
-        <input type="date" id="filter-from" name="from" class="pm-input" value="{result.filter.from ?: ''}" data-testid="filter-from">
-      </div>
-      <div class="pm-field">
-        <label for="filter-to">to</label>
-        <input type="date" id="filter-to" name="to" class="pm-input" value="{result.filter.to ?: ''}" data-testid="filter-to">
-      </div>
-      <div class="pm-field">
-        <label for="filter-status">Status</label>
-        <select id="filter-status" name="status" class="pm-input" data-testid="filter-status">
-          <option value="">Any</option>
-          {#for s in statuses}<option value="{s.code}"{#if result.filter.hasStatus(s)} selected{/if}>{s.code}</option>{/for}
-        </select>
-      </div>
-      <div class="pm-field">
-        <label for="filter-type">Type</label>
-        <select id="filter-type" name="type" class="pm-input" data-testid="filter-type">
-          <option value="">Any</option>
-          <option value="none"{#if result.filter.unclassified} selected{/if}>Unclassified</option>
-          {#for t in types}<option value="{t.id}"{#if result.filter.hasType(t.id)} selected{/if}>{t.name}</option>{/for}
-        </select>
-      </div>
-      <div class="pm-field">
-        <label for="filter-sender">Sender</label>
-        <input type="search" id="filter-sender" name="sender" class="pm-input" value="{result.filter.sender ?: ''}" placeholder="Name or address" data-testid="filter-sender">
-      </div>
-      <div class="pm-filters__checks">
-        <label class="pm-field--inline"><input type="checkbox" name="response" value="true"{#if result.filter.responseRequired} checked{/if} data-testid="filter-response"> Response required</label>
-        <label class="pm-field--inline"><input type="checkbox" name="action" value="true"{#if result.filter.actionRequired} checked{/if} data-testid="filter-action"> Action required</label>
-        <label class="pm-field--inline"><input type="checkbox" name="errors" value="true"{#if result.filter.withErrors} checked{/if} data-testid="filter-errors"> With errors</label>
-      </div>
-      <div class="pm-form-actions">
-        <button type="submit" class="pm-button pm-button--primary" data-testid="apply-filters">Filter</button>
-        <a class="pm-button" href="{base}/emails" data-testid="clear-filters">Clear</a>
-      </div>
-    </form>
-    <p class="pm-muted" data-testid="email-count">{#if result.paginated}{result.total} matching email{#if result.total != 1}s{/if}{#else}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{/if}</p>
+    <div class="pm-list-header">
+      <details class="pm-filter-panel" data-testid="filter-panel">
+        <summary class="pm-button" data-testid="toggle-filters">Filters{#if result.filter.activeCount > 0} <span class="pm-badge pm-badge--count" data-testid="active-filters">{result.filter.activeCount}</span>{/if}</summary>
+        <form class="pm-filters" method="get" action="{base}/emails" data-testid="email-filters">
+          <fieldset class="pm-date-range">
+            <legend>Received</legend>
+            <label class="pm-visually-hidden" for="filter-from">Received from</label>
+            <input type="date" id="filter-from" name="from" class="pm-input" value="{result.filter.from ?: ''}" data-testid="filter-from">
+            <span class="pm-muted">to</span>
+            <label class="pm-visually-hidden" for="filter-to">Received to</label>
+            <input type="date" id="filter-to" name="to" class="pm-input" value="{result.filter.to ?: ''}" data-testid="filter-to">
+          </fieldset>
+          <div class="pm-field">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" name="status" class="pm-input" data-testid="filter-status">
+              <option value="">Any</option>
+              {#for s in statuses}<option value="{s.code}"{#if result.filter.hasStatus(s)} selected{/if}>{s.code}</option>{/for}
+            </select>
+          </div>
+          <div class="pm-field">
+            <label for="filter-type">Type</label>
+            <select id="filter-type" name="type" class="pm-input" data-testid="filter-type">
+              <option value="">Any</option>
+              <option value="none"{#if result.filter.unclassified} selected{/if}>Unclassified</option>
+              {#for t in types}<option value="{t.id}"{#if result.filter.hasType(t.id)} selected{/if}>{t.name}</option>{/for}
+            </select>
+          </div>
+          <div class="pm-field">
+            <label for="filter-sender">Sender</label>
+            <input type="search" id="filter-sender" name="sender" class="pm-input" value="{result.filter.sender ?: ''}" placeholder="Name or address" data-testid="filter-sender">
+          </div>
+          <div class="pm-filters__checks">
+            <label class="pm-field--inline"><input type="checkbox" name="response" value="true"{#if result.filter.responseRequired} checked{/if} data-testid="filter-response"> Response required</label>
+            <label class="pm-field--inline"><input type="checkbox" name="action" value="true"{#if result.filter.actionRequired} checked{/if} data-testid="filter-action"> Action required</label>
+            <label class="pm-field--inline"><input type="checkbox" name="errors" value="true"{#if result.filter.withErrors} checked{/if} data-testid="filter-errors"> With errors</label>
+          </div>
+          <div class="pm-form-actions">
+            <button type="submit" class="pm-button pm-button--primary" data-testid="apply-filters">Filter</button>
+          </div>
+        </form>
+      </details>
+      {#if result.filter.isFiltered}<a class="pm-button" href="{base}/emails" data-testid="clear-filters">Clear filters</a>{/if}
+      <p class="pm-muted pm-list-header__count" data-testid="email-count">{#if result.paginated}{result.total} matching email{#if result.total != 1}s{/if}{#else}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{/if}</p>
+    </div>
     {#table id="emails-table"}
       <thead><tr>
         {#th col="received" label="Received" priority=1 /}
         {#th col="subject" label="Subject" priority=1 /}
         {#th col="sender" label="Sender" priority=2 /}
+        {#th col="type" label="Type" priority=3 /}
+        {#th col="needs" label="Needs" priority=2 /}
         {#th col="status" label="Status" priority=4 /}
-        {#th col="type" label="Type" priority=2 /}
-        {#th col="needs" label="Needs" priority=3 /}
-        {#th col="events" label="Events" priority=5 /}
-        {#th col="attachments" label="Attachments" priority=5 /}
-        {#th col="errors" label="Errors" priority=3 /}
+        {#th col="counts" label="Items" priority=3 resizable=false /}
       </tr></thead>
       <tbody>
         {#for row in result.rows}
-        <tr data-testid="email-row-{row.id}" data-pm-href="{base}/emails/{row.id}"{#if row.errors > 0} class="pm-row--error" data-error="true"{/if}>
+        <tr data-testid="email-row-{row.id}" data-pm-href="{base}/emails/{row.id}" class="{#if !row.isRead}pm-row--unread{/if}{#if row.errors > 0} pm-row--error{/if}"{#if row.errors > 0} data-error="true"{/if}{#if !row.isRead} data-unread="true"{/if}>
           {#td col="received" priority=1}{#time value=row.receivedAt /}{/td}
           {#td col="subject" priority=1}<a href="{base}/emails/{row.id}" data-testid="email-link-{row.id}">{row.subject ?: '(no subject)'}</a>{/td}
           {#td col="sender" priority=2 title=row.sender}{row.from}{/td}
-          {#td col="status" priority=4}{row.status.code}{/td}
-          {#td col="type" priority=2}{#if row.type}<span class="pm-swatch" style="background: {row.typeColour}"></span> {row.type}{/if}{/td}
-          {#td col="needs" priority=3}{#if row.responseRequired}<span class="pm-badge" data-testid="needs-response">Reply</span> {/if}{#if row.actionRequired}<span class="pm-badge pm-badge--action" data-testid="needs-action">Action</span>{/if}{/td}
-          {#td col="events" priority=5}{row.events}{/td}
-          {#td col="attachments" priority=5}{row.attachments}{/td}
-          {#td col="errors" priority=3}{#if row.errors > 0}<span data-testid="error-count">{row.errors}</span>{/if}{/td}
+          {#td col="type" priority=3}{#typeBadge name=row.type colour=row.typeColour /}{/td}
+          {#td col="needs" priority=2}{#if row.responseRequired}<span class="pm-badge pm-badge--reply" data-testid="needs-response">Reply</span> {/if}{#if row.actionRequired}<span class="pm-badge pm-badge--action" data-testid="needs-action">Action</span>{/if}{/td}
+          {#td col="status" priority=4}{#if row.status.code != 'processed'}<span class="pm-badge pm-badge--{row.status.code}" data-testid="status-badge">{row.status.code}</span>{/if}{/td}
+          {#td col="counts" priority=3 truncate=false}<span class="pm-counts">
+            <span class="pm-count{#if row.events == 0} pm-count--none{/if}" title="{row.events} event{#if row.events != 1}s{/if}" data-testid="count-events">{#icon name="calendar" /}{row.events}</span>
+            <span class="pm-count{#if row.attachments == 0} pm-count--none{/if}" title="{row.attachments} attachment{#if row.attachments != 1}s{/if}" data-testid="count-attachments">{#icon name="attachment" /}{row.attachments}</span>
+            {#if row.errors > 0}<span class="pm-count pm-count--error" title="{row.errors} error{#if row.errors != 1}s{/if}" data-testid="error-count">{#icon name="alert" /}{row.errors}</span>{/if}
+          </span>{/td}
         </tr>
         {#else}
-        <tr><td colspan="9" class="pm-muted" data-testid="no-emails">No emails{#if result.filter.isFiltered} match these filters{#else} have been processed yet{/if}.</td></tr>
+        <tr><td colspan="7" class="pm-muted" data-testid="no-emails">No emails{#if result.filter.isFiltered} match these filters{#else} have been processed yet{/if}.</td></tr>
         {/for}
       </tbody>
     {/table}

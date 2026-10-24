@@ -63,7 +63,7 @@ interface ActionHandler {
 
   /** How the rule editor names the action, e.g. "Mark read". */
   val label: String
-    get() = actionType.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    get() = ActionRegistry.humanise(actionType)
 
   /** Carries out [action] on the email; throwing records the action as failed. */
   fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome
@@ -78,11 +78,23 @@ class ActionRegistry(@All handlers: MutableList<ActionHandler>) {
 
   fun types(): Set<String> = byType.keys
 
+  /**
+   * How an action type is named in the UI: the built-in labels, else the handler's label, else
+   * the name made readable (`set_response_required` is "Set response required").
+   */
+  fun label(actionType: String): String =
+    RuleOptions.ACTION_LABELS[actionType] ?: byType[actionType]?.label ?: humanise(actionType)
+
   /** Every action type for the rule editor: the built-in ones in their usual order, then the others by name. */
   fun options(): List<Option> {
     val builtIn = ActionTypes.BUILT_IN.filter { it in byType }
     val others = byType.keys.filter { it !in ActionTypes.BUILT_IN }.sorted()
-    return (builtIn + others).map { Option(it, RuleOptions.ACTION_LABELS[it] ?: byType.getValue(it).label) }
+    return (builtIn + others).map { Option(it, label(it)) }
+  }
+
+  companion object {
+    /** An action type's name as words: `mark_read` is "Mark read". */
+    fun humanise(actionType: String): String = actionType.replace('_', ' ').replaceFirstChar { it.uppercase() }
   }
 }
 
