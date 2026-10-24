@@ -495,7 +495,7 @@ An editorial grid with hairline rules instead of boxes. Only the menu floats, an
   - the kicker starts at the grid's left edge, level with the floating menu button in the top right-hand corner, in capitals (1.25rem; 1rem on phones), led by the logo (the favicon) at the menu button's height and level with it; when the kicker wraps the logo stays beside it
   - the title is flush with the grid's left edge
   - an optional lede follows
-  - the actions sit on the title's baseline, at the right
+  - the actions sit at the right, below the title and just above the rule (level with the lede's last line when there is one)
   - a heavy rule (`--pm-rule-heavy`) closes it
 - **Page grid:** `.pm-page` has 12 columns. `.pm-rail` takes columns 1–3 and is sticky; `.pm-pane` takes columns 4–12. The rail holds the page's context: filters, the record's facts (`.pm-facts`, label/value rows on hairlines), the run status, a rule's identity, or notes. The pane holds the content.
 - **Sections:** `.pm-section` in the pane starts with `.pm-section__head`, a `.pm-label` heading (small capitals) over a 1px foreground rule, followed by rows on hairlines.

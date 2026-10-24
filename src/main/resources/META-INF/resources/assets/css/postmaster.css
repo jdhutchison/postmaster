@@ -262,8 +262,8 @@ code {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
       "kicker kicker"
-      "title actions"
-      "lede lede";
+      "title title"
+      "lede actions";
   column-gap: var(--pm-space-5);
   align-items: end;
   margin-bottom: var(--pm-space-5);
@@ -351,9 +351,11 @@ code {
   gap: var(--pm-space-2);
 }
 
+/* The actions sit at the right just above the masthead's rule, level with the lede's last line */
 .pm-masthead__actions {
   grid-area: actions;
   display: flex;
+  margin-top: var(--pm-space-3);
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
