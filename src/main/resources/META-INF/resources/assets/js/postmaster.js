@@ -873,6 +873,33 @@
   }
 
   // -------------------------------------------------------------------------------------------
+  // Row links: a click anywhere on a tr[data-pm-href] opens it, except on its own controls
+  // -------------------------------------------------------------------------------------------
+
+  function initRowLinks() {
+    document.addEventListener("click", function (event) {
+      var row = event.target.closest && event.target.closest("tr[data-pm-href]");
+      if (!row || event.defaultPrevented || event.button !== 0) {
+        return;
+      }
+      if (event.target.closest("a, button, input, select, textarea, label, .pm-resizer")) {
+        return;
+      }
+      // Leave a text selection alone
+      var selection = window.getSelection && window.getSelection();
+      if (selection && selection.toString()) {
+        return;
+      }
+      var href = row.getAttribute("data-pm-href");
+      if (event.ctrlKey || event.metaKey) {
+        window.open(href, "_blank");
+      } else {
+        window.location.href = href;
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------------------------
   // Start up
   // -------------------------------------------------------------------------------------------
 
@@ -890,6 +917,7 @@
     initDialogEvents();
     initCellTitles();
     initForms();
+    initRowLinks();
     if (window.htmx && typeof window.htmx.onLoad === "function") {
       // Runs for the initial page and for all content HTMX swaps in later
       window.htmx.onLoad(initContent);

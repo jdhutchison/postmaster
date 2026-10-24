@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–5 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
+**Status:** Phases 0–6 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
 
 Standing rules:
 - Commit after each completed task.
@@ -180,19 +180,19 @@ These are reusable, so the action handlers can share them.
 
 ## Phase 6: Email UI and dashboard
 
-- [ ] **6.1** `build: todo` `tests: todo` Emails list:
+- [x] **6.1** `build: done` `tests: done` (HTTP level; browser tests to do) Emails list:
   - the 30 most recent by default
   - filters: date range, status, type, sender, response/action required, errors
   - pages of 50
   - counts, and red highlighting for rows with errors
-- [ ] **6.2** `build: todo` `tests: todo` Email detail:
+- [x] **6.2** `build: done` `tests: done` (HTTP level; browser tests to do) Email detail:
   - collapsible sections for the full text and the linked page
   - events coloured by calendar, with a dialog to change an event's calendar
   - the matching rules and the actions they ran
   - delete, move and mark unread buttons
   - attachment downloads and previews
   - clearing action required
-- [ ] **6.3** `build: todo` `tests: todo` Dashboard: last and next run, counts, and "Run now".
+- [x] **6.3** `build: done` `tests: done` (HTTP level; browser tests to do) Dashboard: last and next run, counts, and "Run now".
 
 ## Phase 7: MCP server
 

@@ -1,0 +1,11 @@
+<div class="pm-preview pm-preview--{kind}" data-testid="attachment-preview" data-pm-dialog-title="{attachment.filename}">
+  {#if kind == 'image'}
+  <img src="{base}/emails/{emailId}/attachments/{attachment.id}?inline=true" alt="{attachment.filename}" data-testid="preview-image">
+  {#else}
+  <iframe src="{base}/emails/{emailId}/attachments/{attachment.id}?inline=true" title="{attachment.filename}" data-testid="preview-frame"></iframe>
+  {/if}
+  <div class="pm-dialog__actions">
+    <a class="pm-button" href="{base}/emails/{emailId}/attachments/{attachment.id}" download data-testid="preview-download">Download</a>
+    <button type="button" class="pm-button pm-button--primary" data-pm-close>Close</button>
+  </div>
+</div>

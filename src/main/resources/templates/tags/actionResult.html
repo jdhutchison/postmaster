@@ -1,0 +1,7 @@
+{! What an action did: {#actionResult result=actionResultView /} !}
+<li class="pm-result pm-result--{result.status.code}" data-testid="action-result" data-action="{result.actionType}" data-status="{result.status.code}">
+  <span class="pm-result__type">{result.actionType}</span>
+  <span class="pm-badge pm-badge--{result.status.code}">{result.status.code}</span>
+  {#if result.detail}<span class="pm-result__detail">{result.detail}</span>{/if}
+  {#if result.source.code != 'rule'}<span class="pm-muted">({result.source.code})</span>{/if}
+</li>

@@ -1,0 +1,13 @@
+<form id="move-form" class="pm-form" data-testid="move-form" hx-post="{base}/emails/{detail.id}/move" data-pm-dialog-title="Move email">
+  <div class="pm-field">
+    <label for="move-folder">Folder</label>
+    <select id="move-folder" name="folder" class="pm-input" data-testid="move-folder" required autofocus>
+      {#for f in folders}<option value="{f}">{f}</option>{/for}
+    </select>
+    <p class="pm-hint">It's in {detail.folder ?: 'an unknown folder'} now.</p>
+  </div>
+  <div class="pm-dialog__actions">
+    <button type="button" class="pm-button" data-pm-close data-testid="cancel-move">Cancel</button>
+    <button type="submit" class="pm-button pm-button--primary" data-testid="save-move"{#if folders.isEmpty} disabled{/if}>Move</button>
+  </div>
+</form>

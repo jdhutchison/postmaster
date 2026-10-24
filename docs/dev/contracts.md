@@ -1203,3 +1203,119 @@ It records results through the orchestrator.
 - `@Scheduled(every = "60s", concurrentExecution = SKIP)` checks whether a run is due: no run yet, or the latest run started at least `processing.frequency` ago. If one is due, it calls `runNow(SCHEDULE)`. A frequency change therefore applies within a minute, with no restart.
 - **Off switch:** the new startup key `postmaster.scheduler-enabled` (default `true`) turns the scheduler off. Tests should set it to `false`.
 - **Run now:** `ProcessingService.runNowAsync(): Boolean` starts a manual run on a worker thread and returns false if a run is already going. The UI uses it in 6.3.
+
+---
+
+## Phase 6: email UI and dashboard
+
+### Service layer
+
+**`services.EmailService`** is shared by the UI and the MCP server (Phase 7). It returns view models from `models` (`EmailViews.kt`), built inside its transaction, so templates and JSON never load anything lazily.
+- `search(EmailFilter): EmailPage`
+  - Unfiltered: the 30 (`RECENT`) most recently received active emails, not paginated.
+  - Filtered: pages of 50 (`PAGE_SIZE`), newest first. A page number past the end shows the last page.
+- `EmailFilter(from, to, status, typeId, sender, responseRequired, actionRequired, withErrors, page)`, all optional and combined with AND:
+  - `from` and `to` are inclusive `LocalDate`s in `processing.timezone`.
+  - `typeId` is `EmailFilter.UNCLASSIFIED` (0) for emails with no type.
+  - `sender` matches the address or display name, ignoring case.
+- `detail(id): EmailDetail`: everything on the detail page, including events (`EventView`), attachments (`AttachmentView`), rule matches with their action results (`RuleResults`), manual actions, errors and the enabled calendars.
+- **Manual actions** return `ManualResult(ok, message)`. Each is recorded as an `Email_action_results` row with `source` `ui` or `mcp` and no rule. A failure is recorded as `failed`, plus a `manual` error, and is **not** thrown. Bad input throws `ValidationException`; a missing email or event throws `NotFoundException`.
+
+  | Method | `action_type` recorded |
+  |---|---|
+  | `setType(id, typeId?, source)` (null clears the type; Bill clears action required) | `set_type` |
+  | `move(id, folder, source)` | `move` |
+  | `setRead(id, read, source)` | `mark_read` / `mark_unread` |
+  | `delete(id, source)`: to `imap.trash_folder`, then soft-deletes the email (D11) | `delete` |
+  | `forward(id, to, source)` | `forward_email` |
+  | `setResponseRequired(id, required, source)` | `set_response_required` |
+  | `setActionRequired(id, required, description?, source)`: setting it on a Bill fails (Q13) | `set_action_required` |
+  | `changeEventCalendar(emailId, eventId, calendarId, source)`: an added event is moved in khal (`CalendarClient.moveEvent`); one not yet added is added to the chosen calendar, with the calendar's notification periods | `change_event_calendar` |
+- `reprocess(id): ManualResult` calls `ProcessingService.reprocess`.
+- `folders()` lists the IMAP folders.
+- `attachmentFile(emailId, attachmentId): StoredFile(attachment, mediaType, path)`. Throws 404 unless the attachment was downloaded and its file is inside `attachments.path`.
+- **Previews:** `EmailService.previewKind(mediaType)` is `pdf` (`application/pdf`), `image` (PNG, JPEG, GIF, WebP) or `text` (`text/plain`), and null otherwise. HTML and SVG are never shown inline.
+
+**`services.DashboardService.dashboard(): Dashboard`** returns:
+- `running`
+- `latest` (`RunView`)
+- `nextRunAt`: the latest start plus `processing.frequency`, or now if that has passed; null when the scheduler is off
+- `frequency`
+- `schedulerEnabled`
+- `counts` (`EmailCounts`: total, last day, with errors, response required, action required, unclassified)
+- `recentRuns`: the last 10
+
+### 6.1 Emails list (`page="emails"`)
+
+`GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true` and `page`. Values that don't parse are ignored.
+- **Filter form:** `form[data-testid=email-filters]` (`method=get`), with:
+  - `filter-from`, `filter-to`, `filter-status`, `filter-type`, `filter-sender`
+  - checkboxes `filter-response`, `filter-action` and `filter-errors`
+  - `apply-filters` and the link `clear-filters`
+- **Count line:** `[data-testid=email-count]` reads `The N most recently received emails` (unfiltered) or `N matching emails`.
+- **Table** `{#table id="emails-table"}`, with columns:
+  - `received` (p1, `{#time}`)
+  - `subject` (p1, a link `email-link-<id>`)
+  - `sender` (p2, the name, with the address as a tooltip)
+  - `status` (p4)
+  - `type` (p2, swatch and name)
+  - `needs` (p3, badges `needs-response` "Reply" and `needs-action` "Action")
+  - `events` (p5), `attachments` (p5)
+  - `errors` (p3, empty when there are none)
+- **Rows** are `tr[data-testid=email-row-<id>][data-pm-href=/mail/emails/<id>]`. A click anywhere on a row, other than on a control, opens the email. Ctrl/Cmd-click opens it in a new tab.
+- **Rows with errors** have class `pm-row--error` and `data-error="true"`, with a red tint.
+- **Empty list:** `[data-testid=no-emails]`.
+- **Pagination**, filtered with more than one page: `nav[data-testid=pagination]` with `previous-page`, `page-number` (`Page 2 of 3`) and `next-page`. The links keep the filters.
+
+### 6.2 Email detail (`page="emails"`)
+
+| Route | Result |
+|---|---|
+| `GET /emails/{id}` | the page; 404 for unknown or deleted emails |
+| `DELETE /emails/{id}` | `HX-Redirect: /mail/emails`, flash `Deleted the email: Moved to Trash` |
+| `POST /emails/{id}/read` (`read=true\|false`) | |
+| `GET /emails/{id}/move` | form fragment for `move-dialog` (`select[name=folder]`, `data-testid=move-folder`; the current folder isn't offered). A mailbox failure is 502 with an error toast. |
+| `POST /emails/{id}/move` (`folder`) | 422 if blank |
+| `POST /emails/{id}/type` (`typeId`; blank clears) | 422 for an unknown type |
+| `POST /emails/{id}/response-required` and `/action-required` (`required=true\|false`) | |
+| `POST /emails/{id}/reprocess` | |
+| `GET /emails/{id}/events/{eventId}/calendar` | form fragment for `event-calendar-dialog`: radio buttons `calendarId` (`calendar-choice-<id>`), `cancel-calendar` and `save-calendar` |
+| `POST /emails/{id}/events/{eventId}/calendar` (`calendarId`) | 422 unless it's an enabled calendar |
+| `GET /emails/{id}/attachments/{aid}` | the file, `Content-Disposition: attachment`. With `?inline=true`, previewable types are sent `inline`. Always `X-Content-Type-Options: nosniff`. |
+| `GET /emails/{id}/attachments/{aid}/preview` | fragment for `attachment-dialog`: an `iframe` (PDF, text) or `img` (`preview-image`) of `…?inline=true`. 404 if it can't be previewed. |
+
+- **Manual actions** that succeed respond `HX-Redirect` to `/mail/emails/{id}`, flashing a success toast with the result's message. Failures are **502** with an error toast; nothing is swapped.
+- **Page:**
+  - **Actions bar** `email-actions`: `back-to-emails`, `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm).
+  - **Details** `dl[data-testid=email-details]`:
+    - `email-from`, `email-received`, `email-processed`, `email-status`
+    - the type form `type-form` (`select[name=typeId]` `email-type`, and `set-type`)
+    - `email-folder`, `email-read`
+    - `email-response-required` (with `clear-response-required`)
+    - `email-action-required` (with the description and `clear-action-required`)
+    - `email-link`
+  - **Summary:** `email-summary`.
+  - **Bill:** `bill-details`, holding `bill-biller`, `bill-amount`, `bill-due`, `bill-pay-link` and `bill-download-url`.
+  - **Collapsed contents:** `details[data-testid=full-message]` (closed at first) and `details[data-testid=linked-page]` (with `link-summary` and `link-contents`), the latter only when a page was fetched.
+  - **Events:** `ul[data-testid=events]`. Each is `button[data-testid=event-<id>]`, with the CSS variable `--pm-event-colour` set to its calendar's colour and `[data-testid=event-calendar]` showing the calendar, or `Not added (suggested: …)`. Events not added have class `pm-event--pending`. Clicking one opens the calendar dialog.
+  - **Attachments:** `ul[data-testid=attachments]` with `attachment-<id>`. Downloaded ones have `download-attachment-<id>`, and previewable ones also `preview-attachment-<id>`.
+  - **Rules:** `matched-rules`, holding:
+    - `classification-rule` / `action-rule` blocks (`data-rule-id`) linking to the rule, or `no-classification-rule` / `no-action-rules`
+    - `manual-actions` for actions done by hand
+
+    Each action result is `li[data-testid=action-result][data-action=<type>][data-status=<status>]`.
+  - **Errors:** `ul[data-testid=email-errors]`.
+
+### 6.3 Dashboard (`page="dashboard"`)
+
+| Route | Result |
+|---|---|
+| `GET /` | the page |
+| `GET /dashboard` | the dashboard fragment |
+| `POST /runs` | starts a run in the background (`runNowAsync`): the fragment with toast `Processing started`, or **409** with the error toast `Processing is already running` |
+
+- **Fragment** `section#dashboard[data-testid=home-page]`. While a run is in progress it has `data-running="true"` and polls itself (`hx-get=/mail/dashboard`, `hx-trigger="every 2s"`, `hx-swap=outerHTML`). Polling stops when the run ends.
+- **Cards:**
+  - `processing-status`, with `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running)
+  - links to the filtered list: `count-total`, `count-response`, `count-action`, `count-unclassified` and `count-errors`
+- **Recent runs:** `{#table id="runs-table"}`, rows `run-row-<id>`. Failed runs have `pm-row--error`.

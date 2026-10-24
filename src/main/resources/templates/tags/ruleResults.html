@@ -1,0 +1,11 @@
+{! A rule that matched an email and what its actions did: {#ruleResults rule=ruleResults base=base testid="action-rule" /} !}
+<div class="pm-rule-results" data-testid="{testid}" data-rule-id="{rule.ruleId ?: ''}">
+  <p class="pm-rule-results__name">{#if rule.ruleId}<a href="{base}/rules/{rule.ruleType.code}/{rule.ruleId}/edit">{rule.rule}</a>{#else}{rule.rule}{/if}</p>
+  {#if rule.results.isEmpty}
+  <p class="pm-muted">No actions ran.</p>
+  {#else}
+  <ul class="pm-results">
+    {#for res in rule.results}{#actionResult result=res /}{/for}
+  </ul>
+  {/if}
+</div>

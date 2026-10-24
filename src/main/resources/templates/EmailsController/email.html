@@ -1,0 +1,166 @@
+{#include layout page="emails"}
+  {#title}{detail.subject ?: '(no subject)'}{/title}
+  {#content}
+    <div class="pm-page-actions pm-email-actions" data-testid="email-actions">
+      <a class="pm-button" href="{base}/emails" data-testid="back-to-emails">All emails</a>
+      {#if detail.isRead}
+      <button type="button" class="pm-button" data-testid="mark-unread" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "false"}'>Mark unread</button>
+      {#else}
+      <button type="button" class="pm-button" data-testid="mark-read" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "true"}'>Mark read</button>
+      {/if}
+      <button type="button" class="pm-button" data-testid="move-email" hx-get="{base}/emails/{detail.id}/move" hx-target="#move-dialog-body">Move</button>
+      <button type="button" class="pm-button" data-testid="reprocess-email" hx-post="{base}/emails/{detail.id}/reprocess" hx-confirm="Process this email again? Its rule matches, results and errors are replaced." data-pm-confirm-label="Reprocess">Reprocess</button>
+      <button type="button" class="pm-button pm-button--danger" data-testid="delete-email" hx-delete="{base}/emails/{detail.id}" hx-confirm="Delete this email? It's moved to the trash folder." data-pm-confirm-label="Delete">Delete</button>
+    </div>
+
+    <section class="pm-section" aria-labelledby="email-details-heading">
+      <h2 id="email-details-heading" class="pm-visually-hidden">Details</h2>
+      <dl class="pm-details" data-testid="email-details">
+        <dt>From</dt><dd data-testid="email-from">{detail.from}</dd>
+        <dt>Received</dt><dd data-testid="email-received">{#time value=detail.receivedAt /}</dd>
+        <dt>Processed</dt><dd data-testid="email-processed">{#if detail.processedAt}{#time value=detail.processedAt /}{#else}<span class="pm-muted">Not yet</span>{/if}</dd>
+        <dt>Status</dt><dd data-testid="email-status">{detail.status.code}</dd>
+        <dt>Type</dt>
+        <dd>
+          <form class="pm-inline-form" hx-post="{base}/emails/{detail.id}/type" data-testid="type-form">
+            <label class="pm-visually-hidden" for="email-type">Type</label>
+            <select id="email-type" name="typeId" class="pm-input" data-testid="email-type">
+              <option value="">Unclassified</option>
+              {#for t in types}<option value="{t.id}"{#if detail.typeId == t.id} selected{/if}>{t.name}</option>{/for}
+            </select>
+            <button type="submit" class="pm-button pm-button--small" data-testid="set-type">Set type</button>
+          </form>
+        </dd>
+        <dt>Folder</dt><dd data-testid="email-folder">{detail.folder ?: ''}{#if detail.movedTo} <span class="pm-muted">(moved by Postmaster)</span>{/if}</dd>
+        <dt>Read</dt><dd data-testid="email-read">{#if detail.isRead}Yes{#else}No{/if}</dd>
+        <dt>Response required</dt>
+        <dd data-testid="email-response-required">
+          {#if detail.responseRequired}Yes
+            <button type="button" class="pm-button pm-button--small" data-testid="clear-response-required" hx-post="{base}/emails/{detail.id}/response-required" hx-vals='{"required": "false"}'>Clear</button>
+          {#else}No{/if}
+        </dd>
+        <dt>Action required</dt>
+        <dd data-testid="email-action-required">
+          {#if detail.actionRequired}Yes{#if detail.actionDescription}: {detail.actionDescription}{/if}
+            <button type="button" class="pm-button pm-button--small" data-testid="clear-action-required" hx-post="{base}/emails/{detail.id}/action-required" hx-vals='{"required": "false"}'>Done</button>
+          {#else}No{/if}
+        </dd>
+        {#if detail.link}<dt>Link</dt><dd class="pm-break"><a href="{detail.link}" rel="noopener noreferrer" target="_blank" data-testid="email-link">{detail.link}</a></dd>{/if}
+      </dl>
+    </section>
+
+    {#if detail.summary}
+    <section class="pm-section" aria-labelledby="summary-heading">
+      <h2 id="summary-heading" class="pm-section__title">Summary</h2>
+      <p class="pm-prose" data-testid="email-summary">{detail.summary}</p>
+    </section>
+    {/if}
+
+    {#if detail.bill}
+    <section class="pm-section" aria-labelledby="bill-heading" data-testid="bill-details">
+      <h2 id="bill-heading" class="pm-section__title">Bill</h2>
+      <dl class="pm-details">
+        {#if detail.bill.biller}<dt>Biller</dt><dd data-testid="bill-biller">{detail.bill.biller}</dd>{/if}
+        {#if detail.bill.amount}<dt>Amount</dt><dd data-testid="bill-amount">${detail.bill.amount.toPlainString}</dd>{/if}
+        {#if detail.bill.dueDate}<dt>Due</dt><dd data-testid="bill-due">{detail.bill.dueDate}</dd>{/if}
+        {#if detail.bill.payLink}<dt>Pay</dt><dd class="pm-break"><a href="{detail.bill.payLink}" rel="noopener noreferrer" target="_blank" data-testid="bill-pay-link">{detail.bill.payLink}</a></dd>{/if}
+        {#if detail.bill.downloadUrl}<dt>Bill</dt><dd class="pm-break"><a href="{detail.bill.downloadUrl}" rel="noopener noreferrer" target="_blank" data-testid="bill-download-url">{detail.bill.downloadUrl}</a></dd>{/if}
+      </dl>
+    </section>
+    {/if}
+
+    <section class="pm-section" aria-labelledby="contents-heading">
+      <h2 id="contents-heading" class="pm-section__title">Contents</h2>
+      <details class="pm-concertina" data-testid="full-message">
+        <summary>Full message text</summary>
+        {#if detail.message}<pre class="pm-message">{detail.message}</pre>{#else}<p class="pm-muted">The email has no text.</p>{/if}
+      </details>
+      {#if detail.linkContents || detail.linkSummary}
+      <details class="pm-concertina" data-testid="linked-page">
+        <summary>Linked page</summary>
+        {#if detail.linkSummary}<p class="pm-prose" data-testid="link-summary">{detail.linkSummary}</p>{/if}
+        {#if detail.linkContents}<pre class="pm-message" data-testid="link-contents">{detail.linkContents}</pre>{/if}
+      </details>
+      {/if}
+    </section>
+
+    <section class="pm-section" aria-labelledby="events-heading">
+      <h2 id="events-heading" class="pm-section__title">Events</h2>
+      {#if detail.events.isEmpty}
+      <p class="pm-muted" data-testid="no-events">No events.</p>
+      {#else}
+      <ul class="pm-events" data-testid="events">
+        {#for e in detail.events}
+        <li>
+          <button type="button" class="pm-event{#if !e.isAdded} pm-event--pending{/if}" data-testid="event-{e.id}"{#if e.calendarColour} style="--pm-event-colour: {e.calendarColour}"{/if}
+              hx-get="{base}/emails/{detail.id}/events/{e.id}/calendar" hx-target="#event-calendar-dialog-body"
+              aria-label="{e.title}: {#if e.isAdded}change its calendar{#else}add it to a calendar{/if}">
+            <span class="pm-event__title">{e.title}</span>
+            <span class="pm-event__time">{e.time}{#if e.location} · {e.location}{/if}</span>
+            <span class="pm-event__calendar" data-testid="event-calendar">{#if e.isAdded}{e.calendar ?: 'Unknown calendar'}{#else}Not added{#if e.calendar} (suggested: {e.calendar}){/if}{/if}</span>
+          </button>
+        </li>
+        {/for}
+      </ul>
+      {/if}
+    </section>
+
+    <section class="pm-section" aria-labelledby="attachments-heading">
+      <h2 id="attachments-heading" class="pm-section__title">Attachments</h2>
+      {#if detail.attachments.isEmpty}
+      <p class="pm-muted" data-testid="no-attachments">No attachments.</p>
+      {#else}
+      <ul class="pm-attachments" data-testid="attachments">
+        {#for a in detail.attachments}
+        <li data-testid="attachment-{a.id}">
+          <span class="pm-attachment__name">{a.filename}</span>
+          {#if a.downloaded}
+          <a class="pm-icon-button" href="{base}/emails/{detail.id}/attachments/{a.id}" download aria-label="Download {a.filename}" data-testid="download-attachment-{a.id}">{#icon name="download" /}</a>
+          {#if a.preview}
+          <button type="button" class="pm-icon-button" aria-label="Preview {a.filename}" data-testid="preview-attachment-{a.id}" hx-get="{base}/emails/{detail.id}/attachments/{a.id}/preview" hx-target="#attachment-dialog-body">{#icon name="preview" /}</button>
+          {/if}
+          {#else}
+          <span class="pm-muted">not downloaded</span>
+          {/if}
+        </li>
+        {/for}
+      </ul>
+      {/if}
+    </section>
+
+    <section class="pm-section" aria-labelledby="rules-heading" data-testid="matched-rules">
+      <h2 id="rules-heading" class="pm-section__title">Rules</h2>
+      <h3 class="pm-subtitle">Classification rule</h3>
+      {#if detail.classification.isEmpty}
+      <p class="pm-muted" data-testid="no-classification-rule">No classification rule matched.</p>
+      {#else}
+      {#for r in detail.classification}{#ruleResults rule=r base=base testid="classification-rule" /}{/for}
+      {/if}
+      <h3 class="pm-subtitle">Action rules</h3>
+      {#if detail.actions.isEmpty}
+      <p class="pm-muted" data-testid="no-action-rules">No action rules matched.</p>
+      {#else}
+      {#for r in detail.actions}{#ruleResults rule=r base=base testid="action-rule" /}{/for}
+      {/if}
+      {#if !detail.manual.isEmpty}
+      <h3 class="pm-subtitle">Done by hand</h3>
+      <ul class="pm-results" data-testid="manual-actions">
+        {#for res in detail.manual}{#actionResult result=res /}{/for}
+      </ul>
+      {/if}
+    </section>
+
+    {#if !detail.errors.isEmpty}
+    <section class="pm-section pm-section--errors" aria-labelledby="errors-heading">
+      <h2 id="errors-heading" class="pm-section__title">Errors</h2>
+      <ul class="pm-errors" data-testid="email-errors">
+        {#for err in detail.errors}<li><span class="pm-badge">{err.phase.code}</span> {err.message}</li>{/for}
+      </ul>
+    </section>
+    {/if}
+
+    {#modal id="move-dialog" title="Move email"}<p class="pm-muted">Loading…</p>{/modal}
+    {#modal id="event-calendar-dialog" title="Calendar"}<p class="pm-muted">Loading…</p>{/modal}
+    {#modal id="attachment-dialog" title="Preview"}<p class="pm-muted">Loading…</p>{/modal}
+  {/content}
+{/include}

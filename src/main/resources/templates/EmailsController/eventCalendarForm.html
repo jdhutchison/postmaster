@@ -1,0 +1,20 @@
+<form id="event-calendar-form" class="pm-form" data-testid="event-calendar-form" hx-post="{base}/emails/{detail.id}/events/{event.id}/calendar" data-pm-dialog-title="{#if event.isAdded}Change calendar{#else}Add to a calendar{/if}">
+  <p><strong>{event.title}</strong><br><span class="pm-muted">{event.time}</span></p>
+  {#if detail.calendars.isEmpty}
+  <p class="pm-muted" data-testid="no-calendars">There are no enabled calendars.</p>
+  {#else}
+  <fieldset class="pm-calendar-choices" data-testid="calendar-choices">
+    <legend class="pm-visually-hidden">Calendar</legend>
+    {#for c in detail.calendars}
+    <label class="pm-calendar-choice" style="--pm-event-colour: {c.colour}">
+      <input type="radio" name="calendarId" value="{c.id}" data-testid="calendar-choice-{c.id}"{#if event.calendarId == c.id} checked{/if}{#if c_isFirst} autofocus{/if}>
+      <span class="pm-swatch" style="background: {c.colour}"></span> {c.name}
+    </label>
+    {/for}
+  </fieldset>
+  {/if}
+  <div class="pm-dialog__actions">
+    <button type="button" class="pm-button" data-pm-close data-testid="cancel-calendar">Cancel</button>
+    <button type="submit" class="pm-button pm-button--primary" data-testid="save-calendar"{#if detail.calendars.isEmpty} disabled{/if}>{#if event.isAdded}Move{#else}Add{/if}</button>
+  </div>
+</form>

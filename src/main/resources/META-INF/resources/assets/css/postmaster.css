@@ -1020,6 +1020,346 @@ textarea.pm-prompt-text {
 }
 
 /* ---------------------------------------------------------------------------------------------
+ * Dashboard
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.pm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  background: var(--pm-bg-floating);
+  color: var(--pm-foreground);
+}
+
+.pm-card p {
+  margin: 0;
+}
+
+/* The processing card is the widest */
+.pm-card:first-child {
+  grid-column: span 2;
+}
+
+.pm-card--link {
+  text-decoration: none;
+}
+
+.pm-card--link:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-card--error {
+  border-color: var(--pm-red);
+}
+
+.pm-card__title {
+  margin: 0;
+  color: var(--pm-comment);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pm-card__value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .pm-card:first-child {
+    grid-column: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Emails list and email detail
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.pm-filters__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  grid-column: 1 / -1;
+}
+
+.pm-filters .pm-form-actions {
+  grid-column: 1 / -1;
+}
+
+/* Rows open the email when clicked anywhere */
+.pm-table tr[data-pm-href] {
+  cursor: pointer;
+}
+
+/* Rows of emails with processing errors */
+.pm-table tbody tr.pm-row--error td {
+  background: color-mix(in srgb, var(--pm-red) 16%, var(--pm-background));
+}
+
+.pm-table tbody tr.pm-row--error:hover td {
+  background: color-mix(in srgb, var(--pm-red) 26%, var(--pm-background));
+}
+
+.pm-badge--action,
+.pm-badge--failed {
+  background: color-mix(in srgb, var(--pm-orange) 30%, var(--pm-background));
+}
+
+.pm-badge--failed {
+  background: color-mix(in srgb, var(--pm-red) 30%, var(--pm-background));
+}
+
+.pm-badge--done {
+  background: color-mix(in srgb, var(--pm-green) 25%, var(--pm-background));
+}
+
+.pm-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.pm-email-actions {
+  justify-content: flex-start;
+}
+
+.pm-section {
+  margin: 0 0 1.5rem;
+}
+
+.pm-section__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.pm-subtitle {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.pm-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+.pm-details dt {
+  color: var(--pm-comment);
+  font-weight: 600;
+}
+
+.pm-details dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.pm-break {
+  overflow-wrap: anywhere;
+}
+
+.pm-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-inline-form .pm-input {
+  width: auto;
+  min-width: 12rem;
+}
+
+.pm-prose {
+  margin: 0;
+  max-width: 70ch;
+  white-space: pre-line;
+}
+
+.pm-concertina {
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+}
+
+.pm-concertina > summary {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pm-concertina[open] > summary {
+  border-bottom: 1px solid var(--pm-selection);
+}
+
+.pm-concertina > :not(summary) {
+  margin: 0.75rem;
+}
+
+.pm-message {
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+.pm-events,
+.pm-attachments,
+.pm-results,
+.pm-errors {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-events {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.5rem;
+}
+
+/* An event, coloured by its calendar */
+.pm-event {
+  --pm-event-colour: var(--pm-comment);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--pm-selection);
+  border-left: 0.4rem solid var(--pm-event-colour);
+  border-radius: var(--pm-radius);
+  background: color-mix(in srgb, var(--pm-event-colour) 12%, var(--pm-background));
+  color: var(--pm-foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pm-event:hover {
+  background: color-mix(in srgb, var(--pm-event-colour) 22%, var(--pm-background));
+}
+
+.pm-event--pending {
+  border-left-style: dashed;
+}
+
+.pm-event__title {
+  font-weight: 600;
+}
+
+.pm-event__time,
+.pm-event__calendar {
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+}
+
+.pm-calendar-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pm-calendar-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 0.3rem solid var(--pm-event-colour);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.pm-calendar-choice:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-attachments li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+}
+
+.pm-attachment__name {
+  overflow-wrap: anywhere;
+}
+
+.pm-rule-results {
+  margin-bottom: 0.5rem;
+}
+
+.pm-rule-results__name {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.pm-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+.pm-result__type {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9rem;
+}
+
+.pm-result__detail {
+  overflow-wrap: anywhere;
+}
+
+.pm-section--errors .pm-errors li {
+  padding: 0.25rem 0;
+  color: var(--pm-red);
+}
+
+/* Attachment previews fill most of the viewport */
+.pm-dialog:has(.pm-preview) {
+  width: min(64rem, calc(100vw - 2rem));
+}
+
+.pm-preview iframe {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--pm-selection);
+  background: #fff;
+}
+
+.pm-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------------------------
  * Small screens
  * ------------------------------------------------------------------------------------------- */
 
@@ -1031,6 +1371,15 @@ textarea.pm-prompt-text {
   .pm-table th,
   .pm-table td {
     padding: 0.5rem;
+  }
+
+  .pm-details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+
+  .pm-details dd {
+    margin-bottom: 0.4rem;
   }
 }
 
