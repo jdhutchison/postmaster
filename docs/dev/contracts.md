@@ -1036,3 +1036,167 @@ The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
 - **Timed events:** `DTSTART`/`DTEND` in UTC (`…Z`), converted from the local wall-clock time in `processing.timezone`. `DTEND` is `endsAt`, or `startsAt` plus 1h.
 - **All-day events:** `DTSTART;VALUE=DATE:yyyyMMdd` and `DTEND;VALUE=DATE` the next day.
 - One `VALARM` (`ACTION:DISPLAY`, `TRIGGER:-<ISO duration>`) per alarm.
+
+---
+
+## Phase 5: processing pipeline
+
+### 5.1 Rule engine (`services.RuleEngine`)
+
+**What a rule tests:** `EmailFacts(subject, sender, senderName, message, events: List<String>, attachments: List<String>, billUrl, type, link)`, in `models`. All the scalar fields are `String?`. The facts are built from the email record:
+- `message` is the plain text.
+- `events` are the event titles, and `attachments` the stored attachment filenames.
+- `billUrl` is `Emails.bill_download_url`.
+- `type` is the type's name.
+
+**Methods:**
+- `matches(rule: RuleEntity, facts): Boolean` is true when **every** condition matches (Q21). A rule with no conditions never matches.
+- `conditionMatches(condition, facts): Boolean`
+
+**Matching by match type:**
+
+| Match type | Scalar attributes | List attributes (events, attachments) |
+|---|---|---|
+| `is` | the trimmed value equals the trimmed test, ignoring case | |
+| `contains` | the value contains the test, ignoring case | |
+| `starts_with` | the trimmed value starts with the trimmed test, ignoring case | |
+| `regex` | `Regex(test).containsMatchIn(value)`, case-sensitive unless the pattern uses `(?i)` | any item matches |
+| `has` | not used (Q9) | the list is not empty (Q10) |
+| `is_present` | the value is not blank | the list is not empty |
+
+- A null scalar value matches nothing except `is_present` (which is false).
+- An invalid regex matches nothing.
+- **`sender`:** `is` and `starts_with` compare the address. `contains` and `regex` match either the address or the display name.
+
+**Rule order** is `RuleRepository.listEnabled(type)`: priority descending, then oldest first. Only enabled, active rules count.
+
+### 5.2 Action framework (package `sh.hutch.postmaster.actions`)
+
+**`interface ActionHandler`**
+- `val actionType: String`
+- `val stage: ActionStage`
+- `val order: Int`, which orders handlers within a stage
+- `fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome`
+
+A handler is an `@ApplicationScoped` bean. `ActionRegistry` (`handler(type)` and `types()`) collects every `ActionHandler` bean, so **a new action type is just a new bean**. `RuleService` validates action types against `ActionRegistry.types()`.
+
+**`enum ActionStage`**, in execution order:
+
+| Stage | Built-in actions |
+|---|---|
+| `RECORD` | `set_type`, `set_reply_needed`, `skip_processing` |
+| `GATHER` | `fetch_link_contents` (10), `check_for_events` (20), `download_attachments` (30), `create_events` (40), `process_bill` (50) |
+| `FORWARD` | `forward_email` |
+| `READ_STATE` | `mark_read`, `mark_unread` |
+| `MOVE` | `move`, `delete` (last) |
+
+**`ActionOutcome(status: ActionResultStatus, detail: String?)`**
+- Factories: `done(detail)`, `skipped(detail)` and `failed(detail)`.
+- A handler that throws is recorded as `failed` with the exception's message.
+
+**`ProcessingContext`** holds:
+- the `EmailEntity`
+- the `ParsedMessage`, when there is one
+- `facts()` (current, rebuilt on each call)
+- `stopped`
+
+It records results through the orchestrator.
+
+**When actions run (Q12):**
+- **Classification rule:** its `RECORD` actions run at once. `fetch_link_contents` and `check_for_events` run in the LLM phase, after Summarise. Every other action is queued for the action phase.
+- **Action rules:** all their actions are queued.
+- **The queue** runs in stage order, then handler order, then rule order (priority).
+- **Conflicts:**
+  - Only the first `MOVE`-stage action runs (the highest-priority rule, then first in the rule). Every other is recorded as `skipped` with detail `Conflicts with <type> from rule <name>`, plus an `action` error.
+  - `READ_STATE` actions conflict the same way.
+- **`skip_processing`** stops processing at once (`stopped`). Remaining queued actions are recorded as `skipped`, with detail `Processing was stopped by skip_processing`.
+
+**Recording:**
+- Every executed or skipped action becomes an `Email_action_results` row: `source=rule`, `rule_id`, `rule_action_id`, `action_type`, `status` and `detail`.
+- Failures also add an `Email_errors` row: phase `classification` for an action run during classification, otherwise `action`. The message is `<action_type>: <detail>`.
+- Every matching rule becomes an `Email_rule_matches` row, with `position` in the order they matched.
+
+### 5.3 Handlers
+
+| Action | What it does |
+|---|---|
+| `set_type` | `email.assignType(action.type)` |
+| `set_reply_needed` | `responseRequired = true` |
+| `skip_processing` | stops processing |
+| `mark_read` / `mark_unread` | `MailboxClient.setRead` on the email's folder and UID, then `isRead` |
+| `move` | `MailboxClient.move` to `destination`, then `folder` and `movedTo` = destination. `imapUid` is re-found with `MailboxClient.findUid(folder, messageId)`, which can be null. |
+| `delete` | `MailboxClient.delete` (to `imap.trash_folder`), then `folder` and `movedTo` = the trash folder. The record is kept. |
+| `forward_email` | `MailboxClient.forward(folder, uid, destination)` |
+| `download_attachments` | Saves each attachment not yet downloaded to `<attachments.path>/<yyyy>/<MM>/<email id>/<sanitised filename>`. Sets `stored_path` (relative) and `downloaded_at`. |
+| `fetch_link_contents` | Needs `email.link` (`skipped` with `No link to fetch` otherwise). `HttpFetcher.fetchPage`, then `link_contents` = `HtmlParser.text(page)` and `link_summary` = the LLM's answer to `summarise_page`, with `{{page}}` = the page HTML. |
+| `check_for_events` (Q11) | When the email has no events yet, the LLM's `identify_events` JSON is stored as `Email_events`. Each gets a suggested calendar from the LLM's `select_calendar` map (event id to calendar name). Nothing is added to a calendar. |
+| `create_events` | Identifies events first if there are none. Then each event not yet added goes to a calendar, chosen in this order: the action's calendar, then the event's suggested calendar, then `select_calendar`. Events with no calendar are left out, and the detail says so. Alarms are the action's `notifications`, else the calendar's `notification_periods`. `CalendarClient.addEvent`, then `is_added`, `khal_uid` and `calendar_id`. |
+
+**Event times from the LLM (`when`):**
+- `yyyy-MM-dd` gives an all-day event.
+- An ISO local date-time gives a timed event, `ends_at` = start + `events.default_duration`.
+- Anything else is an `llm` error, and the event is left out.
+
+**`MailboxClient.findUid(folder: String, messageId: String): Long?`** is new. It searches by Message-ID header and returns null when the message isn't found or the id is a generated one.
+
+### 5.4 `process_bill` (`actions.ProcessBillHandler`)
+
+- **Not a bill:** `skipped` unless the email's type is the Bill system type.
+- **Amount:** matches of `\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)` in the email text. The first match within 80 characters after one of `amount due`, `total due`, `balance due`, `amount payable`, `total` or `due` (ignoring case) wins, otherwise the first match.
+- **Due date:** `(due|pay) by` or `due date`, then up to 60 characters, then a date:
+  - `d MMM yyyy` or `d MMMM yyyy`, with any capitalisation, an optional leading zero and optional `st`/`nd`/`rd`/`th`
+  - or `d/M/yyyy`
+- **Links:**
+  - The pay link is the first `HtmlParser.findLinks(html, bills.pay_link_text)` match.
+  - The bill link, used only when there's no PDF attachment, is the first `bills.bill_link_text` match.
+- **Biller:** the sender's display name, else the sender's domain.
+- **LLM fallback:** when the amount, due date or pay link is missing, the `bill_details` JSON (`organisation`, `due_date`, `amount_due`, `payment_link`, `bill_url`) fills only the missing fields.
+- **Stored:** `bill_sender`, `bill_amount`, `bill_due_date`, `bill_pay_link` and `bill_download_url`.
+- **Reminder:** an all-day event on the due date minus one day, in the action's calendar.
+  - Title: `Pay <biller> $<amount>`, or `Pay <biller>` with no amount.
+  - Notes: `Biller: …`, `Amount: $…`, `Due: yyyy-MM-dd`, `Pay: <link>`.
+  - It's stored as an `Email_events` row with `is_added = true`.
+  - With no due date, there's no reminder and an `action` error is added.
+- **Bill download:** a PDF attachment is saved as for `download_attachments`. Otherwise the bill link is downloaded with curl to the same directory, and the file is stored as an `Email_attachments` row (filename from the URL, or `bill.pdf`).
+- **Outcome:** `done` with a summary of what was found. `failed` only if nothing at all was found.
+
+### 5.5 Orchestrator (`services.ProcessingService`)
+
+**`runNow(trigger: RunTrigger): ProcessingRunEntity?`** runs synchronously. It returns null if a run is already in progress (one at a time, process-wide).
+- It records a `Processing_runs` row: `running`, then `succeeded` or `failed` with `error`.
+- Counts: `emails_found` (new messages listed), `emails_processed` and `emails_failed`.
+
+**Each run:**
+1. `MailboxClient.listInbox(now - processing.lookback)`, newest first. Messages whose Message-ID `existsByMessageId` are skipped (Q14).
+2. Each new message is processed in **its own transaction**, so a failure affects only that email. If fetching it from IMAP fails, nothing is recorded and the next run retries it (counted as failed).
+
+**`process(listed)`:**
+1. Create the email record (`status=pending`) with the parsed fields and the attachments whose extension is in `attachments.extensions`. Embedded images are already left out.
+2. **Classification:** the first matching classification rule only. Record the match and run its actions as in 5.2.
+3. If processing was stopped, `status=skipped`, and stop here.
+4. **LLM phase** (Q15):
+   - With no type yet: the `classify` prompt (plain chat). The answer is trimmed and compared with type names, ignoring case. `NO CLASSIFICATION` or an unknown name leaves the email unclassified; an unknown name is also recorded as an `llm` error.
+   - Then always `summarise` (`chatJson`), which stores:
+     - `summary`
+     - `link`, unless one is already set
+     - `response_required` (OR-ed)
+     - `action_required` and `action_description`, through `flagActionRequired`, so never for Bill (Q13)
+     - the `events`, if the email has none yet
+     - each `errors` entry, as an `llm` error
+   - Then any `fetch_link_contents` and `check_for_events` from the classification rule.
+   - LLM failures become `llm` errors, and processing carries on.
+5. **Action phase:** every matching action rule, in order, with facts recomputed after the LLM phase. Matches are recorded, and the queue runs as in 5.2.
+6. **Finish:** `status=processed` (`failed` if an unexpected exception escaped; errors alone don't fail it) and `processed_at` = now. Bill emails have `action_required` cleared.
+
+**`reprocess(emailId)`:**
+- It clears the email's rule matches, action results, errors, events not yet added, type, summary, link, link contents and summary, bill fields and flags.
+- It fetches the message again from its `folder`/`imap_uid`. When the UID is null, it uses `findUid`.
+- It reruns steps 2–6 on the same record. A message that can't be found raises `MailboxException`.
+
+**Startup:** runs left `running`, e.g. after a crash, are marked `failed` (`error = Interrupted by a restart`).
+
+### 5.6 Scheduler (`services.ProcessingScheduler`)
+
+- `@Scheduled(every = "60s", concurrentExecution = SKIP)` checks whether a run is due: no run yet, or the latest run started at least `processing.frequency` ago. If one is due, it calls `runNow(SCHEDULE)`. A frequency change therefore applies within a minute, with no restart.
+- **Off switch:** the new startup key `postmaster.scheduler-enabled` (default `true`) turns the scheduler off. Tests should set it to `false`.
+- **Run now:** `ProcessingService.runNowAsync(): Boolean` starts a manual run on a worker thread and returns false if a run is already going. The UI uses it in 6.3.
