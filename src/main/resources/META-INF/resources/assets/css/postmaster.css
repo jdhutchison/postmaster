@@ -304,13 +304,28 @@ code {
   text-transform: none;
 }
 
+/* The title and the favicon beside it are as tall as the menu button: a line of the title's text
+   is exactly the button's height */
 .pm-page-title {
   grid-area: title;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pm-space-3);
   margin: var(--pm-space-5) 0 0;
-  max-width: 32ch;
-  font-size: clamp(1.75rem, 1.15rem + 2.2vw, 2.75rem);
-  line-height: 1.08;
+  font-size: var(--pm-menu-button-size);
+  line-height: 1;
   letter-spacing: -0.015em;
+}
+
+.pm-page-title__icon {
+  flex: none;
+  width: var(--pm-menu-button-size);
+  height: var(--pm-menu-button-size);
+}
+
+.pm-page-title__text {
+  min-width: 0;
+  max-width: 24ch;
   overflow-wrap: anywhere;
 }
 
