@@ -35,7 +35,7 @@ class TodoList(private val root: Path) {
     if (end < 0) {
       throw TodoListException("$INDEX in $root has no $END_MARKER line")
     }
-    val name = uniqueName(entry.title)
+    val name = uniqueName(entry.title, index.lines)
     val file = root.resolve("$name.md")
     Files.writeString(file, content(entry), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
     try {
@@ -91,11 +91,15 @@ class TodoList(private val root: Path) {
     return (1 until maxOf(close, 1)).any { lines[it].trim().equals("completed: true", ignoreCase = true) }
   }
 
-  private fun uniqueName(title: String): String {
+  /**
+   * A name for [title] that no file and no index line uses: an old task, even one whose file has
+   * gone, would otherwise be taken for the new item's.
+   */
+  private fun uniqueName(title: String, index: List<String>): String {
     val base = fileName(title)
     var name = base
     var n = 2
-    while (Files.exists(root.resolve("$name.md"))) {
+    while (Files.exists(root.resolve("$name.md")) || index.any { it.contains("[[$name]]") || it.contains("[[$name|") }) {
       name = "$base $n"
       n++
     }

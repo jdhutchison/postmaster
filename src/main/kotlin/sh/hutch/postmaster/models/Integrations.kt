@@ -7,6 +7,9 @@ import java.time.LocalDateTime
 
 // Values exchanged with the outside world: the mailbox, the LLM, web pages and khal
 
+/** Where a message is in a folder: its UID, which holds only while the folder's UIDVALIDITY is [uidValidity]. */
+data class MessageLocation(val uid: Long, val uidValidity: Long)
+
 /** A message in the inbox, as listed before it is fetched. */
 data class MailboxMessage(
     val uid: Long,

@@ -118,6 +118,16 @@ class TodoListTest {
   }
 
   @Test
+  fun `a name an old task still uses isn't reused, even when its file has gone`() {
+    // Otherwise the old ticked task would mark the new item done
+    index("- [x] [[Reply to Sam]] #todo-item\n- [ ] [[Book|alias]]\n<!-- todo-items:end -->\n")
+
+    assertEquals("Reply to Sam 2", list().add(TodoEntry("Reply to Sam", created, null, null)))
+    assertEquals("Book 2", list().add(TodoEntry("Book", created, null, null)))
+    assertEquals(emptySet<String>(), list().doneNames(listOf("Reply to Sam 2")))
+  }
+
+  @Test
   fun `completing an item ticks it in the index and sets completed in its front matter`() {
     index("- [ ] [[Pay]] #todo-item\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n")
     Files.writeString(root.resolve("Pay.md"), "---\ntodo-item: true\ncompleted: false\ndue: 2026-10-28\n---\n\nNotes\ncompleted: false\n")

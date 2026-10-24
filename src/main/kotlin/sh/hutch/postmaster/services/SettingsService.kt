@@ -20,9 +20,13 @@ import java.time.ZoneId
 /**
  * Reads and updates the settings stored in the database. Values are validated by their type, and
  * encrypted settings are encrypted before they are stored and decrypted when read.
+ *
+ * Its exceptions (a missing or unreadable setting, an invalid value) don't roll back the caller's
+ * transaction: nothing has been changed when they're thrown, and processing records them as a
+ * failed action and carries on, so the rest of the email's work must still be saved.
  */
 @ApplicationScoped
-@Transactional
+@Transactional(dontRollbackOn = [RuntimeException::class])
 class SettingsService(
     private val repository: SettingRepository,
     private val crypto: Crypto,

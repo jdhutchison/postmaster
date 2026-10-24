@@ -15,6 +15,7 @@ import sh.hutch.postmaster.testsupport.TestMessages
 import sh.hutch.postmaster.testsupport.TestMessages.message
 import sh.hutch.postmaster.testsupport.row
 import sh.hutch.postmaster.testsupport.rows
+import sh.hutch.postmaster.testsupport.update
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -248,6 +249,32 @@ class ProcessingFlowTest : PipelineTest() {
     assertTrue(errors("flow-badmove@mail.example").any { it["phase"] == "action" && (it["message"] as String).startsWith("move:") })
   }
 
+  @Test
+  fun `a setting that can't be read fails its action without losing the email's other work`() {
+    // A @Transactional bean throwing inside the email's transaction must not
+    // roll it back after the message has already been moved
+    rule(
+        RuleType.ACTION, "Forward and file", listOf(condition("subject", "contains", "unreadable")),
+        listOf(action("forward_email", destination = "someone@mail.example"), action("move", index = 1, destination = "Folders/School"))
+    )
+    settings.update("smtp.username", "postmaster")
+    dataSource.update("UPDATE Settings SET setting_value = 'enc:not-encrypted' WHERE setting_key = 'smtp.password'")
+    inbox(message("<flow-unreadable@mail.example>", "An unreadable password"))
+    try {
+      run()
+    } finally {
+      settings.clear("smtp.username")
+      settings.clear("smtp.password")
+    }
+
+    val email = email("flow-unreadable@mail.example")
+    assertEquals("processed", email["status"])
+    assertEquals("Folders/School", email["folder"])
+    val results = actionResults("flow-unreadable@mail.example").associate { it["action_type"] to it["status"] }
+    assertEquals(mapOf("forward_email" to "failed", "move" to "done"), results)
+    assertTrue(errors("flow-unreadable@mail.example").any { (it["message"] as String).startsWith("forward_email:") })
+  }
+
   // Reprocessing
 
   @Test
@@ -262,6 +289,45 @@ class ProcessingFlowTest : PipelineTest() {
     assertEquals("Payslip", email("flow-again@mail.example")["type_name"])
     assertEquals(listOf("Payslips"), ruleMatches("flow-again@mail.example"))
     assertEquals(1L, (dataSource.row("SELECT COUNT(*) AS n FROM Emails WHERE message_id = 'flow-again@mail.example'")["n"] as Number).toLong())
+  }
+
+  @Test
+  fun `reprocessing finds events again, keeping those already added without duplicating them`() {
+    llm(
+        SUMMARISE,
+        """{"summary": "Two events", "events": [{"title": "Fete", "when": "2026-11-20T10:00"}, {"title": "Disco", "when": "2026-11-27T18:00"}]}"""
+    )
+    inbox(message("<flow-events-again@mail.example>", "Two events"))
+    run()
+    dataSource.update(
+        "UPDATE Email_events SET is_added = TRUE, khal_uid = 'fete' WHERE title = 'Fete' AND email_id = ?",
+        email("flow-events-again@mail.example")["id"]
+    )
+
+    processing.reprocess((email("flow-events-again@mail.example")["id"] as Number).toLong())
+
+    val events = events("flow-events-again@mail.example").associate { it["title"] to it["is_added"] }
+    assertEquals(mapOf("Fete" to true, "Disco" to false), events, "the pending event comes back and the added one isn't doubled")
+  }
+
+  @Test
+  fun `an email is reprocessed by one request at a time`() {
+    inbox(message("<flow-twice@mail.example>", "Twice"))
+    run()
+    val id = (email("flow-twice@mail.example")["id"] as Number).toLong()
+    llm(SUMMARISE, """{"summary": "slow"}""", delayMs = 3000)
+
+    // Requests run on Quarkus threads, which have the application's class loader; so must this one
+    val loader = Thread.currentThread().contextClassLoader
+    val first = CompletableFuture.supplyAsync {
+      Thread.currentThread().contextClassLoader = loader
+      processing.reprocess(id)
+    }
+    Thread.sleep(800)
+
+    assertThrows<IllegalStateException> { processing.reprocess(id) }
+    first.get(30, TimeUnit.SECONDS)
+    processing.reprocess(id)
   }
 
   @Test

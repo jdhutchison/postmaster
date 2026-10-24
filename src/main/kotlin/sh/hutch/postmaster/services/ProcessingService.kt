@@ -35,6 +35,7 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -59,6 +60,9 @@ class ProcessingService(
     private val workers: ManagedExecutor
 ) {
   private val running = AtomicBoolean(false)
+
+  /** Emails being reprocessed now, so each is reprocessed by one request at a time. */
+  private val reprocessing = ConcurrentHashMap.newKeySet<Long>()
 
   /** Whether a run is in progress. */
   val isRunning: Boolean
@@ -189,18 +193,34 @@ class ProcessingService(
     }
   }
 
-  /** Processes an email again, from its message in the mailbox. */
+  /**
+   * Processes an email again, from its message in the mailbox.
+   *
+   * @throws IllegalStateException if the email is already being reprocessed
+   */
   fun reprocess(emailId: Long): EmailEntity {
-    val (folder, uid, messageId) = QuarkusTransaction.requiringNew().call {
-      val email = emails.findActive(emailId) ?: throw jakarta.ws.rs.NotFoundException("Email $emailId not found")
-      Triple(email.folder ?: settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX", email.imapUid, email.messageId)
+    if (!reprocessing.add(emailId)) {
+      throw IllegalStateException("The email is already being processed again")
     }
-    val found = uid ?: mailbox.findUid(folder, messageId) ?: throw MailboxException("The message can't be found in $folder")
-    val message = mailbox.fetch(folder, found)
+    try {
+      return reprocessOnce(emailId)
+    } finally {
+      reprocessing.remove(emailId)
+    }
+  }
+
+  private fun reprocessOnce(emailId: Long): EmailEntity {
+    val (folder, known, messageId) = QuarkusTransaction.requiringNew().call {
+      val email = emails.findActive(emailId) ?: throw jakarta.ws.rs.NotFoundException("Email $emailId not found")
+      Triple(email.folder ?: settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX", email.imapUid?.let { it to email.uidValidity }, email.messageId)
+    }
+    val found = mailbox.locate(folder, messageId, known?.first, known?.second) ?: throw MailboxException("The message can't be found in $folder")
+    val message = mailbox.fetch(folder, found.uid)
     return QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
       val email = emails.findActive(emailId)!!
       reset(email)
-      email.imapUid = found
+      email.imapUid = found.uid
+      email.uidValidity = found.uidValidity
       email.folder = folder
       Mdc.with(Mdc.EMAIL to email.id) {
         LOG.infof("Reprocessing '%s' from %s", email.subject, email.sender)
@@ -301,9 +321,7 @@ class ProcessingService(
         email.responseRequired = true
       }
       addActionItems(context, answer)
-      if (email.events.isEmpty()) {
-        events.addEvents(context, answer.path("events"))
-      }
+      events.addEvents(context, answer.path("events"))
       answer.path("errors").forEach { context.addError(ErrorPhase.LLM, "summarise: ${it.asText()}") }
     } catch (e: LlmException) {
       context.addError(ErrorPhase.LLM, "summarise: ${e.message}")

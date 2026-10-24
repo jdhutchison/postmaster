@@ -31,6 +31,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Entities
 import sh.hutch.postmaster.models.AttachmentPart
 import sh.hutch.postmaster.models.MailboxMessage
+import sh.hutch.postmaster.models.MessageLocation
 import sh.hutch.postmaster.models.ParsedMessage
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -126,17 +127,24 @@ class MailboxClient(private val settings: SettingsService) {
   }
 
   /**
-   * The UID of the message with [messageId] in [folder], or null if it isn't there or the id was
-   * generated (the message has no Message-ID header).
+   * Where the message with [messageId] is in [folder]. A known [uid] is trusted only while the
+   * folder's UIDVALIDITY is still [uidValidity]; otherwise the message is searched for by its
+   * Message-ID, because the UID may now belong to another message. Null if it isn't there, or if
+   * it has to be searched for and its id was generated (it has no Message-ID header).
    */
-  fun findUid(folder: String, messageId: String): Long? {
+  fun locate(folder: String, messageId: String, uid: Long? = null, uidValidity: Long? = null): MessageLocation? =
+    withFolder(folder, Folder.READ_ONLY, "find message $messageId") { imap ->
+      val validity = imap.uidValidity
+      val found = if (uid != null && uidValidity == validity) uid else search(imap, messageId)
+      found?.let { MessageLocation(it, validity) }
+    }
+
+  private fun search(imap: IMAPFolder, messageId: String): Long? {
     if (messageId.startsWith(MessageIds.GENERATED_PREFIX)) {
       return null
     }
-    return withFolder(folder, Folder.READ_ONLY, "find message $messageId") { imap ->
-      imap.search(MessageIDTerm("<$messageId>")).firstOrNull()?.let { imap.getUID(it) }
-          ?: imap.search(MessageIDTerm(messageId)).firstOrNull()?.let { imap.getUID(it) }
-    }
+    return imap.search(MessageIDTerm("<$messageId>")).firstOrNull()?.let { imap.getUID(it) }
+        ?: imap.search(MessageIDTerm(messageId)).firstOrNull()?.let { imap.getUID(it) }
   }
 
   /** The full names of the folders that hold messages, sorted. */

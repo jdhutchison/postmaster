@@ -10,9 +10,12 @@ import sh.hutch.postmaster.repositories.TypeRepository
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Fills a prompt's {{placeholders}} (CLARIFICATIONS.md Q15, D19). */
+/**
+ * Fills a prompt's {{placeholders}} (CLARIFICATIONS.md Q15, D19). Like SettingsService, its
+ * exceptions don't roll back the caller's transaction, which processing carries on with.
+ */
 @ApplicationScoped
-@Transactional
+@Transactional(dontRollbackOn = [RuntimeException::class])
 class PromptRenderer(
     private val prompts: PromptRepository,
     private val calendars: CalendarRepository,

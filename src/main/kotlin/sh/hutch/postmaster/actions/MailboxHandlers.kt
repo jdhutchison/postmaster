@@ -10,18 +10,27 @@ import sh.hutch.postmaster.services.SettingsService
 
 // Actions that change the message in the mailbox
 
-/** The email's folder and UID, or null with the reason if it can't be found in the mailbox. */
+/**
+ * The email's folder and UID. The stored UID is used only while the folder's UIDVALIDITY is
+ * unchanged; otherwise the message is found again by its Message-ID and the new UID is stored.
+ *
+ * @throws IllegalStateException if the message can't be found in the mailbox
+ */
 internal fun EmailEntity.location(mailbox: MailboxClient): Pair<String, Long> {
   val folder = folder ?: throw IllegalStateException("The email's folder isn't known")
-  val uid = imapUid ?: mailbox.findUid(folder, messageId) ?: throw IllegalStateException("The message can't be found in $folder")
-  return folder to uid
+  val found = mailbox.locate(folder, messageId, imapUid, uidValidity) ?: throw IllegalStateException("The message can't be found in $folder")
+  imapUid = found.uid
+  uidValidity = found.uidValidity
+  return folder to found.uid
 }
 
 /** Records that the message is now in [destination], finding its new UID there. */
 internal fun EmailEntity.movedTo(destination: String, mailbox: MailboxClient) {
   folder = destination
   movedTo = destination
-  imapUid = runCatching { mailbox.findUid(destination, messageId) }.getOrNull()
+  val found = runCatching { mailbox.locate(destination, messageId) }.getOrNull()
+  imapUid = found?.uid
+  uidValidity = found?.uidValidity
 }
 
 @ApplicationScoped

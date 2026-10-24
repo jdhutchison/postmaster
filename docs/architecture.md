@@ -53,11 +53,15 @@ A run lists INBOX messages received within `processing.lookback`, newest first, 
 5. **Actions.** The queue runs in a fixed order of stages: record, gather (fetch, events, downloads, bills), forward, read state, then move or delete last. Only one move/delete and one read/unread runs; the highest-priority rule wins and the others are recorded as conflicts.
 6. **Finish.** The status is `processed`, `skipped` (by `skip_processing`) or `failed`. Every rule match, action result and error is recorded against the email.
 
-Errors from the outside world (IMAP, the LLM, khal, fetching) are recorded against the email, and processing carries on. Bills never need action (Q13): `EmailEntity` enforces that whenever the type or the flag changes.
+Errors from the outside world (IMAP, the LLM, khal, fetching, the to-do list), and settings that can't be read, are recorded against the email, and processing carries on. `SettingsService` and `PromptRenderer` don't roll back the email's transaction when they throw, so a failed action never loses the work already done. Bills never have action items (Q13): `EmailEntity` enforces that whenever the type or the items change.
+
+**Finding the message again.** Each email stores the message's folder, UID and the folder's UIDVALIDITY. Mailbox actions use the UID only while the folder's UIDVALIDITY is unchanged; otherwise they find the message by its Message-ID, so a rebuilt mailbox can't make an action hit another message.
+
+**Reprocessing** replaces the email's rule matches, results, errors and summary. Events already added to a calendar and action items already in the to-do list are kept; the LLM's events and items are added again except those the email already has. An email is reprocessed by one request at a time.
 
 ## User interface
 
-Server-rendered Qute templates with HTMX for partial updates, and one small script (`assets/js/postmaster.js`) for menus, dialogs, toasts and tables. Everything is served by the application under `/mail`; a Content-Security-Policy forbids anything external. The layout follows the system's light or dark mode (the Water.css palettes) and uses Atkinson Hyperlegible Next. `docs/dev/contracts.md` records every route, form field and `data-testid`.
+Server-rendered Qute templates with HTMX for partial updates, and one small script (`assets/js/postmaster.js`) for menus, dialogs, toasts and tables. Everything is served by the application under `/mail`; a Content-Security-Policy forbids anything external. Because nginx's basic auth goes with any request from the browser, POST, PUT and DELETE requests whose `Sec-Fetch-Site` is anything but `same-origin` or `none` are refused with 403 (`CrossSiteRequestFilter`), so another site can't make changes. Clients that don't send the header, such as MCP clients and curl, aren't affected. The layout follows the system's light or dark mode (the Water.css palettes) and uses Atkinson Hyperlegible Next. `docs/dev/contracts.md` records every route, form field and `data-testid`.
 
 ## MCP server
 

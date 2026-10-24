@@ -28,9 +28,12 @@ class EventFinder(
     private val settings: SettingsService
 ) {
 
-  /** Asks the LLM for the email's events (identify_events) unless it has some; returns how many were added. */
+  /**
+   * Asks the LLM for the email's events (identify_events), unless the summary already found some;
+   * returns how many were added.
+   */
   fun identify(context: ProcessingContext): Int {
-    if (context.email.events.isNotEmpty()) {
+    if (context.eventsFound) {
       return 0
     }
     val answer = llm.chatJson(prompts.render("identify_events", promptContext(context.email)))
@@ -38,7 +41,11 @@ class EventFinder(
     return addEvents(context, answer.path("events"))
   }
 
-  /** Stores the LLM's events (the "events" array of the summarise and identify_events prompts). */
+  /**
+   * Stores the LLM's events (the "events" array of the summarise and identify_events prompts),
+   * except those the email already has: the same title and start, as when an email is reprocessed
+   * and its added events were kept.
+   */
   fun addEvents(context: ProcessingContext, array: JsonNode): Int {
     if (!array.isArray) {
       return 0
@@ -66,6 +73,10 @@ class EventFinder(
         }
       } catch (e: DateTimeParseException) {
         context.addError(ErrorPhase.LLM, "The event '$title' has a time that can't be read: $whenText")
+        continue
+      }
+      context.eventsFound = true
+      if (context.email.events.any { it.title.equals(event.title, ignoreCase = true) && it.startsAt == event.startsAt }) {
         continue
       }
       event.location = item.path("location").takeIf { it.isTextual }?.asText()?.trim()?.ifEmpty { null }?.take(500)

@@ -103,6 +103,12 @@ class ProcessingContext(val email: EmailEntity, val message: ParsedMessage?) {
   var stopped: Boolean = false
     private set
 
+  /**
+   * Whether the LLM has found events in this pass. Reprocessing keeps events already added to a
+   * calendar, so whether the email has events doesn't say whether they've been looked for.
+   */
+  var eventsFound: Boolean = false
+
   /** Stops processing: nothing further runs (skip_processing). */
   fun stop() {
     stopped = true

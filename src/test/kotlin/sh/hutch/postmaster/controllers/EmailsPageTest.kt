@@ -177,6 +177,25 @@ class EmailsPageTest : PipelineTest() {
   }
 
   @Test
+  fun `a stored UID isn't trusted once the folder's UIDVALIDITY has changed`() {
+    // The UID may now belong to another message, so the email is found by its Message-ID
+    inbox(message("<uid-mine@mail.example>", "Mine"), message("<uid-other@mail.example>", "Other"))
+    run()
+    val mine = email("uid-mine@mail.example")
+    val other = email("uid-other@mail.example")
+    dataSource.update(
+        "UPDATE Emails SET imap_uid = ?, uid_validity = ? WHERE id = ?",
+        other["imap_uid"], (mine["uid_validity"] as Number).toLong() + 1, mine["id"]
+    )
+
+    val moved = htmx().formParam("folder", "Folders/School").post("/emails/${mine["id"]}/move")
+
+    assertEquals(200, moved.statusCode)
+    assertEquals(listOf("Mine"), TestMessages.folderContents(greenMail, "Folders/School").map { it.first })
+    assertEquals(listOf("Other"), TestMessages.folderContents(greenMail, "INBOX").map { it.first })
+  }
+
+  @Test
   fun `setting the type to Bill clears action required`() {
     llm(SUMMARISE, """{"summary": "S", "action_required": true, "action": "Pay it"}""")
     inbox(message("<typed@mail.example>", "Typed"))
