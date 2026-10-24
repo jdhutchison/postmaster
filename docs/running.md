@@ -47,14 +47,14 @@ The container image is described in [deployment.md](deployment.md).
 
 ## Status
 
-`GET /mail/health` (or `/mail/status`) says, as JSON, whether Postmaster and what it depends on are up. It also gives the version, build time, uptime and what processing is doing:
+`GET /mail/health` (or `/mail/status`) says, as JSON, whether Postmaster and what it depends on are up. It also gives the version, commit, build time, uptime and what processing is doing:
 
 ```json
 {
   "status": "DEGRADED",
   "time": "2026-10-25T03:15:02.114Z",
   "application": {
-    "name": "postmaster", "version": "v12", "builtAt": "2026-10-25T01:02:03Z",
+    "name": "postmaster", "version": "v12", "commit": "36cd40cd8b87", "builtAt": "2026-10-25T01:02:03Z",
     "startedAt": "2026-10-25T01:10:00Z", "uptime": "PT2H5M2S", "uptimeSeconds": 7502
   },
   "processing": {
@@ -68,7 +68,15 @@ The container image is described in [deployment.md](deployment.md).
     "database": { "status": "UP", "critical": true, "componentType": "datastore", "target": "jdbc:mariadb://mariadb:3306/postmaster", "responseTimeMs": 2, "output": null },
     "dovecot": { "status": "UP", "critical": true, "componentType": "mail", "target": "mail-dovecot:143", "responseTimeMs": 41, "output": null },
     "llm": { "status": "DOWN", "critical": false, "componentType": "http", "target": "http://kodiakbear:9931/v1", "responseTimeMs": 5003, "output": "No answer from http://kodiakbear:9931/v1/models within PT5S" },
-    "smtp": { "status": "UP", "critical": false, "componentType": "mail", "target": "mail-opensmtp:25", "responseTimeMs": 12, "output": null }
+    "smtp": { "status": "UP", "critical": false, "componentType": "mail", "target": "mail-opensmtp:25", "responseTimeMs": 12, "output": null },
+    "settings": { "status": "UP", "critical": false, "componentType": "component", "target": null, "responseTimeMs": 3, "output": null },
+    "processing": { "status": "UP", "critical": false, "componentType": "component", "target": null, "responseTimeMs": 9, "output": null },
+    "khal": { "status": "UP", "critical": false, "componentType": "system", "target": "/config/khal/config", "responseTimeMs": 412, "output": "Calendars: family, school" },
+    "chromium": { "status": "UP", "critical": false, "componentType": "system", "target": "chromium", "responseTimeMs": 160, "output": "Chromium 141.0.7390.65 built on Debian GNU/Linux 13 (trixie)" },
+    "curl": { "status": "UP", "critical": false, "componentType": "system", "target": "curl", "responseTimeMs": 8, "output": "curl 8.14.1 (aarch64-unknown-linux-gnu) libcurl/8.14.1 …" },
+    "attachments": { "status": "UP", "critical": false, "componentType": "system", "target": "/data/attachments", "responseTimeMs": 1, "output": null },
+    "todo": { "status": "UP", "critical": false, "componentType": "system", "target": "/data/todo", "responseTimeMs": 1, "output": null },
+    "disk": { "status": "UP", "critical": false, "componentType": "system", "target": null, "responseTimeMs": 1, "output": "/data/attachments: 412.7 GiB free" }
   }
 }
 ```
@@ -76,12 +84,41 @@ The container image is described in [deployment.md](deployment.md).
 | `status` | Meaning | HTTP |
 |---|---|---|
 | `OK` | Everything is up. | 200 |
-| `DEGRADED` | The LLM or SMTP is down. Email waits for the LLM; forwarding fails. | 200 |
+| `DEGRADED` | Something other than the database or Dovecot is down or warns. Postmaster carries on, but part of it fails or is falling behind: e.g. email waits for the LLM, or forwarding fails. | 200 |
 | `DOWN` | The database or Dovecot is down: running, but it can't do its job. | 503 |
+
+Each check's `status` is `UP`, `WARN` or `DOWN`:
+
+| Check | Down or warns when |
+|---|---|
+| `database`, `dovecot` (critical) | it can't be reached, or Dovecot refuses the login |
+| `llm`, `smtp` | it can't be reached, or refuses the login |
+| `settings` | an encrypted setting can't be decrypted with `postmaster.encryption-key` (enter it again) |
+| `processing` | warns: no scheduled run has succeeded for two processing periods, or more emails are pending than the *Pending email warning* setting (25) |
+| `khal` | `khal printcalendars` fails, or a calendar folder can't be written to |
+| `chromium`, `curl` | `--version` fails |
+| `attachments`, `todo` | the folder can't be written to (or created); the to-do `index.md` has no `<!-- todo-items:end -->` line |
+| `disk` | warns: a disk holding attachments, the to-do list or a calendar has less free space than the *Low disk space warning* setting (1024 MiB) |
 
 Each check gets 5 seconds, and they run at the same time. The Docker image's `HEALTHCHECK` calls the endpoint every minute.
 
-The version is a build number (`v1`, `v2`, …) from `version.properties`. Each production build (`./gradlew quarkusBuild` or `bin/build-image`) raises the number for the next build, so commit `version.properties` with each release. Add `-PkeepVersion` to build without raising it.
+Monitoring tools that understand the IETF draft "Health Check Response Format for HTTP APIs" can send `Accept: application/health+json` to get its format instead, with `pass`, `warn` and `fail`:
+
+```json
+{
+  "status": "warn", "version": "v12", "releaseId": "36cd40cd8b87", "serviceId": "postmaster",
+  "description": "Postmaster: email processing, classification and actions",
+  "output": "llm: No answer from http://kodiakbear:9931/v1/models within PT5S",
+  "checks": {
+    "uptime": [{ "componentType": "system", "observedValue": 7502, "observedUnit": "s", "status": "pass", "time": "2026-10-25T03:15:02.114Z" }],
+    "database:responseTime": [{ "componentId": "jdbc:mariadb://mariadb:3306/postmaster", "componentType": "datastore", "observedValue": 2, "observedUnit": "ms", "status": "pass", "time": "2026-10-25T03:15:02.114Z" }],
+    "llm:responseTime": [{ "componentId": "http://kodiakbear:9931/v1", "componentType": "http", "observedValue": 5003, "observedUnit": "ms", "status": "fail", "time": "2026-10-25T03:15:02.114Z", "output": "No answer from http://kodiakbear:9931/v1/models within PT5S" }],
+    "…": []
+  }
+}
+```
+
+The version is a build number (`v1`, `v2`, …) from `version.properties`. Each production build (`./gradlew quarkusBuild` or `bin/build-image`) raises the number for the next build, so commit `version.properties` with each release. Add `-PkeepVersion` to build without raising it. The commit comes from git, or from `-PgitCommit` where there's no `.git` (`bin/build-image` passes it to the Docker build).
 
 ## Logs
 

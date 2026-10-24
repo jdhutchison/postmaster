@@ -7,6 +7,7 @@ components:
       required:
       - name
       - version
+      - commit
       - builtAt
       - startedAt
       - uptime
@@ -16,6 +17,10 @@ components:
           type: string
         version:
           type: string
+        commit:
+          type:
+          - string
+          - "null"
         builtAt:
           anyOf:
           - $ref: "#/components/schemas/Instant"
@@ -31,6 +36,7 @@ components:
       type: string
       enum:
       - UP
+      - WARN
       - DOWN
     DependencyCheck:
       type: object
@@ -59,6 +65,64 @@ components:
           type:
           - string
           - "null"
+    DraftCheck:
+      type: object
+      properties:
+        componentId:
+          type:
+          - string
+          - "null"
+        componentType:
+          type: string
+        observedValue:
+          type: integer
+          format: int64
+        observedUnit:
+          type: string
+        status:
+          type: string
+        time:
+          $ref: "#/components/schemas/Instant"
+        output:
+          type:
+          - string
+          - "null"
+      required:
+      - componentType
+      - observedValue
+      - observedUnit
+      - status
+      - time
+    DraftHealthReport:
+      type: object
+      required:
+      - status
+      - version
+      - releaseId
+      - serviceId
+      - description
+      - checks
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        releaseId:
+          type: string
+        serviceId:
+          type: string
+        description:
+          type: string
+        output:
+          type:
+          - string
+          - "null"
+        checks:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/DraftCheck"
     HealthReport:
       type: object
       required:
@@ -1074,17 +1138,23 @@ paths:
       - Status
       responses:
         "200":
-          description: OK or DEGRADED
+          description: OK or DEGRADED (pass or warn)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthReport"
+            application/health+json:
+              schema:
+                $ref: "#/components/schemas/DraftHealthReport"
         "503":
-          description: "DOWN: the database or Dovecot is unavailable"
+          description: "DOWN (fail): the database or Dovecot is unavailable"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthReport"
+            application/health+json:
+              schema:
+                $ref: "#/components/schemas/DraftHealthReport"
   /mail/prompts:
     get:
       summary: Prompts page
@@ -1456,17 +1526,23 @@ paths:
       - Status
       responses:
         "200":
-          description: OK or DEGRADED
+          description: OK or DEGRADED (pass or warn)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthReport"
+            application/health+json:
+              schema:
+                $ref: "#/components/schemas/DraftHealthReport"
         "503":
-          description: "DOWN: the database or Dovecot is unavailable"
+          description: "DOWN (fail): the database or Dovecot is unavailable"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthReport"
+            application/health+json:
+              schema:
+                $ref: "#/components/schemas/DraftHealthReport"
   /mail/types:
     get:
       summary: Types page

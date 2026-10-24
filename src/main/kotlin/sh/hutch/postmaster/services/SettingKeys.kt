@@ -40,4 +40,7 @@ object SettingKeys {
 
   const val TODO_PATH = "todo.path"
   const val TODO_POSTMASTER_URL = "todo.postmaster_url"
+
+  const val HEALTH_PENDING_LIMIT = "health.pending_limit"
+  const val HEALTH_MIN_FREE_MB = "health.min_free_mb"
 }

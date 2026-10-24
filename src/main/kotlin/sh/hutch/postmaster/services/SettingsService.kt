@@ -51,6 +51,13 @@ class SettingsService(
     }
   }
 
+  /** The keys of the encrypted settings that are set but can't be decrypted with this encryption key. */
+  fun undecryptable(): List<String> =
+    repository.listOrdered()
+        .filter { it.valueType == SettingType.ENCRYPTED && it.settingValue != null }
+        .filter { runCatching { crypto.decrypt(it.settingValue!!) }.isFailure }
+        .map { it.settingKey }
+
   fun getInt(key: String): Int =
     required(key).let { it.toIntOrNull() ?: throw IllegalStateException("Setting '$key' is not an integer: '$it'") }
 

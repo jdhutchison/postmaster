@@ -32,10 +32,17 @@ if [ -z "$VERSION" ]; then
   exit 2
 fi
 
+# The commit the image is built from ("-dirty" with uncommitted changes); the build has no .git
+COMMIT="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || true)"
+if [ -n "$COMMIT" ] && [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  COMMIT="$COMMIT-dirty"
+fi
+
 docker build \
     --target "$TARGET" \
     --tag "postmaster:$TARGET" \
     --tag "postmaster:v$VERSION" \
+    --build-arg "GIT_COMMIT=$COMMIT" \
     --build-arg "POSTMASTER_UID=${POSTMASTER_UID:-1000}" \
     --build-arg "CALENDARS_GID=${CALENDARS_GID:-1000}" \
     "$@" \

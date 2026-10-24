@@ -154,14 +154,30 @@ tasks.named("quarkusBuild") {
   }
 }
 
-// build-info.properties, which the status endpoint reads: the version, and when a production
-// build was made (empty for dev mode and tests, so their builds stay up to date)
+// The commit a build is from, with "-dirty" if there are uncommitted changes. The Docker build
+// has no .git, so bin/build-image passes it in as -PgitCommit. Empty if neither is available.
+fun git(vararg args: String): String? =
+  runCatching {
+    providers.exec {
+      commandLine("git", *args)
+      workingDir = projectDir
+      isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+  }.getOrNull()
+val gitCommit = providers.gradleProperty("gitCommit").filter { it.isNotBlank() }.orElse(provider {
+  val commit = git("rev-parse", "--short=12", "HEAD")?.takeIf { it.matches(Regex("[0-9a-f]+")) } ?: ""
+  if (commit.isNotEmpty() && !git("status", "--porcelain", "--untracked-files=no").isNullOrEmpty()) "$commit-dirty" else commit
+})
+
+// build-info.properties, which the status endpoint reads: the version, the commit, and when a
+// production build was made (empty for dev mode and tests, so their builds stay up to date)
 val buildInfoDir = layout.buildDirectory.dir("generated/build-info")
 var releaseBuild = false
 gradle.taskGraph.whenReady { releaseBuild = hasTask(":quarkusBuild") }
 val buildInfo = tasks.register("buildInfo") {
-  description = "Writes build-info.properties with the version and build time"
+  description = "Writes build-info.properties with the version, commit and build time"
   inputs.property("version", buildNumber)
+  inputs.property("commit", gitCommit)
   // Switching between production and other builds rewrites it
   inputs.property("release", provider { releaseBuild })
   outputs.dir(buildInfoDir)
@@ -170,7 +186,7 @@ val buildInfo = tasks.register("buildInfo") {
     val builtAt = if (releaseBuild) Instant.now().truncatedTo(ChronoUnit.SECONDS).toString() else ""
     val file = buildInfoDir.get().file("build-info.properties").asFile
     file.parentFile.mkdirs()
-    file.writeText("version=$buildNumber\nbuilt-at=$builtAt\n")
+    file.writeText("version=$buildNumber\ncommit=${gitCommit.get()}\nbuilt-at=$builtAt\n")
   }
 }
 sourceSets.main {

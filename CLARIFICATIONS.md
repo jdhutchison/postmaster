@@ -410,7 +410,7 @@ Before this, each email was processed in one transaction while its side effects 
   - an overall `status` and the `time` of the check;
   - `application`: the name, `version`, `builtAt`, `startedAt`, `uptime` (ISO 8601) and `uptimeSeconds`;
   - `processing`: whether a run is in progress, the current and last runs, when the last successful run started, whether scheduling is on and when the next run is due, how many emails are pending, and how many failed in the last day;
-  - `checks`, keyed by dependency (`database`, `dovecot`, `llm`, `smtp`): each with `status` (`UP` or `DOWN`), `critical`, `componentType`, `target` (no credentials), `responseTimeMs` and `output` (why it's down, or the LLM's models).
+  - `checks`, keyed by dependency (`database`, `dovecot`, `llm`, `smtp`, and the others below): each with `status` (`UP`, `WARN` or `DOWN`), `critical`, `componentType`, `target` (no credentials), `responseTimeMs` and `output` (why it's down, or the LLM's models).
 
   Every field is always present, null when there's no value. The response isn't cached (`Cache-Control: no-store`).
 - **Checks:**
@@ -422,10 +422,21 @@ Before this, each email was processed in one transaction while its side effects 
   They run in parallel, each given 5 seconds, without the usual retries, so the endpoint answers within about 6 seconds.
 - **Overall status:**
   - `OK`: everything is up.
-  - `DEGRADED`: the LLM or SMTP is down. Postmaster carries on: email waits for the LLM (R6), and forwarding fails.
+  - `DEGRADED`: the LLM or SMTP is down, or another check below is down or warns. Postmaster carries on: email waits for the LLM (R6), and forwarding fails.
   - `DOWN`: the database or Dovecot is down. Postmaster is running but can't do its job. The response is HTTP 503 (200 otherwise), so `curl -f` and Docker's `HEALTHCHECK` (now in the image) treat it as unhealthy. `DOWN` is the usual word for this (MicroProfile Health, Spring Boot), and the response arriving at all shows the process is up.
 - **Versions:** the version is a build number, shown as `v<n>`, starting at v1. `version.properties` holds the number the next build gets. Every successful `quarkusBuild` raises it by one (`-PkeepVersion` builds without raising it), and so does `bin/build-image`, which also tags the image `postmaster:v<n>`. Commit the file with each release. `builtAt` is set only by production builds; dev mode and tests show null.
 - **Dev mode** points the LLM at 127.0.0.1, so it never contacts kodiakbear.
+- **More checks (your request, suggestions 3 to 7).** None of them is critical, so a problem makes the status `DEGRADED`:
+  - `settings`: every encrypted setting can be decrypted with `postmaster.encryption-key`;
+  - `processing`: warns (`WARN`) when no scheduled run has succeeded for two processing periods (counted from startup if that's later), or when more emails are pending than `health.pending_limit` (25);
+  - `khal`: `khal printcalendars` runs, and every calendar folder in the khal configuration can be written to;
+  - `chromium` and `curl`: `--version` runs (their output is the version);
+  - `attachments` and `todo`: the folder can be written to, or doesn't exist yet but can be created; the to-do `index.md`, if there is one, has its `<!-- todo-items:end -->` line;
+  - `disk`: warns when a disk holding attachments, the to-do list or a calendar has less free space than `health.min_free_mb` (1024 MiB).
+
+  A check's `status` is now `UP`, `WARN` (usable, but needs attention) or `DOWN`. The two thresholds are settings, under "Status checks" on the Configuration page.
+- **Commit:** `application.commit` is the git commit the build is from, with `-dirty` if it had uncommitted changes. The Docker build has no `.git`, so `bin/build-image` passes it in (`-PgitCommit`).
+- **The IETF draft's own format:** a client sending `Accept: application/health+json` gets the draft's format, as `application/health+json`: `status` is `pass`, `warn` or `fail`; `version`, `releaseId` (the commit), `serviceId`, `description`, and `output` saying what's wrong; `checks` has `uptime` and `<check>:responseTime` for each check, each a list with `componentId` (the target), `componentType`, `observedValue`, `observedUnit`, `status`, `time` and `output`. Fields without a value are left out, as the draft asks. Without that `Accept` header the response stays as above, with `OK`, `DEGRADED` and `DOWN`. HTTP codes are the same in both.
 
 ---
 

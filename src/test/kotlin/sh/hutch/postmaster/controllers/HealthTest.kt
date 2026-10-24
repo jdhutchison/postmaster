@@ -12,10 +12,16 @@ import io.restassured.response.Response
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import sh.hutch.postmaster.models.RunTrigger
 import sh.hutch.postmaster.processing.PipelineTest
+import sh.hutch.postmaster.testsupport.FakeTools
 import sh.hutch.postmaster.testsupport.TestMessages.message
+import sh.hutch.postmaster.testsupport.rows
+import sh.hutch.postmaster.testsupport.update
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -23,18 +29,32 @@ import java.util.concurrent.TimeUnit
 /**
  * The status endpoint (CLAR R7): structured JSON on whether the application
  * and its dependencies are up, its version and uptime, and what processing
- * is doing. OK and DEGRADED answer 200; DOWN answers 503.
+ * is doing. OK and DEGRADED answer 200; DOWN answers 503. A client asking
+ * for application/health+json gets the IETF draft's format.
  */
 @QuarkusTest
 class HealthTest : PipelineTest() {
   private val json = ObjectMapper()
+  private lateinit var todo: Path
+
+  private val allChecks = listOf(
+      "database", "dovecot", "llm", "smtp", "settings", "processing", "khal", "chromium", "curl", "attachments", "todo", "disk"
+  )
+
+  @BeforeEach
+  fun setUpHealth() {
+    todo = Files.createTempDirectory("postmaster-todo")
+    settings.update("todo.path", todo.toString())
+    settings.update("health.pending_limit", "25")
+    settings.update("health.min_free_mb", "1")
+  }
 
   private fun llmUp() {
     wireMock.stubFor(get(urlEqualTo("/v1/models")).willReturn(okJson("""{"object": "list", "data": [{"id": "qwen3.8-9b-100k"}]}""")))
   }
 
-  private fun fetch(path: String = "/health"): Pair<Response, JsonNode> {
-    val response = given().get(path)
+  private fun fetch(path: String = "/health", accept: String? = null): Pair<Response, JsonNode> {
+    val response = given().apply { accept?.let { header("Accept", it) } }.get(path)
     return response to json.readTree(response.asString())
   }
 
@@ -47,15 +67,22 @@ class HealthTest : PipelineTest() {
     assertEquals(200, response.statusCode)
     assertTrue(response.contentType.startsWith("application/json"), response.contentType)
     assertTrue(response.header("Cache-Control").contains("no-store"))
-    assertEquals("OK", body["status"].asText())
-    for (name in listOf("database", "dovecot", "llm", "smtp")) {
+    assertEquals("OK", body["status"].asText(), body["checks"].toString())
+    assertEquals(allChecks, body["checks"].fieldNames().asSequence().toList())
+    for (name in allChecks) {
       assertEquals("UP", body["checks"][name]["status"].asText(), "$name: ${body["checks"][name]}")
       assertTrue(body["checks"][name]["responseTimeMs"].asLong() >= 0)
+      assertEquals(name == "database" || name == "dovecot", body["checks"][name]["critical"].asBoolean(), name)
     }
-    assertEquals(listOf(true, true, false, false), listOf("database", "dovecot", "llm", "smtp").map { body["checks"][it]["critical"].asBoolean() })
     assertEquals("Models: qwen3.8-9b-100k", body["checks"]["llm"]["output"].asText())
     assertEquals("127.0.0.1:${greenMail.imap.port}", body["checks"]["dovecot"]["target"].asText())
     assertFalse(body["checks"]["database"]["target"].asText().contains(";"), "no JDBC options")
+    assertEquals("Chromium 140.0.0.0 (fake)", body["checks"]["chromium"]["output"].asText())
+    assertTrue(body["checks"]["curl"]["output"].asText().startsWith("curl "), body["checks"]["curl"].toString())
+    assertTrue(body["checks"]["khal"]["output"].asText().startsWith("Calendars: "), body["checks"]["khal"].toString())
+    assertEquals(todo.toString(), body["checks"]["todo"]["target"].asText())
+    assertTrue(body["checks"]["disk"]["output"].asText().contains(" free"), body["checks"]["disk"].toString())
+    assertEquals("Scheduled processing is off", body["checks"]["processing"]["output"].asText())
   }
 
   @Test
@@ -66,6 +93,7 @@ class HealthTest : PipelineTest() {
 
     assertEquals("postmaster", application["name"].asText())
     assertTrue(Regex("v\\d+").matches(application["version"].asText()), application["version"].asText())
+    assertTrue(Regex("[0-9a-f]{12}(-dirty)?").matches(application["commit"].asText()), application["commit"].asText())
     assertTrue(application["builtAt"].isNull, "test builds have no build time")
     val started = Instant.parse(application["startedAt"].asText())
     assertTrue(started.isBefore(Instant.now()))
@@ -169,5 +197,138 @@ class HealthTest : PipelineTest() {
     assertTrue(after["nextRunAt"].isNull)
     assertTrue(after["pendingEmails"].asLong() >= 0)
     assertTrue(after["failedEmailsLastDay"].asLong() >= 0)
+  }
+
+  @Test
+  fun `khal or Chromium failing makes the status DEGRADED`() {
+    llmUp()
+    FakeTools.failKhal("khal: config error")
+    FakeTools.failChromium("chromium: crashed")
+
+    val (response, body) = fetch()
+
+    assertEquals(200, response.statusCode)
+    assertEquals("DEGRADED", body["status"].asText())
+    assertEquals("DOWN", body["checks"]["khal"]["status"].asText())
+    assertTrue(body["checks"]["khal"]["output"].asText().endsWith("exit code 1: khal: config error"), body["checks"]["khal"].toString())
+    assertEquals("DOWN", body["checks"]["chromium"]["status"].asText())
+    assertEquals("UP", body["checks"]["curl"]["status"].asText())
+  }
+
+  @Test
+  fun `a to-do index without its end line is DOWN`() {
+    llmUp()
+    Files.writeString(todo.resolve("index.md"), "# To-do\n- [ ] [[Pay]]\n")
+
+    val body = fetch().second
+
+    assertEquals("DEGRADED", body["status"].asText())
+    assertEquals("DOWN", body["checks"]["todo"]["status"].asText())
+    assertTrue(body["checks"]["todo"]["output"].asText().contains("<!-- todo-items:end -->"))
+  }
+
+  @Test
+  fun `a folder that doesn't exist yet is fine if it can be created`() {
+    llmUp()
+    settings.update("todo.path", todo.resolve("later/todo").toString())
+    settings.update("attachments.path", "/nonexistent-root-folder/attachments")
+
+    val checks = fetch().second["checks"]
+
+    assertEquals("UP", checks["todo"]["status"].asText())
+    assertTrue(checks["todo"]["output"].asText().contains("will be created"))
+    assertEquals("DOWN", checks["attachments"]["status"].asText())
+    assertTrue(checks["attachments"]["output"].asText().contains("can't be created"), checks["attachments"].toString())
+  }
+
+  @Test
+  fun `little free disk space warns`() {
+    llmUp()
+    settings.update("health.min_free_mb", Int.MAX_VALUE.toString())
+
+    val (response, body) = fetch()
+
+    assertEquals(200, response.statusCode)
+    assertEquals("DEGRADED", body["status"].asText())
+    assertEquals("WARN", body["checks"]["disk"]["status"].asText())
+    assertTrue(body["checks"]["disk"]["output"].asText().startsWith("Less than 2097152.0 GiB free: "), body["checks"]["disk"].toString())
+  }
+
+  @Test
+  fun `emails piling up warns`() {
+    llmUp()
+    inbox(message("<health-pending-1@mail.example>", "One"), message("<health-pending-2@mail.example>", "Two"))
+    processing.runNow(RunTrigger.MANUAL)
+    // As if the LLM had been down for both
+    dataSource.update("UPDATE Emails SET status = 'pending' WHERE message_id LIKE 'health-pending-%'")
+    settings.update("health.pending_limit", "1")
+    try {
+      val body = fetch().second
+
+      assertEquals("DEGRADED", body["status"].asText())
+      assertEquals("WARN", body["checks"]["processing"]["status"].asText())
+      assertTrue(body["checks"]["processing"]["output"].asText().contains("emails are waiting to be processed (more than 1)"))
+    } finally {
+      dataSource.update("UPDATE Emails SET deleted = TRUE WHERE message_id LIKE 'health-pending-%'")
+    }
+  }
+
+  @Test
+  fun `a password the encryption key can't decrypt is reported`() {
+    llmUp()
+    val original = dataSource.rows("SELECT setting_value FROM Settings WHERE setting_key = 'llm.api_key'").single()["setting_value"]
+    dataSource.update("UPDATE Settings SET setting_value = 'enc:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' WHERE setting_key = 'llm.api_key'")
+    try {
+      val body = fetch().second
+
+      assertEquals("DEGRADED", body["status"].asText())
+      assertEquals("DOWN", body["checks"]["settings"]["status"].asText())
+      assertTrue(body["checks"]["settings"]["output"].asText().endsWith(": llm.api_key"), body["checks"]["settings"].toString())
+    } finally {
+      dataSource.update("UPDATE Settings SET setting_value = ? WHERE setting_key = 'llm.api_key'", original)
+    }
+  }
+
+  @Test
+  fun `application health+json gives the IETF draft's format`() {
+    llmUp()
+    settings.update("smtp.port", "1")
+
+    val (response, body) = fetch(accept = "application/health+json")
+
+    assertEquals(200, response.statusCode)
+    assertTrue(response.contentType.startsWith("application/health+json"), response.contentType)
+    assertTrue(response.header("Cache-Control").contains("no-store"))
+    assertEquals("warn", body["status"].asText())
+    assertEquals("postmaster", body["serviceId"].asText())
+    assertTrue(Regex("v\\d+").matches(body["version"].asText()))
+    assertTrue(body["output"].asText().startsWith("smtp: "), body["output"].asText())
+    assertEquals(listOf("uptime") + allChecks.map { "$it:responseTime" }, body["checks"].fieldNames().asSequence().toList())
+    val smtp = body["checks"]["smtp:responseTime"][0]
+    assertEquals("fail", smtp["status"].asText())
+    assertEquals("mail", smtp["componentType"].asText())
+    assertEquals("127.0.0.1:1", smtp["componentId"].asText())
+    assertEquals("ms", smtp["observedUnit"].asText())
+    assertTrue(smtp["observedValue"].isNumber)
+    val database = body["checks"]["database:responseTime"][0]
+    assertEquals("pass", database["status"].asText())
+    assertFalse(database.has("output"), "fields without a value are left out")
+    assertEquals("s", body["checks"]["uptime"][0]["observedUnit"].asText())
+  }
+
+  @Test
+  fun `the draft's format is only given when it's preferred`() {
+    llmUp()
+    settings.update("imap.port", "1")
+
+    val (plain, plainBody) = fetch("/status", accept = "application/json, application/health+json;q=0.5")
+    val (wildcard, _) = fetch(accept = "*/*")
+    val (draft, draftBody) = fetch("/status", accept = "application/health+json")
+
+    assertTrue(plain.contentType.startsWith("application/json"))
+    assertEquals("DOWN", plainBody["status"].asText())
+    assertTrue(wildcard.contentType.startsWith("application/json"))
+    assertEquals(503, draft.statusCode)
+    assertEquals("fail", draftBody["status"].asText())
   }
 }

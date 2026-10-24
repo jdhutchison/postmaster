@@ -75,7 +75,7 @@ Server-rendered Qute templates with HTMX for partial updates, and one small scri
 
 ## Status
 
-`HealthController` serves `/mail/health` and `/mail/status`. `HealthService` checks the database, Dovecot, SMTP and the LLM in parallel (5 seconds each) and reports the overall status: `OK`, `DEGRADED` (the LLM or SMTP is down) or `DOWN` (the database or Dovecot is down, HTTP 503). It also reports the version and build time (`BuildInfo`, from the `build-info.properties` that Gradle writes), the uptime and what processing is doing. See [running.md](running.md#status) and CLARIFICATIONS.md R7.
+`HealthController` serves `/mail/health` and `/mail/status`. `HealthService` runs its checks in parallel (5 seconds each): the database, Dovecot, SMTP, the LLM, the encrypted settings, khal, Chromium, curl, the attachments and to-do folders and free disk space, plus a processing check worked out from the run history. It reports the overall status: `OK`, `DEGRADED` (a check other than the database or Dovecot is down or warns) or `DOWN` (the database or Dovecot is down, HTTP 503). It also reports the version, commit and build time (`BuildInfo`, from the `build-info.properties` that Gradle writes), the uptime and what processing is doing. A client asking for `application/health+json` gets the IETF draft's format instead. See [running.md](running.md#status) and CLARIFICATIONS.md R7.
 
 ## Logging
 
