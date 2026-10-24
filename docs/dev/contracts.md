@@ -391,28 +391,30 @@ All routes below are under `/mail`. Pages are server-rendered Qute templates enh
 
 ### Palette (CSS custom properties on `:root`)
 
-Values are exactly those of the official specification, https://draculatheme.com/spec ("Color Palette" Dracula Classic and Alucard Classic, plus "UI Color Palette"). Light mode (Alucard) is the default; `@media (prefers-color-scheme: dark)` switches to Dracula.
+The Water.css palettes (https://watercss.kognise.dev), which replaced Dracula and Alucard on 2026-10-24 (CLARIFICATIONS.md R4). Light mode is the default; `@media (prefers-color-scheme: dark)` switches to dark. Water.css has one accent colour, its link blue, and no status colours, so red, orange, yellow, green and pink are Postmaster's own, chosen to suit it.
 
-| Property | Alucard (light) | Dracula (dark) | Spec token |
+| Property | Light | Dark | From Water.css |
 |---|---|---|---|
-| `--pm-background` | `#FFFBEB` | `#282A36` | Background |
-| `--pm-current-line` | `#6C664B` | `#6272A4` | Current Line |
-| `--pm-selection` | `#CFCFDE` | `#44475A` | Selection |
-| `--pm-foreground` | `#1F1F1F` | `#F8F8F2` | Foreground |
-| `--pm-comment` | `#6C664B` | `#6272A4` | Comment |
-| `--pm-red` | `#CB3A2A` | `#FF5555` | Red |
-| `--pm-orange` | `#A34D14` | `#FFB86C` | Orange |
-| `--pm-yellow` | `#846E15` | `#F1FA8C` | Yellow |
-| `--pm-green` | `#14710A` | `#50FA7B` | Green |
-| `--pm-cyan` | `#036A96` | `#8BE9FD` | Cyan |
-| `--pm-purple` | `#644AC9` | `#BD93F9` | Purple |
-| `--pm-pink` | `#A3144D` | `#FF79C6` | Pink |
-| `--pm-bg-floating` | `#EFEDDC` | `#343746` | UI: Floating interactive elements |
-| `--pm-bg-lighter` | `#ECE9DF` | `#424450` | UI: Background Lighter |
-| `--pm-bg-light` | `#DEDCCF` | `#343746` | UI: Background Light |
-| `--pm-bg-dark` | `#CECCC0` | `#21222C` | UI: Background Dark |
-| `--pm-bg-darker` | `#BCBAB3` | `#191A21` | UI: Background Darker |
-| `--pm-focus` | `#815CD6` | `#815CD6` | Functional Purple (focus indicators) |
+| `--pm-background` | `#FFFFFF` | `#202B38` | `--background-body` |
+| `--pm-current-line` | `#70777F` | `#526980` | |
+| `--pm-selection` | `#DBDBDB` | `#526980` | `--border` |
+| `--pm-foreground` | `#363636` | `#DBDBDB` | `--text-main` |
+| `--pm-comment` | `#70777F` | `#A9B1BA` | `--text-muted` |
+| `--pm-red` | `#C62828` | `#FF6B6B` | |
+| `--pm-orange` | `#B85C00` | `#FFBE85` | dark: `--code` |
+| `--pm-yellow` | `#8A7400` | `#EFDB43` | dark: `--highlight` |
+| `--pm-green` | `#2E8B32` | `#6BD06F` | |
+| `--pm-cyan` | `#0076D1` | `#41ADFF` | `--links` |
+| `--pm-accent` | `#0076D1` | `#41ADFF` | `--links` (primary buttons, select arrows, counts) |
+| `--pm-pink` | `#B0279E` | `#D941E2` | dark: `--variable` |
+| `--pm-bg-floating` | `#F7F7F7` | `#1A242F` | `--background-alt` |
+| `--pm-bg-lighter` | `#F2F2F2` | `#2A3949` | |
+| `--pm-bg-light` | `#EFEFEF` | `#161F27` | `--background` |
+| `--pm-bg-dark` | `#DBDBDB` | `#0C151C` | dark: `--button-base` |
+| `--pm-bg-darker` | `#9B9B9B` | `#040A0F` | `--button-hover` |
+| `--pm-focus` | `#0096BF` | `#0096BF` | `--focus` (without its transparency) |
+
+The favicon (`assets/favicon.svg`) is the accent colour, light or dark to match the device.
 
 Element colours:
 
@@ -428,7 +430,7 @@ Element colours:
 | menu button and menu panel | `--pm-bg-floating` (frosted, see below) |
 | success toasts | left border `--pm-green` |
 | error toasts | left border `--pm-red` |
-| primary buttons (`.pm-button--primary`) | background `--pm-purple`, text `--pm-background` |
+| primary buttons (`.pm-button--primary`) | background `--pm-accent`, text `--pm-background` |
 | danger buttons (`.pm-button--danger`) | background `--pm-red`, text `--pm-background` |
 | focus outlines | `--pm-focus` |
 

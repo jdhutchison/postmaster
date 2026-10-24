@@ -185,3 +185,11 @@ PLAN.md has a new "single agent" section explaining this.
 **You:** Let me know the address when the local dev mode is ready.
 
 **Claude:** It's at http://localhost:8080/mail/.
+
+**You:** You'd like to see the UI with the Water.css palettes for dark and light mode instead.
+
+**Claude:** I added them as a preview, chosen with `?palette=water`.
+
+**You:** Switch to Water. Change the favicon to match the new palette.
+
+**Claude:** Done. Water.css is now the only palette, and the preview switch is gone. The favicon is the envelope on Water's blue, light or dark to match the device. This is recorded as CLARIFICATIONS.md R4, which supersedes Q18.

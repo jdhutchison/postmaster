@@ -1,54 +1,53 @@
 package sh.hutch.postmaster.testsupport
 
 /**
- * The Dracula (dark) and Alucard (light) palettes, from the official spec at
- * https://draculatheme.com/spec (REQ User interface style: "Darcula and
- * Alucard should be used as the basis for the dark and light palettes";
- * CLAR Q18: Dracula and Alucard).
+ * The Water.css light and dark palettes (https://watercss.kognise.dev), which
+ * replaced Dracula and Alucard on 2026-10-24 (CLAR R4). Water.css has one
+ * accent, its link blue; the status colours (red to pink) are Postmaster's.
  */
 object Palettes {
-  val DRACULA: Map<String, String> = linkedMapOf(
-      "background" to "#282A36",
-      "current-line" to "#6272A4",
-      "selection" to "#44475A",
-      "foreground" to "#F8F8F2",
-      "comment" to "#6272A4",
-      "red" to "#FF5555",
-      "orange" to "#FFB86C",
-      "yellow" to "#F1FA8C",
-      "green" to "#50FA7B",
-      "cyan" to "#8BE9FD",
-      "purple" to "#BD93F9",
-      "pink" to "#FF79C6",
-      "floating" to "#343746",
-      "background-lighter" to "#424450",
-      "background-light" to "#343746",
-      "background-dark" to "#21222C",
-      "background-darker" to "#191A21"
+  val WATER_DARK: Map<String, String> = linkedMapOf(
+      "background" to "#202B38",
+      "current-line" to "#526980",
+      "selection" to "#526980",
+      "foreground" to "#DBDBDB",
+      "comment" to "#A9B1BA",
+      "red" to "#FF6B6B",
+      "orange" to "#FFBE85",
+      "yellow" to "#EFDB43",
+      "green" to "#6BD06F",
+      "cyan" to "#41ADFF",
+      "accent" to "#41ADFF",
+      "pink" to "#D941E2",
+      "floating" to "#1A242F",
+      "background-lighter" to "#2A3949",
+      "background-light" to "#161F27",
+      "background-dark" to "#0C151C",
+      "background-darker" to "#040A0F"
   )
 
-  val ALUCARD: Map<String, String> = linkedMapOf(
-      "background" to "#FFFBEB",
-      "current-line" to "#6C664B",
-      "selection" to "#CFCFDE",
-      "foreground" to "#1F1F1F",
-      "comment" to "#6C664B",
-      "red" to "#CB3A2A",
-      "orange" to "#A34D14",
-      "yellow" to "#846E15",
-      "green" to "#14710A",
-      "cyan" to "#036A96",
-      "purple" to "#644AC9",
-      "pink" to "#A3144D",
-      "floating" to "#EFEDDC",
-      "background-lighter" to "#ECE9DF",
-      "background-light" to "#DEDCCF",
-      "background-dark" to "#CECCC0",
-      "background-darker" to "#BCBAB3"
+  val WATER_LIGHT: Map<String, String> = linkedMapOf(
+      "background" to "#FFFFFF",
+      "current-line" to "#70777F",
+      "selection" to "#DBDBDB",
+      "foreground" to "#363636",
+      "comment" to "#70777F",
+      "red" to "#C62828",
+      "orange" to "#B85C00",
+      "yellow" to "#8A7400",
+      "green" to "#2E8B32",
+      "cyan" to "#0076D1",
+      "accent" to "#0076D1",
+      "pink" to "#B0279E",
+      "floating" to "#F7F7F7",
+      "background-lighter" to "#F2F2F2",
+      "background-light" to "#EFEFEF",
+      "background-dark" to "#DBDBDB",
+      "background-darker" to "#9B9B9B"
   )
 
-  /** Functional Purple, the spec's focus indicator colour (the same in both palettes) */
-  const val FOCUS = "#815CD6"
+  /** The focus indicator colour (the same in both palettes) */
+  const val FOCUS = "#0096BF"
 
   /** A `#rrggbb` colour as the `rgb(r, g, b)` string browsers report in computed styles */
   fun rgb(hex: String): String {

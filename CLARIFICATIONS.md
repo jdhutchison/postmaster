@@ -366,6 +366,13 @@ You want to run Postmaster locally through Gradle, in dev mode or a dev profile,
   | `source` | `ui` or `mcp`, for manual actions |
 - `util.Mdc.with(...)` sets keys for a block of code and restores the previous values afterwards, so nested work (run, email, phase, rule and action) cleans up after itself.
 
+**R4 (2026-10-24). The Water.css palettes replace Dracula and Alucard (supersedes Q18).**
+After comparing the two, you chose Water.css for light and dark mode.
+- **Colours:** the CSS tokens take Water.css's values. Its link blue is the accent (`--pm-accent`, formerly `--pm-purple`): primary buttons, select arrows and counts.
+- **Status colours:** Water.css has none, so red, orange, yellow, green and pink are chosen to suit it.
+- **Favicon:** the envelope on the accent blue, light or dark to match the device.
+- **Unchanged:** the seeded type colours (from Dracula) stay, because they're data you can change on the Types page.
+
 ---
 
 ## Technical suggestions

@@ -91,8 +91,8 @@ class ToastBrowserTest : FixtureBrowserTest() {
   @ParameterizedTest
   @EnumSource(value = ColorScheme::class, names = ["LIGHT", "DARK"])
   fun `success toasts are marked green and errors red`(scheme: ColorScheme) {
-    // CLAR Q18 palette; the colour tells success and failure apart at a glance
-    val palette = if (scheme == ColorScheme.DARK) Palettes.DRACULA else Palettes.ALUCARD
+    // CLAR R4 palette; the colour tells success and failure apart at a glance
+    val palette = if (scheme == ColorScheme.DARK) Palettes.WATER_DARK else Palettes.WATER_LIGHT
     val page = fixture("?toast=error&message=Broken", colorScheme = scheme)
     page.testId("htmx-success").click()
     assertThat(page.toast("success")).isVisible()

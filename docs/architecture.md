@@ -57,7 +57,7 @@ Errors from the outside world (IMAP, the LLM, khal, fetching) are recorded again
 
 ## User interface
 
-Server-rendered Qute templates with HTMX for partial updates, and one small script (`assets/js/postmaster.js`) for menus, dialogs, toasts and tables. Everything is served by the application under `/mail`; a Content-Security-Policy forbids anything external. The layout follows the system's light or dark mode (Alucard or Dracula) and uses Atkinson Hyperlegible Next. `docs/dev/contracts.md` records every route, form field and `data-testid`.
+Server-rendered Qute templates with HTMX for partial updates, and one small script (`assets/js/postmaster.js`) for menus, dialogs, toasts and tables. Everything is served by the application under `/mail`; a Content-Security-Policy forbids anything external. The layout follows the system's light or dark mode (the Water.css palettes) and uses Atkinson Hyperlegible Next. `docs/dev/contracts.md` records every route, form field and `data-testid`.
 
 ## MCP server
 

@@ -1,10 +1,9 @@
 /*
  * Postmaster styles.
  *
- * Palette: Dracula (dark) and Alucard (light) Classic, with values exactly as published in the
- * official specification, https://draculatheme.com/spec ("Color Palette" and "UI Color Palette";
- * --pm-focus is the spec's Functional Purple). The light palette is the default and the dark one
- * applies when the device prefers a dark colour scheme.
+ * Palette: Water.css light and dark (https://watercss.kognise.dev), with Postmaster's own status
+ * colours (CLARIFICATIONS.md R4). The light palette is the default and the dark one applies when
+ * the device prefers a dark colour scheme.
  */
 
 /* Fonts: Atkinson Hyperlegible Next variable font (SIL OFL 1.1), from
@@ -50,63 +49,64 @@
  * ------------------------------------------------------------------------------------------- */
 
 :root {
-  /* Alucard Classic */
-  --pm-background: #FFFBEB;
-  --pm-current-line: #6C664B;
-  --pm-selection: #CFCFDE;
-  --pm-foreground: #1F1F1F;
-  --pm-comment: #6C664B;
-  --pm-red: #CB3A2A;
-  --pm-orange: #A34D14;
-  --pm-yellow: #846E15;
-  --pm-green: #14710A;
-  --pm-cyan: #036A96;
-  --pm-purple: #644AC9;
-  --pm-pink: #A3144D;
-  /* Alucard UI colour palette */
-  --pm-bg-floating: #EFEDDC;
-  --pm-bg-lighter: #ECE9DF;
-  --pm-bg-light: #DEDCCF;
-  --pm-bg-dark: #CECCC0;
-  --pm-bg-darker: #BCBAB3;
-  /* Functional Purple: focus indicators */
-  --pm-focus: #815CD6;
+  /*
+   * Water.css light (https://watercss.kognise.dev, MIT). Water.css has one accent, its link blue,
+   * and no status colours, so red, orange, yellow, green and pink are chosen to suit it.
+   */
+  --pm-background: #FFFFFF;
+  --pm-current-line: #70777F;
+  --pm-selection: #DBDBDB;
+  --pm-foreground: #363636;
+  --pm-comment: #70777F;
+  --pm-red: #C62828;
+  --pm-orange: #B85C00;
+  --pm-yellow: #8A7400;
+  --pm-green: #2E8B32;
+  --pm-cyan: #0076D1;
+  --pm-accent: #0076D1;
+  --pm-pink: #B0279E;
+  --pm-bg-floating: #F7F7F7;
+  --pm-bg-lighter: #F2F2F2;
+  --pm-bg-light: #EFEFEF;
+  --pm-bg-dark: #DBDBDB;
+  --pm-bg-darker: #9B9B9B;
+  /* Focus indicators */
+  --pm-focus: #0096BF;
 
   --pm-font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   --pm-radius: 0.5rem;
   --pm-gutter: 1rem;
   --pm-menu-button-size: 2.75rem;
-  --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.18);
-  /* The arrow drawn on select boxes, in Purple */
-  --pm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%23644AC9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.12);
+  /* The arrow drawn on select boxes, in the accent colour */
+  --pm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%230076D1' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Dracula Classic */
-    --pm-background: #282A36;
-    --pm-current-line: #6272A4;
-    --pm-selection: #44475A;
-    --pm-foreground: #F8F8F2;
-    --pm-comment: #6272A4;
-    --pm-red: #FF5555;
-    --pm-orange: #FFB86C;
-    --pm-yellow: #F1FA8C;
-    --pm-green: #50FA7B;
-    --pm-cyan: #8BE9FD;
-    --pm-purple: #BD93F9;
-    --pm-pink: #FF79C6;
-    /* Dracula UI colour palette */
-    --pm-bg-floating: #343746;
-    --pm-bg-lighter: #424450;
-    --pm-bg-light: #343746;
-    --pm-bg-dark: #21222C;
-    --pm-bg-darker: #191A21;
+    /* Water.css dark */
+    --pm-background: #202B38;
+    --pm-current-line: #526980;
+    --pm-selection: #526980;
+    --pm-foreground: #DBDBDB;
+    --pm-comment: #A9B1BA;
+    --pm-red: #FF6B6B;
+    --pm-orange: #FFBE85;
+    --pm-yellow: #EFDB43;
+    --pm-green: #6BD06F;
+    --pm-cyan: #41ADFF;
+    --pm-accent: #41ADFF;
+    --pm-pink: #D941E2;
+    --pm-bg-floating: #1A242F;
+    --pm-bg-lighter: #2A3949;
+    --pm-bg-light: #161F27;
+    --pm-bg-dark: #0C151C;
+    --pm-bg-darker: #040A0F;
 
     --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.45);
-    --pm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%23BD93F9' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --pm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%2341ADFF' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
     color-scheme: dark;
   }
@@ -229,13 +229,13 @@ h3 {
 }
 
 .pm-button--primary {
-  border-color: var(--pm-purple);
-  background: var(--pm-purple);
+  border-color: var(--pm-accent);
+  background: var(--pm-accent);
   color: var(--pm-background);
 }
 
 .pm-button--primary:hover {
-  background: var(--pm-purple);
+  background: var(--pm-accent);
   filter: brightness(1.08);
 }
 
@@ -361,8 +361,8 @@ h3 {
 }
 
 .pm-menu a[aria-current="page"] {
-  color: var(--pm-purple);
-  box-shadow: inset 3px 0 0 var(--pm-purple);
+  color: var(--pm-accent);
+  box-shadow: inset 3px 0 0 var(--pm-accent);
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -681,7 +681,7 @@ h3 {
   width: 1.15rem;
   height: 1.15rem;
   margin: 0;
-  accent-color: var(--pm-purple);
+  accent-color: var(--pm-accent);
 }
 
 .pm-field--narrow {
@@ -1180,7 +1180,7 @@ textarea.pm-prompt-text {
 .pm-filter-panel > summary::after {
   content: "▾";
   margin-left: 0.4rem;
-  color: var(--pm-purple);
+  color: var(--pm-accent);
 }
 
 .pm-filter-panel[open] > summary::after {
@@ -1196,7 +1196,7 @@ textarea.pm-prompt-text {
 }
 
 .pm-badge--count {
-  background: var(--pm-purple);
+  background: var(--pm-accent);
   color: var(--pm-background);
 }
 

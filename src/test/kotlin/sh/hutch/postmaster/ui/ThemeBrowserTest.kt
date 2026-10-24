@@ -11,8 +11,8 @@ import sh.hutch.postmaster.testsupport.Palettes.rgb
 /**
  * Light and dark mode follow the device (REQ User interface style: "The
  * palette should have light and dark modes and the mode must match the
- * system mode of the device"), using Alucard for light and Dracula for dark
- * (CLAR Q18), with the colours of https://draculatheme.com/spec.
+ * system mode of the device"), using the Water.css light and dark palettes
+ * (CLAR R4, which replaced Q18's Dracula and Alucard).
  */
 @QuarkusTest
 class ThemeBrowserTest : FixtureBrowserTest() {
@@ -29,7 +29,7 @@ class ThemeBrowserTest : FixtureBrowserTest() {
 
   @ParameterizedTest
   @EnumSource(value = ColorScheme::class, names = ["LIGHT", "DARK"])
-  fun `every palette colour is the spec's colour for the system mode`(scheme: ColorScheme) {
+  fun `every palette colour is the palette's colour for the system mode`(scheme: ColorScheme) {
     val palette = palette(scheme)
     val page = fixture(colorScheme = scheme)
 
@@ -37,14 +37,14 @@ class ThemeBrowserTest : FixtureBrowserTest() {
         "--pm-background" to "background", "--pm-current-line" to "current-line", "--pm-selection" to "selection",
         "--pm-foreground" to "foreground", "--pm-comment" to "comment", "--pm-red" to "red",
         "--pm-orange" to "orange", "--pm-yellow" to "yellow", "--pm-green" to "green", "--pm-cyan" to "cyan",
-        "--pm-purple" to "purple", "--pm-pink" to "pink", "--pm-bg-floating" to "floating",
+        "--pm-accent" to "accent", "--pm-pink" to "pink", "--pm-bg-floating" to "floating",
         "--pm-bg-lighter" to "background-lighter", "--pm-bg-light" to "background-light",
         "--pm-bg-dark" to "background-dark", "--pm-bg-darker" to "background-darker"
     )
     for ((property, specName) in tokens) {
       assertEquals(rgb(palette.getValue(specName)), page.resolvedColour(property), "$property ($specName)")
     }
-    assertEquals(rgb(Palettes.FOCUS), page.resolvedColour("--pm-focus"), "--pm-focus (Functional Purple)")
+    assertEquals(rgb(Palettes.FOCUS), page.resolvedColour("--pm-focus"), "--pm-focus")
   }
 
   @ParameterizedTest
@@ -59,7 +59,7 @@ class ThemeBrowserTest : FixtureBrowserTest() {
 
   @ParameterizedTest
   @EnumSource(value = ColorScheme::class, names = ["LIGHT", "DARK"])
-  fun `keyboard focus is shown in the spec's focus colour`(scheme: ColorScheme) {
+  fun `keyboard focus is shown in the focus colour`(scheme: ColorScheme) {
     val page = fixture(colorScheme = scheme)
 
     page.testId("plain-link").focus()
@@ -69,5 +69,5 @@ class ThemeBrowserTest : FixtureBrowserTest() {
     assertEquals(rgb(Palettes.FOCUS), page.style("[data-testid=plain-link]", "outline-color"))
   }
 
-  private fun palette(scheme: ColorScheme) = if (scheme == ColorScheme.DARK) Palettes.DRACULA else Palettes.ALUCARD
+  private fun palette(scheme: ColorScheme) = if (scheme == ColorScheme.DARK) Palettes.WATER_DARK else Palettes.WATER_LIGHT
 }
