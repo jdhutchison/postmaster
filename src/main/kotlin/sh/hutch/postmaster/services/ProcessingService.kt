@@ -445,16 +445,24 @@ class ProcessingScheduler(
       concurrentExecution = io.quarkus.scheduler.Scheduled.ConcurrentExecution.SKIP
   )
   fun tick() {
-    if (!config.schedulerEnabled() || processing.isRunning) {
-      return
+    if (config.schedulerEnabled()) {
+      runIfDue()
+    }
+  }
+
+  /**
+   * Starts a scheduled run if processing.frequency has passed since the latest run started (or
+   * there's been no run), unless a run is in progress. Returns the run, or null if none was due.
+   */
+  fun runIfDue(): ProcessingRunEntity? {
+    if (processing.isRunning) {
+      return null
     }
     val due = QuarkusTransaction.requiringNew().call {
       val latest = runs.findLatest()?.startedAt
       val frequency = runCatching { settings.getDuration(SettingKeys.PROCESSING_FREQUENCY) }.getOrDefault(Duration.ofHours(1))
       latest == null || !latest.plus(frequency).isAfter(Times.now())
     }
-    if (due) {
-      processing.runNow(RunTrigger.SCHEDULE)
-    }
+    return if (due) processing.runNow(RunTrigger.SCHEDULE) else null
   }
 }

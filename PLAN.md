@@ -176,7 +176,7 @@ These are reusable, so the action handlers can share them.
   `action_required` and `action_description` come from the Summarise result and are always false/empty for `Bill` emails (Q13 revision).
 
   Also supports reprocessing an email.
-- [x] **5.6** `build: done` `tests: todo` Scheduler: the interval comes from the settings, only one run at a time, each run is recorded in `Processing_runs`, and there is a "Run now" trigger. End-to-end tests with GreenMail, WireMock and the fake khal.
+- [x] **5.6** `build: done` `tests: done` Scheduler: the interval comes from the settings, only one run at a time, each run is recorded in `Processing_runs`, and there is a "Run now" trigger. End-to-end tests with GreenMail, WireMock and the fake khal.
 
 ## Phase 6: Email UI and dashboard
 
@@ -218,8 +218,8 @@ These are reusable, so the action handlers can share them.
 
 ## Additions (2026-10-24)
 
-- [x] **A.1** `build: done` `tests: todo` Dev mode on an in-memory database with fake data (CLARIFICATIONS.md R2).
-- [x] **A.2** `build: done` `tests: todo` Logging to stdout with MDC context: run, email, phase, rule, action and source (CLARIFICATIONS.md R3).
+- [x] **A.1** `build: done` `tests: done` Dev mode on an in-memory database with fake data (CLARIFICATIONS.md R2).
+- [x] **A.2** `build: done` `tests: done` Logging to stdout with MDC context: run, email, phase, rule, action and source (CLARIFICATIONS.md R3).
 - [x] **A.3** `build: done` `tests: done` Action items and the `update_todo_list` action, writing to and reading from a markdown to-do list (CLARIFICATIONS.md R5).
 
 ## Phase 9: Deployment (in `/data/code/ansible`), on hold
