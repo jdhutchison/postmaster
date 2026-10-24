@@ -492,7 +492,7 @@ Structure rendered by the layout:
 
 An editorial grid with hairline rules instead of boxes. Only the menu floats, and nothing else has a shadow.
 - **Masthead:**
-  - the kicker is level with the floating menu button, in capitals (1.25rem; 1rem on phones), led by the logo (the favicon) at the menu button's height and level with it; when the kicker wraps the logo stays beside it
+  - the kicker starts at the grid's left edge, level with the floating menu button in the top right-hand corner, in capitals (1.25rem; 1rem on phones), led by the logo (the favicon) at the menu button's height and level with it; when the kicker wraps the logo stays beside it
   - the title is flush with the grid's left edge
   - an optional lede follows
   - the actions sit on the title's baseline, at the right
@@ -513,9 +513,9 @@ An editorial grid with hairline rules instead of boxes. Only the menu floats, an
 ### Menu
 
 - **Button.** `button#pm-menu-button.pm-menu-button` (`data-testid="menu-button"`) with `aria-label="Menu"`, `aria-controls="pm-menu"` and `aria-expanded="false|true"`.
-  - It's `position: fixed` at the top left (`top` and `left` 0.75rem), with `z-index: 100`, so it floats over the content.
+  - It's `position: fixed` at the top right (`top` and `right` 0.75rem), with `z-index: 100`, so it floats over the content.
   - The frosted glass is `backdrop-filter: blur(12px) saturate(140%)` (plus `-webkit-backdrop-filter`) over a translucent `--pm-bg-floating`.
-- **Panel.** `nav#pm-menu.pm-menu` (`data-testid="menu"`, `aria-label="Main"`) is hidden with the `hidden` attribute when closed. It is also fixed and frosted, below the button.
+- **Panel.** `nav#pm-menu.pm-menu` (`data-testid="menu"`, `aria-label="Main"`) is hidden with the `hidden` attribute when closed. It is also fixed and frosted, below the button and aligned to its right edge.
 - **Items**, in order (each is an `a` in `li`):
 
   | Label | href | data-testid |
