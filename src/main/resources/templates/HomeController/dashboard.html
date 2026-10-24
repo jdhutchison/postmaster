@@ -1,49 +1,55 @@
-<section id="dashboard" class="pm-dashboard" data-testid="home-page"{#if dashboard.running} data-running="true" hx-get="{base}/dashboard" hx-trigger="every 2s" hx-swap="outerHTML"{/if}>
-  <div class="pm-run-banner{#if dashboard.latest && dashboard.latest.status.code == 'failed'} pm-run-banner--failed{/if}" data-testid="processing-status">
-    <div class="pm-run-banner__text">
-      <p class="pm-run-banner__state" data-testid="run-state">{#if dashboard.running}Running now…{#else if dashboard.latest}Last run {dashboard.latest.status.code}{#else}No runs yet{/if}</p>
-      {#if !dashboard.running && dashboard.latest}
-      <p class="pm-muted">{dashboard.latest.emailsFound} new, {dashboard.latest.emailsProcessed} processed{#if dashboard.latest.emailsFailed > 0}, {dashboard.latest.emailsFailed} failed{/if}; started {#time value=dashboard.latest.startedAt /}</p>
-      {#if dashboard.latest.error}<p class="pm-field-error" data-testid="run-error">{dashboard.latest.error}</p>{/if}
-      {/if}
-      <p class="pm-muted" data-testid="next-run">{#if dashboard.schedulerEnabled}Every {dashboard.frequency}; next {#if dashboard.nextRunAt}<time class="pm-time" datetime="{inject:times.iso(dashboard.nextRunAt)}" title="{inject:times.absolute(dashboard.nextRunAt)}">{inject:times.absolute(dashboard.nextRunAt)}</time>{/if}{#else}Scheduled processing is off{/if}</p>
-    </div>
-    <button type="button" class="pm-button pm-button--primary" data-testid="run-now" hx-post="{base}/runs" hx-target="#dashboard" hx-swap="outerHTML"{#if dashboard.running} disabled{/if}>Run now</button>
-  </div>
+<section id="dashboard" class="pm-page pm-dashboard" data-testid="home-page"{#if dashboard.running} data-running="true" hx-get="{base}/dashboard" hx-trigger="every 2s" hx-swap="outerHTML"{/if}>
+  <aside class="pm-rail pm-status{#if dashboard.running} pm-status--running{#else if dashboard.latest && dashboard.latest.status.code == 'failed'} pm-status--failed{/if}" data-testid="processing-status">
+    <p class="pm-label">Processing</p>
+    <p class="pm-status__state" data-testid="run-state">{#if dashboard.running}Running now…{#else if dashboard.latest}Last run {dashboard.latest.status.code}{#else}No runs yet{/if}</p>
+    {#if !dashboard.running && dashboard.latest}
+    <dl class="pm-facts">
+      <dt>Started</dt><dd>{#time value=dashboard.latest.startedAt /}</dd>
+      <dt>Result</dt><dd>{dashboard.latest.emailsFound} new, {dashboard.latest.emailsProcessed} processed{#if dashboard.latest.emailsFailed > 0}, {dashboard.latest.emailsFailed} failed{/if}</dd>
+      {#if dashboard.latest.error}<dt>Error</dt><dd class="pm-field-error" data-testid="run-error">{dashboard.latest.error}</dd>{/if}
+    </dl>
+    {/if}
+    <p class="pm-status__next" data-testid="next-run">{#if dashboard.schedulerEnabled}Every {dashboard.frequency}; next {#if dashboard.nextRunAt}<time class="pm-time" datetime="{inject:times.iso(dashboard.nextRunAt)}" title="{inject:times.absolute(dashboard.nextRunAt)}">{inject:times.absolute(dashboard.nextRunAt)}</time>{/if}{#else}Scheduled processing is off{/if}</p>
+    <button type="button" class="pm-button pm-button--primary pm-status__run" data-testid="run-now" hx-post="{base}/runs" hx-target="#dashboard" hx-swap="outerHTML"{#if dashboard.running} disabled{/if}>Run now</button>
+  </aside>
 
-  <div class="pm-tiles">
-    <a class="pm-tile" href="{base}/emails" data-testid="count-total"><span class="pm-tile__value">{dashboard.counts.total}</span><span class="pm-tile__label">Emails <span class="pm-muted">({dashboard.counts.lastDay} in 24h)</span></span></a>
-    <a class="pm-tile{#if dashboard.counts.responseRequired > 0} pm-tile--reply{/if}" href="{base}/emails?response=true" data-testid="count-response"><span class="pm-tile__value">{dashboard.counts.responseRequired}</span><span class="pm-tile__label">Reply needed</span></a>
-    <a class="pm-tile{#if dashboard.counts.actionRequired > 0} pm-tile--action{/if}" href="{base}/emails?action=true" data-testid="count-action"><span class="pm-tile__value">{dashboard.counts.actionRequired}</span><span class="pm-tile__label">Action needed</span></a>
-    <a class="pm-tile" href="{base}/emails?type=none" data-testid="count-unclassified"><span class="pm-tile__value">{dashboard.counts.unclassified}</span><span class="pm-tile__label">Unclassified</span></a>
-    <a class="pm-tile{#if dashboard.counts.withErrors > 0} pm-tile--error{/if}" href="{base}/emails?errors=true" data-testid="count-errors"><span class="pm-tile__value">{dashboard.counts.withErrors}</span><span class="pm-tile__label">With errors</span></a>
-  </div>
+  <div class="pm-pane">
+    <nav class="pm-ledger" aria-label="Email counts">
+      <a class="pm-ledger__item" href="{base}/emails" data-testid="count-total"><span class="pm-ledger__value">{dashboard.counts.total}</span><span class="pm-label">Emails</span><span class="pm-ledger__note">{dashboard.counts.lastDay} in 24h</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.responseRequired > 0} pm-ledger__item--reply{/if}" href="{base}/emails?response=true" data-testid="count-response"><span class="pm-ledger__value">{dashboard.counts.responseRequired}</span><span class="pm-label">Reply needed</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.actionRequired > 0} pm-ledger__item--action{/if}" href="{base}/emails?action=true" data-testid="count-action"><span class="pm-ledger__value">{dashboard.counts.actionRequired}</span><span class="pm-label">Action needed</span></a>
+      <a class="pm-ledger__item" href="{base}/emails?type=none" data-testid="count-unclassified"><span class="pm-ledger__value">{dashboard.counts.unclassified}</span><span class="pm-label">Unclassified</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.withErrors > 0} pm-ledger__item--error{/if}" href="{base}/emails?errors=true" data-testid="count-errors"><span class="pm-ledger__value">{dashboard.counts.withErrors}</span><span class="pm-label">With errors</span></a>
+    </nav>
 
-  <h2 class="pm-section__title">Recent runs</h2>
-  {#table id="runs-table"}
-    <thead><tr>
-      {#th col="started" label="Started" priority=1 /}
-      {#th col="trigger" label="Trigger" priority=3 /}
-      {#th col="status" label="Status" priority=1 /}
-      {#th col="found" label="New" priority=2 /}
-      {#th col="processed" label="Processed" priority=4 /}
-      {#th col="failed" label="Failed" priority=2 /}
-      {#th col="error" label="Error" priority=3 /}
-    </tr></thead>
-    <tbody>
-      {#for run in dashboard.recentRuns}
-      <tr data-testid="run-row-{run.id}"{#if run.status.code == 'failed'} class="pm-row--error"{/if}>
-        {#td col="started" priority=1}{#time value=run.startedAt /}{/td}
-        {#td col="trigger" priority=3}{run.trigger.code}{/td}
-        {#td col="status" priority=1}{run.status.code}{/td}
-        {#td col="found" priority=2}{run.emailsFound}{/td}
-        {#td col="processed" priority=4}{run.emailsProcessed}{/td}
-        {#td col="failed" priority=2}{run.emailsFailed}{/td}
-        {#td col="error" priority=3}{run.error ?: ''}{/td}
-      </tr>
-      {#else}
-      <tr><td colspan="7" class="pm-muted">No runs yet.</td></tr>
-      {/for}
-    </tbody>
-  {/table}
+    <section class="pm-section" aria-labelledby="runs-heading">
+      <div class="pm-section__head"><h2 id="runs-heading" class="pm-label">Recent runs</h2></div>
+      {#table id="runs-table"}
+        <thead><tr>
+          {#th col="started" label="Started" priority=1 /}
+          {#th col="trigger" label="Trigger" priority=3 /}
+          {#th col="status" label="Status" priority=1 /}
+          {#th col="found" label="New" priority=2 /}
+          {#th col="processed" label="Processed" priority=4 /}
+          {#th col="failed" label="Failed" priority=2 /}
+          {#th col="error" label="Error" priority=3 /}
+        </tr></thead>
+        <tbody>
+          {#for run in dashboard.recentRuns}
+          <tr data-testid="run-row-{run.id}"{#if run.status.code == 'failed'} class="pm-row--error"{/if}>
+            {#td col="started" priority=1}{#time value=run.startedAt /}{/td}
+            {#td col="trigger" priority=3}{run.trigger.code}{/td}
+            {#td col="status" priority=1}{run.status.code}{/td}
+            {#td col="found" priority=2}{run.emailsFound}{/td}
+            {#td col="processed" priority=4}{run.emailsProcessed}{/td}
+            {#td col="failed" priority=2}{run.emailsFailed}{/td}
+            {#td col="error" priority=3}{run.error ?: ''}{/td}
+          </tr>
+          {#else}
+          <tr><td colspan="7" class="pm-muted">No runs yet.</td></tr>
+          {/for}
+        </tbody>
+      {/table}
+    </section>
+  </div>
 </section>

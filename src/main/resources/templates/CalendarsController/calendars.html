@@ -1,10 +1,19 @@
 {#include layout page="calendars"}
+  {#kicker}Postmaster · Events{/kicker}
   {#title}Calendars{/title}
+  {#actions}<button type="button" class="pm-button pm-button--primary" data-testid="new-calendar" hx-get="{base}/calendars/new" hx-target="#calendar-dialog-body">New calendar</button>{/actions}
   {#content}
-    <div class="pm-page-actions">
-      <button type="button" class="pm-button pm-button--primary" data-testid="new-calendar" hx-get="{base}/calendars/new" hx-target="#calendar-dialog-body">New calendar</button>
+    <div class="pm-page pm-page--notes">
+      <aside class="pm-rail">
+        <p class="pm-rail__lede">The khal calendars that events from email are added to.</p>
+        <dl class="pm-facts">
+          <dt>Names</dt><dd>Chosen from the calendars in the khal configuration.</dd>
+          <dt>Enabled</dt><dd>Only enabled calendars are offered to the LLM and when moving events.</dd>
+          <dt>Notifications</dt><dd>Alarms for new events, e.g. <code>4h, 1d</code>, unless the action sets its own.</dd>
+        </dl>
+      </aside>
+      <div class="pm-pane" id="calendars-table-container">{#include CalendarsController/calendarsTable calendars=calendars /}</div>
     </div>
-    <div id="calendars-table-container">{#include CalendarsController/calendarsTable calendars=calendars /}</div>
     {#modal id="calendar-dialog" title="Calendar"}<p class="pm-muted">Loading…</p>{/modal}
   {/content}
 {/include}

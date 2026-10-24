@@ -1,20 +1,36 @@
 {#include layout page="configuration"}
+  {#kicker}Postmaster · System{/kicker}
   {#title}Configuration{/title}
   {#content}
-    <p class="pm-muted">Click a value to change it. Changes are saved when you leave the field.</p>
-    {#table id="settings-table"}
-      <thead><tr>
-        {#th col="setting" label="Setting" priority=1 /}
-        {#th col="value" label="Value" priority=1 resizable=false /}
-      </tr></thead>
-      <tbody>
-        {#for s in settings}
-        <tr data-testid="setting-row-{s.key}">
-          {#td col="setting" priority=1 truncate=false}<span class="pm-setting-label">{s.label}</span>{#if s.description}<span class="pm-muted pm-setting-description">{s.description}</span>{/if}{/td}
-          {#td col="value" priority=1 truncate=false}{#include ConfigurationController/value setting=s /}{/td}
-        </tr>
-        {/for}
-      </tbody>
-    {/table}
+    <div class="pm-page">
+      <aside class="pm-rail" aria-label="Sections">
+        <p class="pm-rail__lede">Click a value to change it. It's saved when you leave the field.</p>
+        <nav class="pm-index" data-testid="settings-index">
+          <p class="pm-label">Sections</p>
+          <ol>
+            {#for g in groups}<li><a href="#settings-{g.key}">{g.label}</a> <span class="pm-muted">{g.settings.size}</span></li>{/for}
+          </ol>
+        </nav>
+      </aside>
+      <div class="pm-pane">
+        {#table id="settings-table"}
+          <thead><tr>
+            {#th col="setting" label="Setting" priority=1 /}
+            {#th col="value" label="Value" priority=1 resizable=false /}
+          </tr></thead>
+          {#for g in groups}
+          <tbody id="settings-{g.key}" class="pm-group" data-testid="settings-group-{g.key}">
+            <tr class="pm-group__head"><th colspan="2" scope="rowgroup">{g.label}</th></tr>
+            {#for s in g.settings}
+            <tr data-testid="setting-row-{s.key}">
+              {#td col="setting" priority=1 truncate=false}<span class="pm-setting-label">{s.label}</span>{#if s.description}<span class="pm-muted pm-setting-description">{s.description}</span>{/if}{/td}
+              {#td col="value" priority=1 truncate=false}{#include ConfigurationController/value setting=s /}{/td}
+            </tr>
+            {/for}
+          </tbody>
+          {/for}
+        {/table}
+      </div>
+    </div>
   {/content}
 {/include}

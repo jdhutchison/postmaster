@@ -193,3 +193,11 @@ PLAN.md has a new "single agent" section explaining this.
 **You:** Switch to Water. Change the favicon to match the new palette.
 
 **Claude:** Done. Water.css is now the only palette, and the preview switch is gone. The favicon is the envelope on Water's blue, light or dark to match the device. This is recorded as CLARIFICATIONS.md R4, which supersedes Q18.
+
+**You:** Refactor the entire UI layout: non-standard, ultra-clean and editorial. Keep the typography and colour tokens. Use an asymmetric structural grid with intentional negative space, hierarchy through scale, position and rules rather than cards, tabular layouts and hairlines instead of shadows, primary controls anchored in context, and concrete responsive shifts.
+
+**Claude:** Done. The contract is in `docs/dev/contracts.md` under "Page layout". Two requirements still apply:
+- the single floating hamburger menu, so there's no navigation sidebar
+- the folded "Full message text" and "Linked page" on the email page
+
+Everything else that matters is always visible. That includes the email filters, which sit in the rail on wide screens.

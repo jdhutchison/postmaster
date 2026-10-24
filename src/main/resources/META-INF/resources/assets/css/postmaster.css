@@ -74,7 +74,7 @@
   --pm-focus: #0096BF;
 
   --pm-font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
-  --pm-radius: 0.5rem;
+  --pm-radius: 0.25rem;
   --pm-gutter: 1rem;
   --pm-menu-button-size: 2.75rem;
   --pm-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.12);
@@ -110,6 +110,29 @@
 
     color-scheme: dark;
   }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Layout tokens
+ *
+ * One spacing scale (4, 8, 12, 16, 24, 40, 64px), two rules (a hairline between rows, a heavier
+ * rule that opens a page or a section) and a reading measure. Nothing below uses arbitrary values.
+ * ------------------------------------------------------------------------------------------- */
+
+:root {
+  --pm-space-1: 0.25rem;
+  --pm-space-2: 0.5rem;
+  --pm-space-3: 0.75rem;
+  --pm-space-4: 1rem;
+  --pm-space-5: 1.5rem;
+  --pm-space-6: 2.5rem;
+  --pm-space-7: 4rem;
+  --pm-hairline: 1px solid var(--pm-selection);
+  --pm-rule: 1px solid var(--pm-foreground);
+  --pm-rule-heavy: 3px solid var(--pm-foreground);
+  --pm-measure: 68ch;
+  --pm-grid-gap: var(--pm-space-6);
+  --pm-actionbar-height: 3.75rem;
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -163,8 +186,26 @@ h3 {
   display: none !important;
 }
 
+code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
 .pm-muted {
   color: var(--pm-comment);
+}
+
+.pm-break {
+  overflow-wrap: anywhere;
+}
+
+.pm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .pm-skip-link {
@@ -172,7 +213,7 @@ h3 {
   left: -100vw;
   top: 0;
   z-index: 200;
-  padding: 0.5rem 1rem;
+  padding: var(--pm-space-2) var(--pm-space-4);
   background: var(--pm-background);
   color: var(--pm-foreground);
 }
@@ -182,25 +223,279 @@ h3 {
   top: 0.75rem;
 }
 
+/* Micro-type: the small capitals that label sections, facts and figures */
+.pm-label {
+  margin: 0;
+  color: var(--pm-comment);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.pm-label__note {
+  margin-left: var(--pm-space-2);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 /* ---------------------------------------------------------------------------------------------
- * Page layout
+ * Page shell
+ *
+ * Every page is a masthead over a 12-column grid. The masthead: a kicker line level with the
+ * floating menu button, the title flush with the grid's left edge, an optional lede, and the
+ * page's primary actions on the title's baseline. A heavy rule closes it. Below, a 3-column rail
+ * holds the page's context (filters, the record's facts, the run status) and a 9-column pane holds
+ * the dense content, so the eye runs down the rail's labels and then across the pane.
  * ------------------------------------------------------------------------------------------- */
 
 .pm-main {
-  max-width: 80rem;
+  max-width: 90rem;
   margin: 0 auto;
-  padding: 0.75rem var(--pm-gutter) 6rem;
+  padding: 0 var(--pm-space-6) var(--pm-space-7);
+}
+
+.pm-masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+      "kicker kicker"
+      "title actions"
+      "lede lede";
+  column-gap: var(--pm-space-5);
+  align-items: end;
+  margin-bottom: var(--pm-space-5);
+  padding: 0.75rem 0 var(--pm-space-4);
+  border-bottom: var(--pm-rule-heavy);
+}
+
+.pm-masthead__kicker {
+  grid-area: kicker;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--pm-space-2);
+  min-height: var(--pm-menu-button-size);
+  margin: 0;
+  /* Clears the floating menu button */
+  padding-left: calc(var(--pm-menu-button-size) + var(--pm-space-4));
+  color: var(--pm-comment);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-masthead__kicker a {
+  color: inherit;
+}
+
+.pm-masthead__kicker a:hover {
+  color: var(--pm-foreground);
+}
+
+/* Names, addresses and times in a kicker keep their own case */
+.pm-kicker__plain {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .pm-page-title {
-  /* Leaves room for the floating menu button */
-  margin: 0 0 1.25rem;
-  padding-left: calc(var(--pm-menu-button-size) + 0.75rem);
-  min-height: var(--pm-menu-button-size);
-  display: flex;
-  align-items: center;
-  font-size: 1.6rem;
+  grid-area: title;
+  margin: var(--pm-space-5) 0 0;
+  max-width: 32ch;
+  font-size: clamp(1.75rem, 1.15rem + 2.2vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
   overflow-wrap: anywhere;
+}
+
+.pm-masthead__lede {
+  grid-area: lede;
+}
+
+.pm-masthead__lede:empty,
+.pm-masthead__actions:empty {
+  display: none;
+}
+
+.pm-lede {
+  margin: var(--pm-space-2) 0 0;
+  color: var(--pm-comment);
+}
+
+.pm-lede--meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pm-space-2);
+}
+
+.pm-masthead__actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--pm-space-2);
+}
+
+/* A destructive action, set apart from the others */
+.pm-actions__apart {
+  margin-left: var(--pm-space-5);
+}
+
+/* The page grid */
+.pm-page {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--pm-grid-gap);
+  align-items: start;
+}
+
+.pm-rail {
+  grid-column: 1 / span 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-5);
+  min-width: 0;
+  /* Stays in view beside a long pane */
+  position: sticky;
+  top: var(--pm-space-4);
+}
+
+.pm-pane {
+  grid-column: 4 / -1;
+  min-width: 0;
+}
+
+.pm-rail__lede {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.pm-rail__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pm-space-2);
+}
+
+/* On wide screens a bar holding only the (hidden) toggle takes no room, so the rail's first rule
+   lines up with the pane's */
+.pm-rail__bar:empty,
+.pm-rail__bar:not(:has(> :not(.pm-rail__toggle))) {
+  display: none;
+}
+
+/* Only on narrow screens (below), where the rail folds away */
+.pm-rail .pm-rail__toggle {
+  display: none;
+}
+
+/* Form labels in the rail are set like the other labels */
+.pm-rail .pm-field:not(.pm-field--inline) > label {
+  color: var(--pm-comment);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-rail .pm-field > label .pm-muted {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Facts: label and value on a hairline, as in a colophon */
+.pm-facts {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+  margin: 0;
+  border-top: var(--pm-hairline);
+}
+
+.pm-facts dt,
+.pm-facts dd {
+  margin: 0;
+  padding: var(--pm-space-2) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-facts dt {
+  padding-right: var(--pm-space-3);
+  color: var(--pm-comment);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.pm-facts dd {
+  min-width: 0;
+}
+
+.pm-figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* An index of the page's sections */
+.pm-index ol {
+  margin: var(--pm-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--pm-hairline);
+}
+
+.pm-index li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-2) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-index a {
+  color: var(--pm-foreground);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pm-index a:hover {
+  color: var(--pm-cyan);
+}
+
+/* Sections in the pane: a label over a rule, then rows on hairlines */
+.pm-section {
+  margin-top: var(--pm-space-6);
+}
+
+.pm-pane > .pm-section:first-child {
+  margin-top: 0;
+}
+
+.pm-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pm-space-3);
+  padding-bottom: var(--pm-space-2);
+  border-bottom: var(--pm-rule);
+}
+
+.pm-section__head .pm-label {
+  color: var(--pm-foreground);
+}
+
+.pm-prose {
+  margin: 0;
+  max-width: var(--pm-measure);
+  white-space: pre-line;
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -211,9 +506,9 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: var(--pm-space-2);
   min-height: 2.5rem;
-  padding: 0.4rem 1rem;
+  padding: 0 var(--pm-space-4);
   border: 1px solid var(--pm-selection);
   border-radius: var(--pm-radius);
   background: var(--pm-bg-light);
@@ -221,11 +516,17 @@ h3 {
   font: inherit;
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .pm-button:hover {
   background: var(--pm-bg-lighter);
+}
+
+.pm-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .pm-button--primary {
@@ -250,6 +551,24 @@ h3 {
   filter: brightness(1.08);
 }
 
+/* A text-weight action, e.g. "Clear filters" */
+.pm-button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--pm-cyan);
+}
+
+.pm-button--quiet:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
+.pm-button--small {
+  min-height: 2rem;
+  padding: 0 var(--pm-space-3);
+  font-size: 0.9rem;
+}
+
 .pm-icon-button {
   display: inline-flex;
   align-items: center;
@@ -269,10 +588,24 @@ h3 {
   background: var(--pm-bg-lighter);
 }
 
+.pm-icon-button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pm-icon-button--danger:hover {
+  color: var(--pm-red);
+}
+
 .pm-icon {
   width: 1.25rem;
   height: 1.25rem;
   flex: none;
+}
+
+.pm-row-actions {
+  display: inline-flex;
+  gap: var(--pm-space-1);
 }
 
 /* HTMX request indicators; HTMX's own injected styles are turned off (includeIndicatorStyles) */
@@ -287,7 +620,8 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------------------------
- * Menu: one hamburger button floating over the content on frosted glass
+ * Menu: one hamburger button floating over the content on frosted glass (the one floating
+ * surface, as the requirements ask)
  * ------------------------------------------------------------------------------------------- */
 
 .pm-menu-button,
@@ -337,7 +671,7 @@ h3 {
   max-height: calc(100vh - var(--pm-menu-button-size) - 2rem);
   overflow-y: auto;
   border-radius: var(--pm-radius);
-  padding: 0.5rem;
+  padding: var(--pm-space-2);
 }
 
 .pm-menu ul {
@@ -349,7 +683,7 @@ h3 {
 .pm-menu a {
   display: block;
   padding: 0.6rem 0.85rem;
-  border-radius: calc(var(--pm-radius) - 0.15rem);
+  border-radius: var(--pm-radius);
   color: var(--pm-foreground);
   text-decoration: none;
   font-weight: 600;
@@ -366,32 +700,31 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------------------------
- * Toasts
+ * Toasts: flat, ruled on the left in their level's colour
  * ------------------------------------------------------------------------------------------- */
 
 .pm-toasts {
   position: fixed;
-  right: var(--pm-gutter);
-  bottom: var(--pm-gutter);
+  right: var(--pm-space-4);
+  bottom: var(--pm-space-4);
   z-index: 300;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  width: min(24rem, calc(100vw - 2 * var(--pm-gutter)));
+  gap: var(--pm-space-2);
+  width: min(24rem, calc(100vw - 2rem));
   pointer-events: none;
 }
 
 .pm-toast {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.75rem 0.5rem 0.75rem 1rem;
-  border-radius: var(--pm-radius);
-  border: 1px solid var(--pm-selection);
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-3) var(--pm-space-2) var(--pm-space-3) var(--pm-space-4);
+  border: 1px solid var(--pm-foreground);
   border-left: 0.35rem solid var(--pm-comment);
-  background: var(--pm-bg-floating);
+  border-radius: var(--pm-radius);
+  background: var(--pm-background);
   color: var(--pm-foreground);
-  box-shadow: var(--pm-shadow);
   pointer-events: auto;
   opacity: 1;
   transition: opacity 300ms ease;
@@ -438,29 +771,30 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------------------------
- * Dialogs
+ * Dialogs: a ruled sheet over a dimmed page
  * ------------------------------------------------------------------------------------------- */
 
 .pm-dialog {
-  width: min(36rem, calc(100vw - 2 * var(--pm-gutter)));
-  max-height: calc(100vh - 2 * var(--pm-gutter));
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
   padding: 0;
-  border: 1px solid var(--pm-selection);
+  border: 1px solid var(--pm-foreground);
+  border-top: var(--pm-rule-heavy);
   border-radius: var(--pm-radius);
   background: var(--pm-background);
   color: var(--pm-foreground);
-  box-shadow: var(--pm-shadow);
 }
 
 .pm-dialog::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: rgb(0 0 0 / 0.5);
 }
 
 .pm-dialog__header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0.75rem 0.5rem 1.25rem;
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-3) var(--pm-space-3) var(--pm-space-2) var(--pm-space-5);
+  border-bottom: var(--pm-hairline);
 }
 
 .pm-dialog__title {
@@ -488,19 +822,21 @@ h3 {
 }
 
 .pm-dialog__body {
-  padding: 0.5rem 1.25rem 1.25rem;
+  padding: var(--pm-space-4) var(--pm-space-5) var(--pm-space-5);
 }
 
 .pm-dialog__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
+  gap: var(--pm-space-2);
+  margin-top: var(--pm-space-5);
+  padding-top: var(--pm-space-4);
+  border-top: var(--pm-hairline);
 }
 
 .pm-dialog--confirm {
-  width: min(28rem, calc(100vw - 2 * var(--pm-gutter)));
+  width: min(28rem, calc(100vw - 2rem));
 }
 
 .pm-confirm__message {
@@ -511,9 +847,10 @@ h3 {
 /* ---------------------------------------------------------------------------------------------
  * Tables
  *
- * The header sticks to the top of the viewport: the wrapper clips (overflow-x: clip creates no
- * scroll container) instead of scrolling, so the page is the scroller. Columns hide by priority as
- * the wrapper narrows (container queries), and cell text is truncated with an ellipsis.
+ * Open, not boxed: small-capital headers over a rule, rows on hairlines. The header sticks to
+ * the top of the viewport: the wrapper clips (overflow-x: clip creates no scroll container)
+ * instead of scrolling, so the page is the scroller. Columns hide by priority as the wrapper
+ * narrows (container queries), and cell text is truncated with an ellipsis.
  * ------------------------------------------------------------------------------------------- */
 
 .pm-table-wrap {
@@ -527,37 +864,34 @@ h3 {
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--pm-selection);
-  border-radius: var(--pm-radius);
 }
 
 .pm-table th,
 .pm-table td {
-  padding: 0.55rem 0.75rem;
-  border-bottom: 1px solid var(--pm-selection);
+  padding: var(--pm-space-2) var(--pm-space-3);
+  border-bottom: var(--pm-hairline);
   text-align: left;
   vertical-align: middle;
-}
-
-.pm-table tbody tr:last-child td {
-  border-bottom: 0;
 }
 
 .pm-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
+  border-bottom: var(--pm-rule);
   background: var(--pm-bg-light);
+  color: var(--pm-comment);
+  font-size: 0.75rem;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-.pm-table thead th:first-child {
-  border-top-left-radius: var(--pm-radius);
-}
-
-.pm-table thead th:last-child {
-  border-top-right-radius: var(--pm-radius);
+/* The first column sits close to the grid's left edge */
+.pm-table th:first-child,
+.pm-table td:first-child {
+  padding-left: var(--pm-space-2);
 }
 
 .pm-table tbody tr:hover td {
@@ -566,7 +900,7 @@ h3 {
 
 .pm-th {
   position: relative;
-  padding-right: 1rem;
+  padding-right: var(--pm-space-4);
 }
 
 .pm-th__label {
@@ -591,17 +925,17 @@ h3 {
 .pm-resizer::after {
   content: "";
   position: absolute;
-  top: 25%;
-  bottom: 25%;
+  top: 30%;
+  bottom: 30%;
   right: 0;
-  width: 2px;
-  border-radius: 1px;
+  width: 1px;
   background: var(--pm-selection);
 }
 
 .pm-resizer:hover::after,
 .pm-resizer:focus-visible::after,
 .pm-resizer--active::after {
+  width: 2px;
   background: var(--pm-focus);
 }
 
@@ -619,6 +953,26 @@ h3 {
 .pm-cell--wrap {
   overflow: visible;
   white-space: normal;
+}
+
+/* A group of rows under its own label, e.g. a group of settings */
+.pm-table .pm-group__head th {
+  padding: var(--pm-space-5) var(--pm-space-2) var(--pm-space-2);
+  border-bottom: var(--pm-rule);
+  background: transparent;
+  color: var(--pm-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-table .pm-group__head:hover th {
+  background: transparent;
+}
+
+.pm-group {
+  scroll-margin-top: var(--pm-space-7);
 }
 
 /* Lower-priority columns are hidden first as the table narrows (CLARIFICATIONS.md D12) */
@@ -646,6 +1000,18 @@ h3 {
   }
 }
 
+.pm-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-4);
+  padding: var(--pm-space-3) 0;
+  border-bottom: var(--pm-rule);
+}
+
+.pm-pagination [rel="next"] {
+  margin-left: auto;
+}
+
 /* ---------------------------------------------------------------------------------------------
  * Forms
  * ------------------------------------------------------------------------------------------- */
@@ -653,24 +1019,24 @@ h3 {
 .pm-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--pm-space-4);
 }
 
 .pm-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--pm-space-1);
   min-width: 0;
 }
 
-.pm-field > label {
+.pm-field > label:not(.pm-label) {
   font-weight: 600;
 }
 
 .pm-field--inline {
   flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--pm-space-2);
 }
 
 .pm-field--inline > label {
@@ -691,9 +1057,9 @@ h3 {
 .pm-input {
   width: 100%;
   min-height: 2.5rem;
-  padding: 0.45rem 0.6rem;
+  padding: var(--pm-space-2) 0.6rem;
   border: 1px solid var(--pm-selection);
-  border-radius: calc(var(--pm-radius) - 0.15rem);
+  border-radius: var(--pm-radius);
   background: var(--pm-background);
   color: var(--pm-foreground);
   font: inherit;
@@ -755,24 +1121,23 @@ select.pm-input:disabled {
 
 .pm-readonly {
   margin: 0;
-  padding: 0.45rem 0;
-  font-weight: 600;
+  padding: var(--pm-space-2) 0;
+  font-size: 1.15rem;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
-.pm-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+.pm-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pm-space-2);
 }
 
 .pm-colour-field {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--pm-space-2);
 }
 
 .pm-colour-field input[type="color"] {
@@ -781,100 +1146,13 @@ select.pm-input:disabled {
   height: 2.5rem;
   padding: 0.15rem;
   border: 1px solid var(--pm-selection);
-  border-radius: calc(var(--pm-radius) - 0.15rem);
+  border-radius: var(--pm-radius);
   background: var(--pm-background);
   cursor: pointer;
 }
 
 .pm-colour-field .pm-input {
   max-width: 9rem;
-}
-
-.pm-fieldset {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-  margin: 0;
-  padding: 0.75rem 1rem 1rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: var(--pm-radius);
-}
-
-.pm-fieldset > legend {
-  padding: 0 0.35rem;
-  font-weight: 700;
-}
-
-.pm-fieldset > .pm-button {
-  align-self: flex-start;
-}
-
-.pm-rule-form {
-  max-width: 64rem;
-}
-
-.pm-rule-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: var(--pm-radius);
-  background: var(--pm-bg-floating);
-}
-
-.pm-rule-row > .pm-field {
-  flex: 0 1 12rem;
-}
-
-.pm-rule-row > .pm-field--grow {
-  flex: 1 1 14rem;
-}
-
-.pm-rule-row > .pm-field--inline {
-  flex: 0 0 auto;
-  min-height: 2.5rem;
-}
-
-.pm-rule-row__remove {
-  margin-left: auto;
-}
-
-.pm-form-actions,
-.pm-page-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.pm-page-actions {
-  margin-bottom: 1rem;
-}
-
-.pm-form-actions__start {
-  margin-right: auto;
-}
-
-.pm-button--small {
-  min-height: 2rem;
-  padding: 0.2rem 0.7rem;
-  font-size: 0.9rem;
-}
-
-.pm-icon-button[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pm-icon-button--danger:hover {
-  color: var(--pm-red);
-}
-
-.pm-row-actions {
-  display: inline-flex;
-  gap: 0.25rem;
 }
 
 .pm-badge {
@@ -888,447 +1166,9 @@ select.pm-input:disabled {
   vertical-align: middle;
 }
 
-.pm-swatch {
-  display: inline-block;
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: 0.25rem;
-  vertical-align: -0.15rem;
-}
-
-/* An on/off switch: a checkbox with role="switch" whose look follows its checked state */
-input.pm-switch {
-  appearance: none;
-  -webkit-appearance: none;
-  position: relative;
-  flex: none;
-  width: 2.6rem;
-  height: 1.45rem;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--pm-selection);
-  cursor: pointer;
-  transition: background-color 150ms ease;
-}
-
-input.pm-switch::before {
-  content: "";
-  position: absolute;
-  top: 0.175rem;
-  left: 0.175rem;
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 50%;
-  background: var(--pm-background);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-  transition: transform 150ms ease;
-}
-
-input.pm-switch:checked {
-  background: var(--pm-green);
-}
-
-input.pm-switch:checked::before {
-  transform: translateX(1.15rem);
-}
-
-/* Settings edited in place */
-.pm-setting {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.pm-setting-edit {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.pm-setting-value {
-  max-width: 100%;
-  min-height: 2.25rem;
-  padding: 0.35rem 0.5rem;
-  border: 1px dashed transparent;
-  border-radius: calc(var(--pm-radius) - 0.15rem);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  overflow-wrap: anywhere;
-  cursor: text;
-}
-
-.pm-setting-value:hover,
-.pm-setting-value:focus-visible {
-  border-color: var(--pm-selection);
-  background: var(--pm-bg-lighter);
-}
-
-.pm-setting-label {
-  display: block;
-  font-weight: 600;
-}
-
-.pm-setting-description {
-  display: block;
-  font-size: 0.9rem;
-}
-
-/* Prompt editor: the text area fills the rest of the viewport */
-.pm-full-height .pm-main {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  padding-bottom: var(--pm-gutter);
-}
-
-.pm-prompt-form {
-  flex: 1 1 auto;
-  min-height: 0;
-  gap: 0.75rem;
-}
-
-.pm-prompt-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem 1rem;
-}
-
-.pm-prompt-header .pm-field {
-  flex: 1 1 16rem;
-  max-width: 30rem;
-}
-
-.pm-prompt-header .pm-form-actions {
-  margin-left: auto;
-}
-
-.pm-prompt-key {
-  margin: 0;
-  padding-bottom: 0.5rem;
-}
-
-.pm-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.pm-toolbar select {
-  flex: 1 1 14rem;
-  width: auto;
-  min-width: 0;
-}
-
-.pm-prompt-body {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 10rem;
-}
-
-.pm-prompt-text,
-.pm-prompt-preview {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 10rem;
-  overflow: auto;
-}
-
-textarea.pm-prompt-text {
-  resize: none;
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 0.95rem;
-}
-
-.pm-prompt-preview {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: calc(var(--pm-radius) - 0.15rem);
-  background: var(--pm-bg-floating);
-}
-
-.pm-prompt-preview pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* ---------------------------------------------------------------------------------------------
- * Dashboard
- * ------------------------------------------------------------------------------------------- */
-
-/* The latest run, with "Run now" */
-.pm-run-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1.5rem;
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--pm-selection);
-  border-left: 0.35rem solid var(--pm-green);
-  border-radius: var(--pm-radius);
-  background: var(--pm-bg-floating);
-}
-
-.pm-run-banner--failed {
-  border-left-color: var(--pm-red);
-}
-
-.pm-run-banner p {
-  margin: 0;
-}
-
-.pm-run-banner__text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-}
-
-.pm-run-banner__state {
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-/* Email counts: compact tiles in one row, wrapping on small screens */
-.pm-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
-}
-
-.pm-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--pm-selection);
-  border-top: 0.25rem solid var(--pm-selection);
-  border-radius: var(--pm-radius);
-  background: var(--pm-bg-floating);
-  color: var(--pm-foreground);
-  text-decoration: none;
-}
-
-.pm-tile:hover {
-  background: var(--pm-bg-lighter);
-}
-
-.pm-tile__value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.pm-tile__label {
-  color: var(--pm-comment);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.pm-tile--reply {
-  border-top-color: var(--pm-cyan);
-}
-
-.pm-tile--action {
-  border-top-color: var(--pm-orange);
-}
-
-.pm-tile--error {
-  border-color: var(--pm-red);
-  border-top-color: var(--pm-red);
-}
-
-/* ---------------------------------------------------------------------------------------------
- * Emails list and email detail
- * ------------------------------------------------------------------------------------------- */
-
-/* "Filters", "Clear filters" and the count, above the list */
-.pm-list-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.pm-list-header__count {
-  margin: 0;
-  align-self: center;
-}
-
-/* When open, the panel takes a row of its own; "Clear filters" and the count follow it */
-.pm-filter-panel[open] {
-  flex: 1 1 100%;
-}
-
-.pm-filter-panel > summary {
-  list-style: none;
-}
-
-.pm-filter-panel > summary::-webkit-details-marker {
-  display: none;
-}
-
-.pm-filter-panel > summary::after {
-  content: "▾";
-  margin-left: 0.4rem;
-  color: var(--pm-accent);
-}
-
-.pm-filter-panel[open] > summary::after {
-  content: "▴";
-}
-
-.pm-filter-panel > .pm-filters {
-  margin-top: 0.5rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: var(--pm-radius);
-  background: var(--pm-bg-floating);
-}
-
 .pm-badge--count {
   background: var(--pm-accent);
   color: var(--pm-background);
-}
-
-.pm-date-range {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  grid-column: span 2;
-}
-
-.pm-date-range > legend {
-  margin-bottom: 0.3rem;
-  padding: 0;
-  font-weight: 600;
-}
-
-.pm-date-range .pm-input {
-  flex: 1 1 9rem;
-  min-width: 0;
-}
-
-/* Default column widths; the subject takes the rest. Resized widths override them. */
-#emails-table th[data-col="received"] {
-  width: 6.5rem;
-}
-
-#emails-table th[data-col="sender"] {
-  width: 18%;
-}
-
-#emails-table th[data-col="type"] {
-  width: 10rem;
-}
-
-#emails-table th[data-col="needs"] {
-  width: 8.5rem;
-}
-
-#emails-table th[data-col="status"] {
-  width: 6rem;
-}
-
-#emails-table th[data-col="counts"] {
-  width: 9.5rem;
-}
-
-/* Unread email, as in a mail client */
-.pm-table tbody tr.pm-row--unread td {
-  font-weight: 700;
-}
-
-.pm-counts {
-  display: inline-flex;
-  gap: 0.6rem;
-  white-space: nowrap;
-}
-
-.pm-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  font-weight: 400;
-}
-
-.pm-count .pm-icon {
-  width: 1rem;
-  height: 1rem;
-}
-
-.pm-count--none {
-  color: var(--pm-comment);
-  opacity: 0.6;
-}
-
-.pm-count--error {
-  color: var(--pm-red);
-  font-weight: 700;
-}
-
-/* An email type, in its colour */
-.pm-type {
-  --pm-type-colour: var(--pm-comment);
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 0.05rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--pm-type-colour) 60%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--pm-type-colour) 22%, var(--pm-background));
-  color: var(--pm-foreground);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.pm-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.75rem 1rem;
-  align-items: end;
-  margin-bottom: 1rem;
-}
-
-.pm-filters__checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  grid-column: 1 / -1;
-}
-
-.pm-filters .pm-form-actions {
-  grid-column: 1 / -1;
-}
-
-/* Rows open the email when clicked anywhere */
-.pm-table tr[data-pm-href] {
-  cursor: pointer;
-}
-
-/* Rows of emails with processing errors */
-.pm-table tbody tr.pm-row--error td {
-  background: color-mix(in srgb, var(--pm-red) 16%, var(--pm-background));
-}
-
-.pm-table tbody tr.pm-row--error:hover td {
-  background: color-mix(in srgb, var(--pm-red) 26%, var(--pm-background));
 }
 
 .pm-badge--action {
@@ -1355,187 +1195,532 @@ textarea.pm-prompt-text {
   background: color-mix(in srgb, var(--pm-green) 25%, var(--pm-background));
 }
 
-.pm-pagination {
+.pm-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--pm-selection);
+  border-radius: var(--pm-radius);
+  vertical-align: -0.15rem;
+}
+
+/* An email type, in its colour */
+.pm-type {
+  --pm-type-colour: var(--pm-comment);
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--pm-type-colour) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pm-type-colour) 22%, var(--pm-background));
+  color: var(--pm-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* An on/off switch: a checkbox with role="switch" whose look follows its checked state */
+input.pm-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.6rem;
+  height: 1.45rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--pm-selection);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+input.pm-switch::before {
+  content: "";
+  position: absolute;
+  top: 0.175rem;
+  left: 0.175rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--pm-background);
+  transition: transform 150ms ease;
+}
+
+input.pm-switch:checked {
+  background: var(--pm-green);
+}
+
+input.pm-switch:checked::before {
+  transform: translateX(1.15rem);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Configuration: settings edited in place
+ * ------------------------------------------------------------------------------------------- */
+
+#settings-table th[data-col="setting"] {
+  width: 45%;
+}
+
+.pm-setting {
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--pm-space-2);
 }
 
-.pm-email-actions {
-  justify-content: flex-start;
+.pm-setting-edit {
+  flex-direction: column;
+  align-items: stretch;
 }
 
-/* Delete stands apart from the other actions */
-.pm-email-actions__delete {
+.pm-setting-value {
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: var(--pm-space-1) var(--pm-space-2);
+  border: 1px dashed transparent;
+  border-radius: var(--pm-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.pm-setting-value:hover,
+.pm-setting-value:focus-visible {
+  border-color: var(--pm-selection);
+  background: var(--pm-bg-lighter);
+}
+
+.pm-setting-label {
+  display: block;
+  font-weight: 600;
+}
+
+.pm-setting-description {
+  display: block;
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Rule editor: the rule's identity in the rail, conditions and actions as ruled rows
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--pm-space-3);
+  padding: var(--pm-space-3) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-rule-row > .pm-field {
+  flex: 0 1 12rem;
+}
+
+.pm-rule-row > .pm-field--grow {
+  flex: 1 1 14rem;
+}
+
+.pm-rule-row > .pm-field--inline {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+}
+
+.pm-rule-row > .pm-field > label {
+  color: var(--pm-comment);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-rule-row__remove {
   margin-left: auto;
 }
 
-.pm-email-byline {
+/* Form buttons kept for dialogs and older fragments */
+.pm-form-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin: -0.5rem 0 1rem;
-  color: var(--pm-comment);
+  justify-content: flex-end;
+  gap: var(--pm-space-2);
 }
 
-/* Reply needed and action needed: what to act on, first */
-.pm-callouts {
+/* ---------------------------------------------------------------------------------------------
+ * Prompt editor: name and placeholders in the rail, the text filling the rest of the viewport
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-full-height .pm-main {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: var(--pm-space-4);
 }
 
-.pm-callout {
+.pm-prompt-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.pm-prompt-form .pm-rail {
+  position: static;
+}
+
+.pm-prompt-key {
+  margin: 0;
+}
+
+.pm-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.75rem;
-  max-width: 70ch;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--pm-selection);
-  border-left: 0.35rem solid var(--pm-comment);
-  border-radius: var(--pm-radius);
+  flex-direction: column;
+  gap: var(--pm-space-2);
+  padding-top: var(--pm-space-4);
+  border-top: var(--pm-hairline);
 }
 
-.pm-callout--action {
-  border-left-color: var(--pm-orange);
-  background: color-mix(in srgb, var(--pm-orange) 12%, var(--pm-background));
+.pm-toolbar__buttons {
+  display: flex;
+  gap: var(--pm-space-2);
 }
 
-.pm-callout--reply {
-  border-left-color: var(--pm-cyan);
-  background: color-mix(in srgb, var(--pm-cyan) 10%, var(--pm-background));
+.pm-prompt-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-2);
+  min-height: 10rem;
 }
 
-.pm-callout__label {
-  font-weight: 700;
-}
-
-.pm-callout__text {
-  flex: 1 1 12rem;
-}
-
-.pm-prose.pm-summary {
-  margin-bottom: 1rem;
-  font-size: 1.05rem;
-}
-
-/* The details beside the contents on wide screens; above them on narrow ones */
-.pm-email-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0 1.5rem;
-}
-
-@media (min-width: 960px) {
-  .pm-email-layout {
-    grid-template-columns: minmax(0, 1fr) 20rem;
-    grid-template-areas: "main aside";
-  }
-
-  .pm-email-main {
-    grid-area: main;
-  }
-
-  .pm-email-aside {
-    grid-area: aside;
-  }
-}
-
-.pm-panel {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: var(--pm-radius);
-  background: var(--pm-bg-floating);
-}
-
-/* Two columns even on phones, where other detail lists stack */
-.pm-panel .pm-details {
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.4rem 1rem;
-  align-items: baseline;
-}
-
-.pm-panel .pm-inline-form .pm-input {
-  min-width: 0;
+.pm-prompt-text,
+.pm-prompt-preview {
+  flex: 1 1 auto;
   width: 100%;
+  min-height: 10rem;
+  overflow: auto;
 }
 
-.pm-section {
-  margin: 0 0 1.5rem;
+textarea.pm-prompt-text {
+  resize: none;
+  border-color: var(--pm-foreground);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
-.pm-section__title {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+.pm-prompt-preview {
+  padding: var(--pm-space-3) var(--pm-space-4);
+  border: var(--pm-rule);
+  border-radius: var(--pm-radius);
 }
 
-.pm-subtitle {
-  margin: 0.75rem 0 0.35rem;
-  font-size: 1rem;
-}
-
-.pm-details {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.4rem 1rem;
-  margin: 0;
-}
-
-.pm-details dt {
-  color: var(--pm-comment);
-  font-weight: 600;
-}
-
-.pm-details dd {
-  margin: 0;
-  min-width: 0;
-}
-
-.pm-break {
+.pm-prompt-preview pre {
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.pm-inline-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+/* ---------------------------------------------------------------------------------------------
+ * Dashboard: the run status in the rail; a ledger of counts and the runs in the pane
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-status {
+  gap: var(--pm-space-3);
 }
 
-.pm-inline-form .pm-input {
-  width: auto;
-  min-width: 12rem;
-}
-
-.pm-prose {
+.pm-status p {
   margin: 0;
-  max-width: 70ch;
-  white-space: pre-line;
 }
 
-.pm-concertina {
-  margin-bottom: 0.5rem;
-  border: 1px solid var(--pm-selection);
-  border-radius: var(--pm-radius);
+.pm-status__state {
+  padding-left: var(--pm-space-3);
+  border-left: 4px solid var(--pm-green);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
-.pm-concertina > summary {
-  padding: 0.5rem 0.75rem;
+.pm-status--failed .pm-status__state {
+  border-left-color: var(--pm-red);
+}
+
+.pm-status--running .pm-status__state {
+  border-left-color: var(--pm-accent);
+}
+
+.pm-status__next {
+  color: var(--pm-comment);
+}
+
+.pm-status__run {
+  align-self: flex-start;
+}
+
+/* Counts set as a ledger: figures over labels, divided by hairlines */
+.pm-ledger {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: var(--pm-rule);
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-ledger__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-1);
+  padding: var(--pm-space-4);
+  border-left: var(--pm-hairline);
+  color: var(--pm-foreground);
+  text-decoration: none;
+}
+
+.pm-ledger__item:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.pm-ledger__item:hover {
+  background: var(--pm-bg-lighter);
+}
+
+.pm-ledger__value {
+  font-size: clamp(2rem, 1.4rem + 1.6vw, 3rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-ledger__note {
+  color: var(--pm-comment);
+  font-size: 0.85rem;
+}
+
+/* A marker on the rule above a count that needs attention */
+.pm-ledger__item--reply {
+  box-shadow: inset 0 3px 0 var(--pm-cyan);
+}
+
+.pm-ledger__item--action {
+  box-shadow: inset 0 3px 0 var(--pm-orange);
+}
+
+.pm-ledger__item--error {
+  box-shadow: inset 0 3px 0 var(--pm-red);
+}
+
+.pm-ledger__item--error .pm-ledger__value {
+  color: var(--pm-red);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Emails list: the filters in the rail, the list in the pane
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-4);
+  padding-top: var(--pm-space-4);
+  border-top: var(--pm-rule);
+}
+
+.pm-date-range,
+.pm-filters__checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pm-date-range > legend,
+.pm-filters__checks > legend {
+  margin-bottom: var(--pm-space-1);
+  padding: 0;
+}
+
+.pm-filters .pm-button--primary {
+  align-self: flex-start;
+}
+
+/* Default column widths; the subject takes the rest. Resized widths override them. */
+#emails-table th[data-col="received"] {
+  width: 6.5rem;
+}
+
+#emails-table th[data-col="sender"] {
+  width: 18%;
+}
+
+#emails-table th[data-col="type"] {
+  width: 9rem;
+}
+
+#emails-table th[data-col="needs"] {
+  width: 8rem;
+}
+
+#emails-table th[data-col="status"] {
+  width: 6rem;
+}
+
+#emails-table th[data-col="counts"] {
+  width: 9rem;
+}
+
+/* Rows open the email when clicked anywhere */
+.pm-table tr[data-pm-href] {
   cursor: pointer;
+}
+
+/* Unread email, as in a mail client */
+.pm-table tbody tr.pm-row--unread td {
+  font-weight: 700;
+}
+
+/* Rows of emails with processing errors */
+.pm-table tbody tr.pm-row--error td {
+  background: color-mix(in srgb, var(--pm-red) 12%, var(--pm-background));
+}
+
+.pm-table tbody tr.pm-row--error:hover td {
+  background: color-mix(in srgb, var(--pm-red) 22%, var(--pm-background));
+}
+
+.pm-table tbody tr.pm-row--error td:first-child {
+  box-shadow: inset 3px 0 0 var(--pm-red);
+}
+
+.pm-counts {
+  display: inline-flex;
+  gap: var(--pm-space-3);
+  white-space: nowrap;
+}
+
+.pm-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-count .pm-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pm-count--none {
+  color: var(--pm-comment);
+  opacity: 0.6;
+}
+
+.pm-count--error {
+  color: var(--pm-red);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Email detail: the facts in the rail (an inspector); flags, summary and sections in the pane
+ * ------------------------------------------------------------------------------------------- */
+
+.pm-inspector section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-space-2);
+}
+
+.pm-inspector .pm-inline-form .pm-input {
+  width: 100%;
+}
+
+/* What to act on: ruled lines with the action at the right edge */
+.pm-flags {
+  border-top: var(--pm-rule);
+}
+
+.pm-flag {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--pm-space-3);
+  padding: var(--pm-space-3) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-flag__text {
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
-.pm-concertina[open] > summary {
-  border-bottom: 1px solid var(--pm-selection);
+.pm-flag--action .pm-label {
+  color: var(--pm-orange);
 }
 
-.pm-concertina > :not(summary) {
-  margin: 0.75rem;
+.pm-flag--reply .pm-label {
+  color: var(--pm-cyan);
+}
+
+.pm-summary {
+  max-width: var(--pm-measure);
+  margin: var(--pm-space-5) 0 0;
+  font-size: 1.3rem;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.pm-pane > .pm-summary:first-child {
+  margin-top: 0;
+}
+
+/* The two parts the requirements keep folded: the full text and the linked page */
+.pm-disclosure {
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-3) 0;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.pm-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pm-disclosure > summary::before {
+  content: "+";
+  width: 1rem;
+  color: var(--pm-accent);
+  font-weight: 700;
+}
+
+.pm-disclosure[open] > summary::before {
+  content: "−";
+}
+
+.pm-disclosure > :not(summary) {
+  margin: 0 0 var(--pm-space-4) var(--pm-space-5);
 }
 
 .pm-message {
@@ -1556,24 +1741,19 @@ textarea.pm-prompt-text {
   list-style: none;
 }
 
-.pm-events {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: 0.5rem;
-}
-
-/* An event, coloured by its calendar */
+/* Events as rows: when | what and where | calendar, ruled in the calendar's colour */
 .pm-event {
   --pm-event-colour: var(--pm-comment);
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) minmax(0, 12rem);
+  align-items: baseline;
+  gap: var(--pm-space-3);
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--pm-selection);
-  border-left: 0.4rem solid var(--pm-event-colour);
-  border-radius: var(--pm-radius);
-  background: color-mix(in srgb, var(--pm-event-colour) 12%, var(--pm-background));
+  padding: var(--pm-space-3) var(--pm-space-3) var(--pm-space-3) var(--pm-space-3);
+  border: 0;
+  border-bottom: var(--pm-hairline);
+  border-left: 3px solid var(--pm-event-colour);
+  background: transparent;
   color: var(--pm-foreground);
   font: inherit;
   text-align: left;
@@ -1581,44 +1761,66 @@ textarea.pm-prompt-text {
 }
 
 .pm-event:hover {
-  background: color-mix(in srgb, var(--pm-event-colour) 22%, var(--pm-background));
+  background: color-mix(in srgb, var(--pm-event-colour) 12%, var(--pm-background));
 }
 
 .pm-event--pending {
   border-left-style: dashed;
 }
 
+.pm-event__time {
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .pm-event__title {
+  display: flex;
+  flex-direction: column;
   font-weight: 600;
 }
 
-.pm-event__time,
+.pm-event__location {
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
 .pm-event__calendar {
   color: var(--pm-comment);
   font-size: 0.9rem;
+  text-align: right;
 }
 
 .pm-calendar-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
   margin: 0;
   padding: 0;
   border: 0;
+  border-top: var(--pm-hairline);
 }
 
 .pm-calendar-choice {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.5rem;
-  border-left: 0.3rem solid var(--pm-event-colour);
-  border-radius: 0.25rem;
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-2) var(--pm-space-2);
+  border-bottom: var(--pm-hairline);
+  border-left: 3px solid var(--pm-event-colour);
   cursor: pointer;
 }
 
 .pm-calendar-choice:hover {
   background: var(--pm-bg-lighter);
+}
+
+.pm-attachments li {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-2);
+  padding: var(--pm-space-2) 0;
+  border-bottom: var(--pm-hairline);
 }
 
 .pm-attachments .pm-icon {
@@ -1627,35 +1829,57 @@ textarea.pm-prompt-text {
   color: var(--pm-comment);
 }
 
-.pm-attachments li {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0;
-}
-
 .pm-attachment__name {
+  flex: 1 1 auto;
   overflow-wrap: anywhere;
 }
 
-.pm-rule-results {
-  margin-bottom: 0.5rem;
+.pm-attachment__actions {
+  display: inline-flex;
+  gap: var(--pm-space-1);
+}
+
+/* Rules: a term column and the results beside it */
+.pm-ruled {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+.pm-ruled__term,
+.pm-ruled__body {
+  margin: 0;
+  padding: var(--pm-space-3) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-ruled__term {
+  color: var(--pm-comment);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.9;
+  text-transform: uppercase;
+}
+
+.pm-rule-results + .pm-rule-results {
+  margin-top: var(--pm-space-3);
 }
 
 .pm-rule-results__name {
-  margin: 0 0 0.25rem;
-  font-weight: 600;
+  margin: 0 0 var(--pm-space-1);
+  font-weight: 700;
 }
 
 .pm-result {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.4rem;
+  gap: var(--pm-space-2);
   padding: 0.15rem 0;
 }
 
 .pm-result__type {
+  min-width: 10rem;
   font-weight: 600;
 }
 
@@ -1663,9 +1887,25 @@ textarea.pm-prompt-text {
   overflow-wrap: anywhere;
 }
 
-.pm-section--errors .pm-errors li {
-  padding: 0.25rem 0;
+.pm-errors li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--pm-space-3);
+  padding: var(--pm-space-2) 0;
+  border-bottom: var(--pm-hairline);
+}
+
+.pm-errors__phase {
   color: var(--pm-red);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.9;
+  text-transform: uppercase;
+}
+
+.pm-section--errors .pm-section__head {
+  border-bottom-color: var(--pm-red);
 }
 
 /* Attachment previews fill most of the viewport */
@@ -1676,7 +1916,7 @@ textarea.pm-prompt-text {
 .pm-preview iframe {
   width: 100%;
   height: 70vh;
-  border: 1px solid var(--pm-selection);
+  border: var(--pm-hairline);
   background: #fff;
 }
 
@@ -1688,26 +1928,195 @@ textarea.pm-prompt-text {
 }
 
 /* ---------------------------------------------------------------------------------------------
- * Small screens
+ * Narrower screens (below 960px): one column, ordered by what's acted on first
+ *
+ * The rail and pane stack. Filters fold behind a toggle; a record's inspector and a list page's
+ * notes move after the content they describe; the section index is dropped.
  * ------------------------------------------------------------------------------------------- */
 
-@media (max-width: 480px) {
+@media (max-width: 960px) {
+  .pm-main {
+    padding-left: var(--pm-space-4);
+    padding-right: var(--pm-space-4);
+  }
+
+  .pm-page {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--pm-space-5);
+  }
+
+  .pm-rail,
+  .pm-pane {
+    grid-column: 1 / -1;
+  }
+
+  .pm-rail {
+    position: static;
+  }
+
+  .pm-page--inspector > .pm-rail,
+  .pm-page--notes > .pm-rail {
+    order: 2;
+  }
+
+  .pm-page--inspector > .pm-rail {
+    padding-top: var(--pm-space-4);
+    border-top: var(--pm-rule-heavy);
+  }
+
+  .pm-index {
+    display: none;
+  }
+
+  .pm-rail .pm-rail__toggle {
+    display: inline-flex;
+  }
+
+  .pm-rail__bar:not(:has(> :not(.pm-rail__toggle))) {
+    display: flex;
+  }
+
+  .pm-collapsible:not(.pm-open) {
+    display: none;
+  }
+
+  .pm-ledger {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pm-ledger__item:nth-child(3n + 1) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .pm-ledger__item:nth-child(n + 4) {
+    border-top: var(--pm-hairline);
+  }
+
+  .pm-prompt-form {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phones (below 640px): a single axis
+ *
+ * The masthead's actions become a bar fixed to the foot of the screen, within reach of a thumb,
+ * and toasts rise above it. Ruled rows (flags, events, rules, errors) stack their columns.
+ * ------------------------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .pm-masthead {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "kicker"
+        "title"
+        "lede";
+  }
+
   .pm-page-title {
-    font-size: 1.35rem;
+    margin-top: var(--pm-space-4);
+  }
+
+  .pm-masthead__actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    min-height: var(--pm-actionbar-height);
+    overflow-x: auto;
+    padding: var(--pm-space-2) var(--pm-space-4) calc(var(--pm-space-2) + env(safe-area-inset-bottom));
+    border-top: var(--pm-rule-heavy);
+    background: var(--pm-background);
+  }
+
+  .pm-masthead__actions .pm-button {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+    padding: 0 var(--pm-space-3);
+    font-size: 0.875rem;
+  }
+
+  .pm-actions__apart {
+    margin-left: auto;
+  }
+
+  body:has(.pm-masthead__actions:not(:empty)) .pm-main {
+    padding-bottom: calc(var(--pm-actionbar-height) + var(--pm-space-5));
+  }
+
+  body:has(.pm-masthead__actions:not(:empty)) .pm-toasts {
+    bottom: calc(var(--pm-actionbar-height) + var(--pm-space-3));
+  }
+
+  /* The text area runs down to just above the action bar (more specific than the rule above) */
+  body.pm-full-height:has(.pm-masthead__actions:not(:empty)) .pm-main {
+    padding-bottom: calc(var(--pm-actionbar-height) + var(--pm-space-2));
+  }
+
+  .pm-ledger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pm-ledger__item:nth-child(3n + 1) {
+    border-left: var(--pm-hairline);
+    padding-left: var(--pm-space-4);
+  }
+
+  .pm-ledger__item:nth-child(2n + 1) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .pm-ledger__item:nth-child(n + 3) {
+    border-top: var(--pm-hairline);
+  }
+
+  .pm-flag {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pm-flag .pm-label {
+    grid-column: 1 / -1;
+  }
+
+  .pm-summary {
+    font-size: 1.15rem;
+  }
+
+  .pm-event {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--pm-space-1);
+  }
+
+  .pm-event__calendar {
+    text-align: left;
+  }
+
+  .pm-ruled,
+  .pm-errors li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pm-ruled__term {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .pm-result__type {
+    min-width: 0;
+  }
+
+  .pm-errors li {
+    gap: 0;
   }
 
   .pm-table th,
   .pm-table td {
-    padding: 0.5rem;
-  }
-
-  .pm-details {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.1rem;
-  }
-
-  .pm-details dd {
-    margin-bottom: 0.4rem;
+    padding: var(--pm-space-2);
   }
 }
 

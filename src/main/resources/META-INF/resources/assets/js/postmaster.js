@@ -873,6 +873,27 @@
   }
 
   // -------------------------------------------------------------------------------------------
+  // Toggles: button[data-pm-toggle="<id>"] shows or hides that element (class pm-open). Used where
+  // the layout folds a panel away on narrow screens; wide screens show it regardless.
+  // -------------------------------------------------------------------------------------------
+
+  function initToggles() {
+    document.addEventListener("click", function (event) {
+      var button = event.target.closest && event.target.closest("[data-pm-toggle]");
+      if (!button) {
+        return;
+      }
+      var target = byId(button.getAttribute("data-pm-toggle"));
+      if (!target) {
+        return;
+      }
+      var open = !target.classList.contains("pm-open");
+      target.classList.toggle("pm-open", open);
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
+  // -------------------------------------------------------------------------------------------
   // Row links: a click anywhere on a tr[data-pm-href] opens it, except on its own controls
   // -------------------------------------------------------------------------------------------
 
@@ -918,6 +939,7 @@
     initCellTitles();
     initForms();
     initRowLinks();
+    initToggles();
     if (window.htmx && typeof window.htmx.onLoad === "function") {
       // Runs for the initial page and for all content HTMX swaps in later
       window.htmx.onLoad(initContent);

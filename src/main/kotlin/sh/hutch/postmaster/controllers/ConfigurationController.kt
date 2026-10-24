@@ -17,6 +17,7 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse
 import org.eclipse.microprofile.openapi.annotations.tags.Tag
 import org.jboss.resteasy.reactive.RestForm
 import sh.hutch.postmaster.models.Setting
+import sh.hutch.postmaster.models.SettingGroup
 import sh.hutch.postmaster.models.SettingType
 import sh.hutch.postmaster.services.OperationNotAllowedException
 import sh.hutch.postmaster.services.SettingValidationException
@@ -30,7 +31,7 @@ class ConfigurationController(private val settings: SettingsService) {
   @CheckedTemplate
   object Templates {
     @JvmStatic
-    external fun configuration(settings: List<Setting>): TemplateInstance
+    external fun configuration(groups: List<SettingGroup>): TemplateInstance
 
     @JvmStatic
     external fun value(setting: Setting): TemplateInstance
@@ -42,7 +43,7 @@ class ConfigurationController(private val settings: SettingsService) {
   @GET
   @Produces(MediaType.TEXT_HTML)
   @Operation(summary = "Configuration page")
-  fun page(): TemplateInstance = Templates.configuration(settings.list())
+  fun page(): TemplateInstance = Templates.configuration(SettingGroup.of(settings.list()))
 
   @GET
   @Path("/{key}/edit")

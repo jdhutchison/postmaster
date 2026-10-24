@@ -16,3 +16,25 @@ data class Setting(
     val hasValue: Boolean,
     val position: Int
 )
+
+/** Settings that share a key prefix (`imap.`, `llm.`, …), for the Configuration page. */
+@io.quarkus.qute.TemplateData
+data class SettingGroup(val key: String, val label: String, val settings: List<Setting>) {
+  companion object {
+    private val LABELS = mapOf(
+        "processing" to "Processing",
+        "imap" to "Mailbox (IMAP)",
+        "smtp" to "Forwarding (SMTP)",
+        "llm" to "LLM",
+        "attachments" to "Attachments",
+        "events" to "Events",
+        "fetch" to "Fetching pages",
+        "bills" to "Bills"
+    )
+
+    /** [settings] grouped by key prefix, keeping their order. */
+    fun of(settings: List<Setting>): List<SettingGroup> =
+      settings.groupBy { it.key.substringBefore('.') }
+          .map { (key, members) -> SettingGroup(key, LABELS[key] ?: key.replaceFirstChar { it.uppercase() }, members) }
+  }
+}

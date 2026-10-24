@@ -1,33 +1,36 @@
 {#include layout page="prompts" bodyClass="pm-full-height"}
+  {#kicker}<a href="{base}/prompts">Prompts</a> · {#if form.id}Edit{#else}New{/if}{/kicker}
   {#title}{#if form.id}Edit prompt{#else}New prompt{/if}{/title}
+  {! At the top (a bar at the foot on phones): toasts at the bottom right would cover them otherwise, and this page doesn't scroll !}
+  {#actions}
+    <a class="pm-button" data-testid="cancel-prompt" href="{base}/prompts">Cancel</a>
+    <button type="submit" form="prompt-form" class="pm-button pm-button--primary" data-testid="save-prompt">Save</button>
+  {/actions}
   {#content}
-    <form id="prompt-form" class="pm-form pm-prompt-form" data-testid="prompt-form" method="post" action="{base}/prompts{#if form.id}/{form.id}{/if}">
-      <div class="pm-prompt-header">
+    <form id="prompt-form" class="pm-page pm-prompt-form" data-testid="prompt-form" method="post" action="{base}/prompts{#if form.id}/{form.id}{/if}">
+      <div class="pm-rail pm-form">
         <div class="pm-field">
           <label for="prompt-name">Name</label>
           <input id="prompt-name" name="name" class="pm-input" value="{form.name}" maxlength="100" autocomplete="off"{#if form.invalid('name')} aria-invalid="true"{/if}>
           {#fieldError field="name" message=form.error('name') /}
         </div>
-        {#if form.key}<p class="pm-muted pm-prompt-key">System prompt <code data-testid="prompt-key">{form.key}</code></p>{/if}
-        {! The actions are at the top: toasts at the bottom right would cover them, and this page doesn't scroll !}
-        <div class="pm-form-actions">
-          <a class="pm-button" data-testid="cancel-prompt" href="{base}/prompts">Cancel</a>
-          <button type="submit" class="pm-button pm-button--primary" data-testid="save-prompt">Save</button>
+        {#if form.key}<p class="pm-prompt-key"><span class="pm-label">System prompt</span> <code data-testid="prompt-key">{form.key}</code></p>{/if}
+        <div class="pm-toolbar" role="toolbar" aria-label="Prompt text">
+          <label for="placeholder-select" class="pm-label">Placeholder</label>
+          <select id="placeholder-select" class="pm-input" data-testid="placeholder-select">
+            {#for ph in form.placeholders}<option value="{ph.token}">{ph.label} {ph.token}</option>{/for}
+          </select>
+          <div class="pm-toolbar__buttons">
+            <button type="button" class="pm-button" data-testid="insert-placeholder" data-pm-insert-from="placeholder-select" data-pm-insert-into="prompt-contents">Insert</button>
+            <button type="button" class="pm-button" data-testid="preview-toggle" aria-pressed="false" aria-controls="prompt-preview" data-pm-preview="prompt-contents" hx-post="{base}/prompts/preview" hx-include="#prompt-contents" hx-target="#prompt-preview">Preview</button>
+          </div>
         </div>
       </div>
-      <div class="pm-toolbar" role="toolbar" aria-label="Prompt text">
-        <label for="placeholder-select" class="pm-visually-hidden">Placeholder</label>
-        <select id="placeholder-select" class="pm-input" data-testid="placeholder-select">
-          {#for ph in form.placeholders}<option value="{ph.token}">{ph.label} {ph.token}</option>{/for}
-        </select>
-        <button type="button" class="pm-button" data-testid="insert-placeholder" data-pm-insert-from="placeholder-select" data-pm-insert-into="prompt-contents">Insert</button>
-        <button type="button" class="pm-button" data-testid="preview-toggle" aria-pressed="false" aria-controls="prompt-preview" data-pm-preview="prompt-contents" hx-post="{base}/prompts/preview" hx-include="#prompt-contents" hx-target="#prompt-preview">Preview</button>
-      </div>
-      <div class="pm-prompt-body">
+      <div class="pm-pane pm-prompt-body">
         <textarea id="prompt-contents" name="contents" class="pm-input pm-prompt-text" data-testid="prompt-contents" spellcheck="true" aria-label="Prompt text"{#if form.invalid('contents')} aria-invalid="true"{/if}>{form.contents}</textarea>
         <div id="prompt-preview" class="pm-prompt-preview" data-testid="prompt-preview" hidden></div>
+        {#fieldError field="contents" message=form.error('contents') /}
       </div>
-      {#fieldError field="contents" message=form.error('contents') /}
     </form>
   {/content}
 {/include}

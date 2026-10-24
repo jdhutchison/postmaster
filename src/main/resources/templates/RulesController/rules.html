@@ -1,9 +1,22 @@
 {#include layout page=pageKey}
+  {#kicker}Postmaster · Rules{/kicker}
   {#title}{title}{/title}
+  {#actions}<a class="pm-button pm-button--primary" data-testid="new-rule" href="{base}/rules/{ruleType}/new">New rule</a>{/actions}
   {#content}
-    <div class="pm-page-actions">
-      <a class="pm-button pm-button--primary" data-testid="new-rule" href="{base}/rules/{ruleType}/new">New rule</a>
+    <div class="pm-page pm-page--notes">
+      <aside class="pm-rail">
+        {#if ruleType == 'classification'}
+        <p class="pm-rail__lede">Rules that decide what an email is. They're tested in priority order, and only the first that matches applies.</p>
+        {#else}
+        <p class="pm-rail__lede">Rules that act on an email once it's classified. Every rule that matches applies.</p>
+        {/if}
+        <dl class="pm-facts">
+          <dt>Matching</dt><dd>All of a rule's conditions must match.</dd>
+          <dt>Priority</dt><dd>Higher runs first; ties go to the older rule.</dd>
+          <dt>Order</dt><dd>Moves and deletes run last, and only the highest-priority one.</dd>
+        </dl>
+      </aside>
+      <div class="pm-pane" id="rules-table-container">{#include RulesController/rulesTable ruleType=ruleType rules=rules /}</div>
     </div>
-    <div id="rules-table-container">{#include RulesController/rulesTable ruleType=ruleType rules=rules /}</div>
   {/content}
 {/include}

@@ -442,13 +442,20 @@ Page templates use the base layout `templates/layout.html` through an include wi
 
 ```
 {#include layout page="types"}
+  {#kicker}Postmaster · Classification{/kicker}
   {#title}Types{/title}
+  {#lede}<p class="pm-lede">…</p>{/lede}
+  {#actions}<button class="pm-button pm-button--primary" …>New type</button>{/actions}
   {#content}
-    …page content…
+    <div class="pm-page">
+      <aside class="pm-rail">…context…</aside>
+      <div class="pm-pane">…content…</div>
+    </div>
   {/content}
 {/include}
 ```
 
+- **Masthead sections:** `kicker` (default "Postmaster"), `lede` and `actions` are optional. The actions are the page's primary controls, and the actions container (`[data-testid=page-actions]`) is empty when there are none.
 - `page` is optional. It's the key of the menu item to mark `aria-current="page"`: `dashboard`, `emails`, `types`, `calendars`, `prompts`, `rules-classification`, `rules-action` or `configuration`.
 - The `title` section sets both `<title>` (as `<title> · Postmaster`) and the page's `<h1 class="pm-page-title" data-testid="page-title">`.
 - A resource returns a `TemplateInstance`. The layout needs no data from it; it uses the template globals and the `inject:` beans below.
@@ -462,7 +469,12 @@ Structure rendered by the layout:
   <button id="pm-menu-button" class="pm-menu-button" data-testid="menu-button" …>
   <nav id="pm-menu" class="pm-menu" data-testid="menu" hidden>…</nav>
   <main id="pm-main" class="pm-main" data-testid="main">
-    <h1 class="pm-page-title" data-testid="page-title">{title}</h1>
+    <header class="pm-masthead">
+      <p class="pm-masthead__kicker">{kicker}</p>
+      <h1 class="pm-page-title" data-testid="page-title">{title}</h1>
+      <div class="pm-masthead__lede">{lede}</div>
+      <div class="pm-masthead__actions" data-testid="page-actions">{actions}</div>
+    </header>
     {content}
   </main>
   <div id="pm-toasts" class="pm-toasts" data-testid="toasts">…</div>
@@ -475,6 +487,28 @@ Structure rendered by the layout:
 - `{appVersion}` is the application version.
 
 **Placeholder page:** `GET /mail/` renders `templates/HomeController/home.html` (`data-testid="home-page"`) in the layout with `page="dashboard"`. The dashboard (6.3) replaces it.
+
+### Page layout (reworked 2026-10-24)
+
+An editorial grid with hairline rules instead of boxes. Only the menu floats, and nothing else has a shadow.
+- **Masthead:**
+  - the kicker is level with the floating menu button, in small capitals
+  - the title is flush with the grid's left edge
+  - an optional lede follows
+  - the actions sit on the title's baseline, at the right
+  - a heavy rule (`--pm-rule-heavy`) closes it
+- **Page grid:** `.pm-page` has 12 columns. `.pm-rail` takes columns 1–3 and is sticky; `.pm-pane` takes columns 4–12. The rail holds the page's context: filters, the record's facts (`.pm-facts`, label/value rows on hairlines), the run status, a rule's identity, or notes. The pane holds the content.
+- **Sections:** `.pm-section` in the pane starts with `.pm-section__head`, a `.pm-label` heading (small capitals) over a 1px foreground rule, followed by rows on hairlines.
+- **Tokens:** `--pm-space-1` to `--pm-space-7` (4, 8, 12, 16, 24, 40 and 64px), `--pm-hairline`, `--pm-rule`, `--pm-rule-heavy`, `--pm-measure` (68ch) and `--pm-actionbar-height`.
+- **Below 960px:** one column.
+  - `.pm-page--inspector` (a record's facts) and `.pm-page--notes` (a list page's notes) put the rail after the pane.
+  - `.pm-collapsible` content (the email filters) is hidden until its `[data-pm-toggle]` button (`.pm-rail__toggle`, shown only here) opens it.
+  - The section index is dropped.
+- **Below 640px:**
+  - The masthead's actions become a bar fixed to the foot of the screen, and toasts rise above it.
+  - Ruled rows (flags, events, rules, errors) stack their columns.
+  - The prompt editor's text area runs down to the bar.
+- **Toggles:** `button[data-pm-toggle="<id>"]` toggles class `pm-open` on that element and keeps `aria-expanded` in step.
 
 ### Menu
 
@@ -767,6 +801,7 @@ General rules for every page below:
 | `PUT /configuration/{key}` (form field `value`) | **200** with the display fragment and toast `Saved <label>`. No toast when nothing changed, including a blank encrypted value. **422** returns the edit fragment, with the typed value, `aria-invalid` and `[data-testid=setting-error-<key>]`, plus an error toast. |
 | `DELETE /configuration/{key}` | clears an **encrypted** setting and returns the display fragment with toast `Cleared <label>`. 409 for other types. |
 
+- **Groups:** settings are grouped by key prefix, one `tbody#settings-<prefix>[data-testid=settings-group-<prefix>]` each, headed by a `tr.pm-group__head` row (e.g. "Mailbox (IMAP)"). The rail holds an index of the groups (`settings-index`), dropped below 960px.
 - **Rows** are `tr[data-testid="setting-row-<key>"]`. The label cell has the label, and the description is in `.pm-muted`.
 - **Display fragment:** `button.pm-setting-value[data-testid="setting-value-<key>"]`, showing `displayValue` (encrypted ones masked, Q17) or `Not set` (class `pm-muted`). Clicking it swaps in the edit fragment (`hx-get`).
 - **Edit fragment:** `span.pm-setting-edit` containing an `input[name=value][data-testid="setting-input-<key>"]` with `autofocus`.
@@ -784,7 +819,7 @@ General rules for every page below:
 | `POST /types` (create) and `PUT /types/{id}` (update), with form fields `name`, `description`, `colour` | **200** with the table fragment, `HX-Retarget: #types-table-container`, `HX-Reswap: innerHTML`, and `HX-Trigger` with the toast `Created type <name>` or `Saved type <name>` plus `pm-dialog-close` for `type-dialog`. **422** returns the form fragment with errors and an error toast. |
 | `DELETE /types/{id}` | the table fragment with toast `Deleted type <name>`; 409 for system types |
 
-- **Page:** `button[data-testid="new-type"]` opens the dialog. The table sits in `#types-table-container`.
+- **Page:** `button[data-testid="new-type"]`, in the masthead's actions, opens the dialog. The table sits in `#types-table-container` (the pane), and the rail holds notes. The other list pages (calendars, prompts, rules) follow the same pattern, with their "New …" control in the masthead.
 - **Table:** `{#table id="types-table"}` with columns `name` (p1), `description` (p3), `colour` (p2, a swatch `span.pm-swatch` plus hex) and `actions` (p1, not resizable).
   - Rows are `tr[data-testid="type-row-<id>"]`.
   - Each row has `button[data-testid="edit-type-<id>"]` and, except system types, `button[data-testid="delete-type-<id>"]` (`hx-confirm` `Delete type <name>?`, OK label `Delete`).
@@ -1250,14 +1285,14 @@ It records results through the orchestrator.
 ### 6.1 Emails list (`page="emails"`)
 
 `GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true` and `page`. Values that don't parse are ignored.
-- **Filter form:** `form[data-testid=email-filters]` (`method=get`), inside `details[data-testid=filter-panel]`, which starts closed. Its summary `toggle-filters` reads "Filters" plus, when filters are set, `[data-testid=active-filters]` with how many (the date range counts once). The form has:
+- **Filter form:** `form#email-filters[data-testid=email-filters]` (`method=get`) is in the rail and always shown on wide screens. Below 960px it folds behind the button `toggle-filters`, which reads "Filters" plus, when filters are set, `[data-testid=active-filters]` with how many (the date range counts once). The form has:
   - the date range `filter-from` and `filter-to` (one fieldset)
   - `filter-status`, `filter-type`, `filter-sender`
   - checkboxes `filter-response`, `filter-action` and `filter-errors`
   - `apply-filters`
 
-  The link `clear-filters` ("Clear filters") is outside the panel, and only shown when filters are set.
-- **Count line:** `[data-testid=email-count]` reads `The N most recently received emails` (unfiltered) or `N matching emails`.
+  The link `clear-filters` ("Clear filters") is above the form, and only shown when filters are set.
+- **Count line:** `[data-testid=email-count]`, the masthead's lede, reads `The N most recently received emails` (unfiltered) or `N matching emails`.
 - **Table** `{#table id="emails-table"}`, with columns (default widths in CSS; the subject takes the rest):
   - `received` (p1, `{#time}`)
   - `subject` (p1, a link `email-link-<id>`)
@@ -1291,12 +1326,15 @@ It records results through the orchestrator.
 
 - **Manual actions** that succeed respond `HX-Redirect` to `/mail/emails/{id}`, flashing a success toast with the result's message. Failures are **502** with an error toast; nothing is swapped.
 - **Page:**
-  - **In order, under the title:**
-    - the byline `email-byline`, holding `email-from`, the received time and the type badge
-    - the flags `email-flags`, shown only when set: `email-action-required` ("Action needed", the description and `clear-action-required` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
-    - the summary `email-summary`
-  - **Actions bar** `email-actions`: `back-to-emails`, `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm), and `delete-email` (confirm) set apart at the right.
-  - **Layout:** below the actions, the details panel is beside the contents from 960px wide, and above them when narrower.
+  - **Masthead:**
+    - the kicker links back (`back-to-emails`) and shows `email-from` and the received time
+    - the lede `email-byline` shows the type badge, status and unread
+    - the actions are `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart)
+  - **Pane, in order:**
+    - the flags `email-flags`, shown only when set, as ruled lines: `email-action-required` ("Action needed", the description and `clear-action-required` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
+    - the summary `email-summary`, as a lede
+    - the sections
+  - **Layout:** the details are the rail (an inspector, `.pm-page--inspector`), after the pane below 960px.
   - **Details** `dl[data-testid=email-details]`:
     - the type form `type-form` (`select[name=typeId]` `email-type`), which saves when the selection changes (`hx-trigger="change"`)
     - `email-received`, `email-processed`, `email-status`, `email-folder`, `email-read`, `email-link`
@@ -1320,8 +1358,8 @@ It records results through the orchestrator.
 | `POST /runs` | starts a run in the background (`runNowAsync`): the fragment with toast `Processing started`, or **409** with the error toast `Processing is already running` |
 
 - **Fragment** `section#dashboard[data-testid=home-page]`. While a run is in progress it has `data-running="true"` and polls itself (`hx-get=/mail/dashboard`, `hx-trigger="every 2s"`, `hx-swap=outerHTML`). Polling stops when the run ends.
-- **Run banner** `processing-status`, the full width, with a red edge when the last run failed. It holds `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running).
-- **Count tiles** in one row (`.pm-tiles`), each a link to the filtered list: `count-total` (with the last 24 hours), `count-response`, `count-action`, `count-unclassified` and `count-errors`. Each is highlighted only when its count is above 0.
+- **Run status** `processing-status` is the rail: the state over a coloured edge (green, red when the last run failed, the accent while running), its facts, the next run and the button. It holds `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running).
+- **Ledger of counts** (`.pm-ledger`) at the top of the pane: figures over labels, divided by hairlines; 3 a row below 960px and 2 below 640px. Each is a link to the filtered list: `count-total` (with the last 24 hours), `count-response`, `count-action`, `count-unclassified` and `count-errors`. A count that needs attention (reply, action or errors above 0) has a coloured marker on the rule above it.
 - **Recent runs:** `{#table id="runs-table"}`, rows `run-row-<id>`. Failed runs have `pm-row--error`.
 
 ---

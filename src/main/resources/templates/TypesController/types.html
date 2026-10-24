@@ -1,10 +1,18 @@
 {#include layout page="types"}
+  {#kicker}Postmaster · Classification{/kicker}
   {#title}Types{/title}
+  {#actions}<button type="button" class="pm-button pm-button--primary" data-testid="new-type" hx-get="{base}/types/new" hx-target="#type-dialog-body">New type</button>{/actions}
   {#content}
-    <div class="pm-page-actions">
-      <button type="button" class="pm-button pm-button--primary" data-testid="new-type" hx-get="{base}/types/new" hx-target="#type-dialog-body">New type</button>
+    <div class="pm-page pm-page--notes">
+      <aside class="pm-rail">
+        <p class="pm-rail__lede">What an email can be classified as, by a rule's <em>Set type</em> action or by the LLM.</p>
+        <dl class="pm-facts">
+          <dt>System</dt><dd>Bill is a system type: <em>Process bill</em> relies on it, so it can't be deleted.</dd>
+          <dt>Deleting</dt><dd>Deleted types are kept for history, and no longer offered.</dd>
+        </dl>
+      </aside>
+      <div class="pm-pane" id="types-table-container">{#include TypesController/typesTable types=types /}</div>
     </div>
-    <div id="types-table-container">{#include TypesController/typesTable types=types /}</div>
     {#modal id="type-dialog" title="Type"}<p class="pm-muted">Loading…</p>{/modal}
   {/content}
 {/include}

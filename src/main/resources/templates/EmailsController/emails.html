@@ -1,12 +1,17 @@
 {#include layout page="emails"}
+  {#kicker}Postmaster · Mail{/kicker}
   {#title}Emails{/title}
+  {#lede}<p class="pm-lede" data-testid="email-count">{#if result.paginated}{result.total} matching email{#if result.total != 1}s{/if}{#else}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{/if}</p>{/lede}
   {#content}
-    <div class="pm-list-header">
-      <details class="pm-filter-panel" data-testid="filter-panel">
-        <summary class="pm-button" data-testid="toggle-filters">Filters{#if result.filter.activeCount > 0} <span class="pm-badge pm-badge--count" data-testid="active-filters">{result.filter.activeCount}</span>{/if}</summary>
-        <form class="pm-filters" method="get" action="{base}/emails" data-testid="email-filters">
+    <div class="pm-page">
+      <aside class="pm-rail" aria-label="Filters">
+        <div class="pm-rail__bar">
+          <button type="button" class="pm-button pm-rail__toggle" data-testid="toggle-filters" aria-expanded="false" aria-controls="email-filters" data-pm-toggle="email-filters">Filters{#if result.filter.activeCount > 0} <span class="pm-badge pm-badge--count" data-testid="active-filters">{result.filter.activeCount}</span>{/if}</button>
+          {#if result.filter.isFiltered}<a class="pm-button pm-button--quiet" href="{base}/emails" data-testid="clear-filters">Clear filters</a>{/if}
+        </div>
+        <form id="email-filters" class="pm-filters pm-collapsible" method="get" action="{base}/emails" data-testid="email-filters">
           <fieldset class="pm-date-range">
-            <legend>Received</legend>
+            <legend class="pm-label">Received</legend>
             <label class="pm-visually-hidden" for="filter-from">Received from</label>
             <input type="date" id="filter-from" name="from" class="pm-input" value="{result.filter.from ?: ''}" data-testid="filter-from">
             <span class="pm-muted">to</span>
@@ -14,14 +19,14 @@
             <input type="date" id="filter-to" name="to" class="pm-input" value="{result.filter.to ?: ''}" data-testid="filter-to">
           </fieldset>
           <div class="pm-field">
-            <label for="filter-status">Status</label>
+            <label class="pm-label" for="filter-status">Status</label>
             <select id="filter-status" name="status" class="pm-input" data-testid="filter-status">
               <option value="">Any</option>
               {#for s in statuses}<option value="{s.code}"{#if result.filter.hasStatus(s)} selected{/if}>{s.code}</option>{/for}
             </select>
           </div>
           <div class="pm-field">
-            <label for="filter-type">Type</label>
+            <label class="pm-label" for="filter-type">Type</label>
             <select id="filter-type" name="type" class="pm-input" data-testid="filter-type">
               <option value="">Any</option>
               <option value="none"{#if result.filter.unclassified} selected{/if}>Unclassified</option>
@@ -29,22 +34,19 @@
             </select>
           </div>
           <div class="pm-field">
-            <label for="filter-sender">Sender</label>
+            <label class="pm-label" for="filter-sender">Sender</label>
             <input type="search" id="filter-sender" name="sender" class="pm-input" value="{result.filter.sender ?: ''}" placeholder="Name or address" data-testid="filter-sender">
           </div>
-          <div class="pm-filters__checks">
+          <fieldset class="pm-filters__checks">
+            <legend class="pm-label">Only</legend>
             <label class="pm-field--inline"><input type="checkbox" name="response" value="true"{#if result.filter.responseRequired} checked{/if} data-testid="filter-response"> Response required</label>
             <label class="pm-field--inline"><input type="checkbox" name="action" value="true"{#if result.filter.actionRequired} checked{/if} data-testid="filter-action"> Action required</label>
             <label class="pm-field--inline"><input type="checkbox" name="errors" value="true"{#if result.filter.withErrors} checked{/if} data-testid="filter-errors"> With errors</label>
-          </div>
-          <div class="pm-form-actions">
-            <button type="submit" class="pm-button pm-button--primary" data-testid="apply-filters">Filter</button>
-          </div>
+          </fieldset>
+          <button type="submit" class="pm-button pm-button--primary" data-testid="apply-filters">Apply filters</button>
         </form>
-      </details>
-      {#if result.filter.isFiltered}<a class="pm-button" href="{base}/emails" data-testid="clear-filters">Clear filters</a>{/if}
-      <p class="pm-muted pm-list-header__count" data-testid="email-count">{#if result.paginated}{result.total} matching email{#if result.total != 1}s{/if}{#else}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{/if}</p>
-    </div>
+      </aside>
+      <div class="pm-pane">
     {#table id="emails-table"}
       <thead><tr>
         {#th col="received" label="Received" priority=1 /}
@@ -82,5 +84,7 @@
       {#if result.hasNext}<a class="pm-button" rel="next" href="{base}/emails{result.nextQuery}" data-testid="next-page">Next</a>{/if}
     </nav>
     {/if}
+      </div>
+    </div>
   {/content}
 {/include}
