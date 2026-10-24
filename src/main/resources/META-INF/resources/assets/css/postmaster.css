@@ -307,9 +307,17 @@ h3 {
   width: var(--pm-menu-button-size);
   height: var(--pm-menu-button-size);
   padding: 0;
-  border-radius: 50%;
+  /* A squircle: a rounded square with superelliptic corners where corner-shape is supported */
+  border-radius: 30%;
   color: var(--pm-foreground);
   cursor: pointer;
+}
+
+@supports (corner-shape: squircle) {
+  .pm-menu-button {
+    border-radius: 50%;
+    corner-shape: squircle;
+  }
 }
 
 .pm-menu-button .pm-icon {
