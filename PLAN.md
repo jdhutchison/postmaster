@@ -7,7 +7,7 @@ Legend:
 - Each task carries two markers:
   - `build:` is updated by the builder agent
   - `tests:` is updated by the tester agent
-- Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has run the full test suite.
+- Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need).
 
 **Status:** Phases 0–3 are complete and verified by the coordinator on 2026-10-24: a clean `./gradlew clean test` ran 431 tests in 40 suites with 0 failures, 0 errors and 0 skipped. Phase 4 (integration helpers) is next.
 
@@ -44,7 +44,7 @@ Two agents work in parallel in this working tree, coordinated by the main Claude
 - **Requirements win.** If code and tests disagree, REQUIREMENTS.md and CLARIFICATIONS.md decide. Neither agent changes or weakens the other's work to get a pass.
 - **No build collisions.** The tester builds into `build-tests/` (`POSTMASTER_BUILD_DIR=build-tests`, `--project-cache-dir .gradle-tests`), and Quarkus tests use a random HTTP port.
 - **Commits.** Each agent commits only its own paths (`git add <paths> && git commit -m "…" -- <paths>`).
-- **Checkpoints.** Both agents stop at the end of each phase (or when blocked on a question) and report. The coordinator then runs the full suite, updates this plan and resumes them.
+- **Checkpoints.** Both agents stop at the end of each phase (or when blocked on a question) and report. The coordinator then assesses the tester's full-suite results (its JUnit reports in `build-tests/`), updates this plan and resumes them. The coordinator re-runs the suite only when there's a need, such as results that are missing, stale or contradictory, and says why.
 
 ---
 
@@ -123,15 +123,15 @@ Each page gets OpenAPI annotations, HTTP-level tests and Playwright tests.
 
 These are reusable, so the action handlers can share them.
 
-- [ ] **4.1** `build: todo` `tests: todo` `MailboxClient` (IMAP):
+- [ ] **4.1** `build: done` `tests: todo` `MailboxClient` (IMAP):
   - list INBOX newest first, and fetch with `BODY.PEEK`
   - parse MIME into text, HTML and attachments
   - move, delete to trash, set flags, and list folders
 
   Plus an SMTP inline forwarder. Tested with GreenMail.
-- [ ] **4.2** `build: todo` `tests: todo` `LlmClient`: OpenAI-compatible, JSON mode, timeouts, input truncation, thinking turned off. `PromptRenderer` fills in the `{{placeholder}}` values. Tested with WireMock.
-- [ ] **4.3** `build: todo` `tests: todo` `HttpFetcher`: headless Chromium `--dump-dom` and curl downloads, using a Chrome-on-Windows user agent. `HtmlParser` (Jsoup): text extraction, and finding links by their anchor text.
-- [ ] **4.4** `build: todo` `tests: todo` `CalendarClient` (khal):
+- [ ] **4.2** `build: done` `tests: todo` `LlmClient`: OpenAI-compatible, JSON mode, timeouts, input truncation, thinking turned off. `PromptRenderer` fills in the `{{placeholder}}` values. Tested with WireMock.
+- [ ] **4.3** `build: done` `tests: todo` `HttpFetcher`: headless Chromium `--dump-dom` and curl downloads, using a Chrome-on-Windows user agent. `HtmlParser` (Jsoup): text extraction, and finding links by their anchor text.
+- [ ] **4.4** `build: done` `tests: todo` `CalendarClient` (khal):
   - read the calendars from the khal config
   - generate `.ics` files with our UID and alarms, and add them with `khal import`
   - move or delete an event by its vdir file

@@ -132,3 +132,7 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 - LLM client and prompt renderer
 - page fetching and HTML parsing
 - khal calendar client
+
+**You:** You can assess the tester's results but do not run the full suite yourself unless you explain why and there is a need.
+
+**Claude:** Understood. At each checkpoint I'll assess the tester's own full-suite results (its JUnit reports in `build-tests/`, checked against the commit they ran on) instead of re-running. I'll only run the suite myself when there's a specific need, such as results that are missing, stale or contradictory, and I'll say why first. PLAN.md is updated to match.
