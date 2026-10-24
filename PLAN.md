@@ -240,4 +240,4 @@ These are reusable, so the action handlers can share them.
 ## Phase 10: Documentation and final checks
 
 - [x] **10.1** `build: done` `tests: n/a` `docs/`: architecture, running and testing, configuration reference, deployment, MCP tools, and how to add a new action type.
-- [ ] **10.2** `build: n/a` `tests: n/a` *(coordinator)* Run all tests, build the native image, review the code, and finish updating this plan.
+- [x] **10.2** `build: n/a` `tests: n/a` *(coordinator)* Run all tests, build the native image, review the code, and finish updating this plan. Done 2026-10-25: 635 tests pass; the native image builds on macOS (arm64, 93 MiB); a review's six findings are fixed (UIDVALIDITY, rollbacks from settings errors, cross-site requests, events on reprocess, reused to-do names, concurrent reprocessing). 8.2 is still unverified because Docker doesn't run on this machine.
