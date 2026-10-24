@@ -296,7 +296,7 @@ code {
   min-width: 0;
 }
 
-/* The logo follows the kicker, as tall as the menu button and level with it when the kicker wraps */
+/* The logo leads the kicker, as tall as the menu button and level with it when the kicker wraps */
 .pm-masthead__logo {
   flex: none;
   align-self: flex-start;
