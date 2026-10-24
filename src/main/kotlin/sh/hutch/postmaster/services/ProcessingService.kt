@@ -28,6 +28,7 @@ import sh.hutch.postmaster.repositories.EmailRepository
 import sh.hutch.postmaster.repositories.ProcessingRunRepository
 import sh.hutch.postmaster.repositories.RuleRepository
 import sh.hutch.postmaster.repositories.TypeRepository
+import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 import java.time.Duration
 import java.util.Locale
@@ -117,6 +118,11 @@ class ProcessingService(
       runs.persist(run)
       run.id!!
     }
+    return Mdc.with(Mdc.RUN to runId) { execute(runId, trigger) }
+  }
+
+  private fun execute(runId: Long, trigger: RunTrigger): ProcessingRunEntity {
+    LOG.infof("Processing run started (%s)", trigger.code)
     var found = 0
     var processed = 0
     var failed = 0
@@ -126,6 +132,7 @@ class ProcessingService(
       val listed = mailbox.listInbox(since)
       val fresh = QuarkusTransaction.requiringNew().call { listed.filter { !emails.existsByMessageId(it.messageId) } }
       found = fresh.size
+      LOG.infof("%d new of %d messages in the inbox", found, listed.size)
       for (message in fresh) {
         try {
           process(message)
@@ -139,6 +146,7 @@ class ProcessingService(
       error = e.message ?: e.javaClass.simpleName
       LOG.warn("Processing run failed", e)
     }
+    LOG.infof("Processing run finished: %d found, %d processed, %d failed%s", found, processed, failed, error?.let { "; $it" } ?: "")
     return QuarkusTransaction.requiringNew().call {
       val run = runs.findById(runId)!!
       run.status = if (error == null) RunStatus.SUCCEEDED else RunStatus.FAILED
@@ -155,13 +163,16 @@ class ProcessingService(
    * Fetches and processes one listed INBOX message. If it can't be fetched, nothing is recorded and
    * a later run tries again.
    */
-  fun process(listed: MailboxMessage): EmailEntity {
+  fun process(listed: MailboxMessage): EmailEntity = Mdc.with(Mdc.MESSAGE_ID to listed.messageId) {
     val inbox = settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX"
     val message = mailbox.fetch(inbox, listed.uid)
-    return QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
+    QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
       val email = create(message)
       emails.persist(email)
-      pipeline(ProcessingContext(email, message))
+      Mdc.with(Mdc.EMAIL to email.id) {
+        LOG.infof("Processing '%s' from %s", email.subject, email.sender)
+        pipeline(ProcessingContext(email, message))
+      }
       email
     }
   }
@@ -179,7 +190,10 @@ class ProcessingService(
       reset(email)
       email.imapUid = found
       email.folder = folder
-      pipeline(ProcessingContext(email, message))
+      Mdc.with(Mdc.EMAIL to email.id) {
+        LOG.infof("Reprocessing '%s' from %s", email.subject, email.sender)
+        pipeline(ProcessingContext(email, message))
+      }
       email
     }
   }
@@ -193,14 +207,19 @@ class ProcessingService(
       val deferred = mutableListOf<QueuedAction>()
       val queue = mutableListOf<QueuedAction>()
       var position = 0
-      val classifier = rules.listEnabled(RuleType.CLASSIFICATION).firstOrNull { engine.matches(it, context.facts()) }
-      if (classifier != null) {
-        recordMatch(email, classifier, position++)
-        for (item in executor.actionsOf(classifier, 0, ErrorPhase.CLASSIFICATION)) {
-          when {
-            item.handler?.stage == ActionStage.RECORD -> executor.run(context, item)
-            item.action.actionType in AFTER_SUMMARY -> deferred += item
-            else -> queue += item
+      Mdc.with(Mdc.PHASE to ErrorPhase.CLASSIFICATION.code) {
+        val classifier = rules.listEnabled(RuleType.CLASSIFICATION).firstOrNull { engine.matches(it, context.facts()) }
+        if (classifier == null) {
+          LOG.info("No classification rule matched")
+        } else {
+          Mdc.with(Mdc.RULE to classifier.name) { LOG.info("Classification rule matched") }
+          recordMatch(email, classifier, position++)
+          for (item in executor.actionsOf(classifier, 0, ErrorPhase.CLASSIFICATION)) {
+            when {
+              item.handler?.stage == ActionStage.RECORD -> executor.run(context, item)
+              item.action.actionType in AFTER_SUMMARY -> deferred += item
+              else -> queue += item
+            }
           }
         }
       }
@@ -212,20 +231,25 @@ class ProcessingService(
       }
 
       // LLM: classify if still unclassified, then summarise (CLARIFICATIONS.md Q15)
-      if (email.type == null) {
-        classify(context)
+      Mdc.with(Mdc.PHASE to ErrorPhase.LLM.code) {
+        if (email.type == null) {
+          classify(context)
+        }
+        summarise(context)
+        deferred.forEach { executor.run(context, it) }
       }
-      summarise(context)
-      deferred.forEach { executor.run(context, it) }
 
       // Action rules: every one that matches
-      rules.listEnabled(RuleType.ACTION).forEachIndexed { index, rule ->
-        if (engine.matches(rule, context.facts())) {
-          recordMatch(email, rule, position++)
-          queue += executor.actionsOf(rule, index + 1, ErrorPhase.ACTION)
+      Mdc.with(Mdc.PHASE to ErrorPhase.ACTION.code) {
+        rules.listEnabled(RuleType.ACTION).forEachIndexed { index, rule ->
+          if (engine.matches(rule, context.facts())) {
+            Mdc.with(Mdc.RULE to rule.name) { LOG.info("Action rule matched") }
+            recordMatch(email, rule, position++)
+            queue += executor.actionsOf(rule, index + 1, ErrorPhase.ACTION)
+          }
         }
+        executor.runQueue(context, queue)
       }
-      executor.runQueue(context, queue)
       finish(email, if (context.stopped) EmailStatus.SKIPPED else EmailStatus.PROCESSED)
     } catch (e: Exception) {
       LOG.warnf(e, "Processing email %s failed", email.messageId)
@@ -245,6 +269,7 @@ class ProcessingService(
       if (type == null) {
         context.addError(ErrorPhase.LLM, "The LLM chose '$name', which isn't a type")
       } else {
+        LOG.infof("The LLM classified it as %s", type.name)
         context.email.assignType(type)
       }
     } catch (e: LlmException) {
@@ -292,6 +317,7 @@ class ProcessingService(
     }
     email.status = status
     email.processedAt = Times.now()
+    LOG.infof("Email %s: type %s, %d error(s)", status.code, email.type?.name ?: "none", email.errors.size)
   }
 
   private fun create(message: ParsedMessage): EmailEntity {

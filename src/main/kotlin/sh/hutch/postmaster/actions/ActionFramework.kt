@@ -2,6 +2,7 @@ package sh.hutch.postmaster.actions
 
 import io.quarkus.arc.All
 import jakarta.enterprise.context.ApplicationScoped
+import org.jboss.logging.Logger
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailErrorEntity
@@ -9,10 +10,14 @@ import sh.hutch.postmaster.entities.RuleActionEntity
 import sh.hutch.postmaster.entities.RuleEntity
 import sh.hutch.postmaster.models.ActionResultStatus
 import sh.hutch.postmaster.models.ActionSource
+import sh.hutch.postmaster.models.ActionTypes
 import sh.hutch.postmaster.models.EmailFacts
 import sh.hutch.postmaster.models.ErrorPhase
+import sh.hutch.postmaster.models.Option
 import sh.hutch.postmaster.models.ParsedMessage
+import sh.hutch.postmaster.models.RuleOptions
 import sh.hutch.postmaster.services.RuleEngine
+import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 
 /** When an action runs relative to the others; stages run in this order (CLARIFICATIONS.md Q12). */
@@ -56,6 +61,10 @@ interface ActionHandler {
   val order: Int
     get() = 0
 
+  /** How the rule editor names the action, e.g. "Mark read". */
+  val label: String
+    get() = actionType.replace('_', ' ').replaceFirstChar { it.uppercase() }
+
   /** Carries out [action] on the email; throwing records the action as failed. */
   fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome
 }
@@ -68,6 +77,13 @@ class ActionRegistry(@All handlers: MutableList<ActionHandler>) {
   fun handler(actionType: String): ActionHandler? = byType[actionType]
 
   fun types(): Set<String> = byType.keys
+
+  /** Every action type for the rule editor: the built-in ones in their usual order, then the others by name. */
+  fun options(): List<Option> {
+    val builtIn = ActionTypes.BUILT_IN.filter { it in byType }
+    val others = byType.keys.filter { it !in ActionTypes.BUILT_IN }.sorted()
+    return (builtIn + others).map { Option(it, RuleOptions.ACTION_LABELS[it] ?: byType.getValue(it).label) }
+  }
 }
 
 /** The email being processed, the message it came from, and whether processing was stopped. */
@@ -83,6 +99,7 @@ class ProcessingContext(val email: EmailEntity, val message: ParsedMessage?) {
   fun facts(): EmailFacts = RuleEngine.factsOf(email)
 
   fun addError(phase: ErrorPhase, message: String) {
+    LOG.warnf("Error (%s): %s", phase.code, message)
     email.errors.add(EmailErrorEntity().also {
       it.email = email
       it.phase = phase
@@ -105,6 +122,7 @@ class ProcessingContext(val email: EmailEntity, val message: ParsedMessage?) {
   }
 
   companion object {
+    private val LOG = Logger.getLogger(ProcessingContext::class.java)
     private const val MAX_ERROR = 4000
   }
 }
@@ -130,7 +148,11 @@ class ActionExecutor(private val registry: ActionRegistry) {
         .map { QueuedAction(rule, it, registry.handler(it.actionType), ruleOrder, phase) }
 
   /** Runs [item] now, unless processing has been stopped. */
-  fun run(context: ProcessingContext, item: QueuedAction) {
+  fun run(context: ProcessingContext, item: QueuedAction) = Mdc.with(Mdc.RULE to item.rule.name, Mdc.ACTION to item.action.actionType) {
+    execute(context, item)
+  }
+
+  private fun execute(context: ProcessingContext, item: QueuedAction) {
     if (context.stopped) {
       record(context, item, ActionOutcome.skipped(STOPPED))
       return
@@ -170,8 +192,10 @@ class ActionExecutor(private val registry: ActionRegistry) {
         val winner = winners[stage]
         if (winner != null) {
           val detail = "Conflicts with ${winner.action.actionType} from rule ${winner.rule.name}"
-          record(context, item, ActionOutcome.skipped(detail))
-          context.addError(item.phase, "${item.action.actionType}: $detail")
+          Mdc.with(Mdc.RULE to item.rule.name, Mdc.ACTION to item.action.actionType) {
+            record(context, item, ActionOutcome.skipped(detail))
+            context.addError(item.phase, "${item.action.actionType}: $detail")
+          }
           continue
         }
         if (!context.stopped) {
@@ -183,6 +207,10 @@ class ActionExecutor(private val registry: ActionRegistry) {
   }
 
   private fun record(context: ProcessingContext, item: QueuedAction, outcome: ActionOutcome) {
+    if (outcome.status != ActionResultStatus.FAILED) {
+      // Failures are logged as errors below
+      LOG.infof("Action %s: %s", outcome.status.code, outcome.detail.orEmpty())
+    }
     context.record(item.rule, item.action, item.action.actionType, outcome)
     if (outcome.status == ActionResultStatus.FAILED) {
       context.addError(item.phase, "${item.action.actionType}: ${outcome.detail}")
@@ -190,6 +218,7 @@ class ActionExecutor(private val registry: ActionRegistry) {
   }
 
   companion object {
+    private val LOG = Logger.getLogger(ActionExecutor::class.java)
     const val STOPPED = "Processing was stopped by skip_processing"
     private val CONFLICTING = setOf(ActionStage.MOVE, ActionStage.READ_STATE)
   }

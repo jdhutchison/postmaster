@@ -22,6 +22,15 @@ quarkus:
         value: nosniff
       Referrer-Policy:
         value: same-origin
+  # Logs go to stdout in every profile, so Docker picks them up. %X is the MDC: the run, email,
+  # phase, rule and action being worked on (see docs/architecture.md, "Logging").
+  log:
+    console:
+      enable: true
+      stderr: false
+      format: "%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c{3.}] (%t) %X %s%e%n"
+    file:
+      enable: false
   datasource:
     db-kind: mariadb
   hibernate-orm:
@@ -37,6 +46,34 @@ quarkus:
   smallrye-openapi:
     info-title: Postmaster
     info-description: Email processing, classification and actions
+    # Written at build time; the openapiSpec Gradle task copies it to docs/openapi.yml
+    store-schema-directory: build/openapi
+
+mp:
+  openapi:
+    # HTML responses are documented as strings, without Qute's internals
+    filter: sh.hutch.postmaster.controllers.HtmlResponsesFilter
+
+# Dev mode (./gradlew quarkusDev or bin/dev): an in-memory database filled with fake data by
+# config.DevData, so no configuration file, MariaDB, mail server or LLM is needed. The khal
+# config and attachment files are written under build/dev/.
+"%dev":
+  quarkus:
+    datasource:
+      db-kind: h2
+      username: sa
+      password: ""
+      jdbc:
+        # MariaDB mode with case-sensitive identifiers, as in the tests
+        url: jdbc:h2:mem:postmaster;MODE=MariaDB;DATABASE_TO_UPPER=FALSE;NON_KEYWORDS=VALUE;DB_CLOSE_DELAY=-1
+    hibernate-orm:
+      # Dev mode's schema check runs before Flyway has created the tables, and reports them missing
+      validate-in-dev-mode: false
+  postmaster:
+    # Base64 of 32 bytes: a dev-only AES-256 key
+    encryption-key: "ZGV2LW9ubHktZGV2LW9ubHktZGV2LW9ubHktZGV2LTE="
+    khal-config: build/dev/khal.ini
+    scheduler-enabled: false
 
 # Tests run without scheduled processing; they start runs themselves
 "%test":

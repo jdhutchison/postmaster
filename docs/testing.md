@@ -26,7 +26,9 @@ To run one class or one test:
 POSTMASTER_BUILD_DIR=build-tests ./gradlew --project-cache-dir .gradle-tests test
 ```
 
-**Toolchain.** The project builds with GraalVM for JDK 25 and Gradle 9. With SDKMAN, run `source ~/.sdkman/bin/sdkman-init.sh` first.
+**Toolchain.** The project builds with GraalVM for JDK 25 (any JDK 25 runs the tests) and the Gradle wrapper. With SDKMAN, `sdk env` selects the version in `.sdkmanrc`. `RealKhalTest` runs only when khal is installed (on the `PATH`, e.g. with `pipx install khal`); otherwise it's skipped.
+
+**Alongside dev mode.** While `bin/dev` is running, run the tests in the separate build directory above, so the two builds don't overwrite each other.
 
 ## What the tests run against
 
@@ -103,7 +105,10 @@ Each distinct profile starts its own application. Tests in the same profile shar
 | `sh.hutch.postmaster.models` | the enums' stored values, the condition compatibility matrix (CLAR Q9, Q10) and the built-in action types |
 | `sh.hutch.postmaster.entities` | entity rules, such as "never action required for a bill" (CLAR Q13 revision) |
 | `sh.hutch.postmaster.util` | ISO 8601 durations |
-| `sh.hutch.postmaster.services` | encryption, settings and Message-IDs |
+| `sh.hutch.postmaster.services` | encryption, settings, Message-IDs and the integration helpers (IMAP, LLM, fetching, khal) |
+| `sh.hutch.postmaster.processing` | the rule engine, the processing pipeline, every action handler and `process_bill` (`PipelineTest` is their base: GreenMail, WireMock and the fake khal) |
+| `sh.hutch.postmaster.controllers` | the admin pages, emails list and detail, dashboard and MCP tools, over HTTP |
+| `sh.hutch.postmaster.ui` | layout, menu, toasts, dialogs and tables, in the browser |
 | `sh.hutch.postmaster.mappers` | MapStruct mappers |
 | `sh.hutch.postmaster.repositories` | repository queries, soft deletes, UTC timestamps (with the JVM in Melbourne time) |
 | `sh.hutch.postmaster.testsupport` | test resources, fakes, HTML and database helpers, the Playwright base class |

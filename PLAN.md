@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–7 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
+**Status:** Phases 0–7 are complete, with 8.1, 8.3, 10.1 and the additions A.1–A.2 done; 8.2 (the image) is being verified. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
 
 Standing rules:
 - Commit after each completed task.
@@ -206,17 +206,22 @@ These are reusable, so the action handlers can share them.
 
 ## Phase 8: Packaging
 
-- [ ] **8.1** `build: todo` `tests: todo` Generate `docs/openapi.yml` at build time from the annotations.
-- [ ] **8.2** `build: todo` `tests: n/a` A multi-stage `Dockerfile`:
+- [x] **8.1** `build: done` `tests: n/a` Generate `docs/openapi.yml` at build time from the annotations.
+- [~] **8.2** `build: doing` `tests: n/a` A multi-stage `Dockerfile`:
   - a GraalVM native build stage
   - a Debian slim runtime with khal, curl and Chromium
   - a non-root user in the `calendars` group
   - mounts for the khal config, calendar data, attachments and the YAML config
 
   Verify a JVM build and an x86 native build locally.
-- [ ] **8.3** `build: todo` `tests: n/a` A sample `config/postmaster.yml` and the `bin/` build and deploy scripts.
+- [x] **8.3** `build: done` `tests: n/a` A sample `config/postmaster.yml` and the `bin/` build and deploy scripts.
 
-## Phase 9: Deployment (in `/data/code/ansible`)
+## Additions (2026-10-24)
+
+- [x] **A.1** `build: done` `tests: todo` Dev mode on an in-memory database with fake data (CLARIFICATIONS.md R2).
+- [x] **A.2** `build: done` `tests: todo` Logging to stdout with MDC context: run, email, phase, rule, action and source (CLARIFICATIONS.md R3).
+
+## Phase 9: Deployment (in `/data/code/ansible`), on hold
 
 - [ ] **9.1** `build: todo` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:
   - `docker-compose.yml` on the `services` and `mariadb` networks
@@ -233,5 +238,5 @@ These are reusable, so the action handlers can share them.
 
 ## Phase 10: Documentation and final checks
 
-- [ ] **10.1** `build: todo` `tests: todo` `docs/`: architecture, running and testing, configuration reference, deployment, MCP tools, and how to add a new action type.
+- [x] **10.1** `build: done` `tests: n/a` `docs/`: architecture, running and testing, configuration reference, deployment, MCP tools, and how to add a new action type.
 - [ ] **10.2** `build: n/a` `tests: n/a` *(coordinator)* Run all tests, build the native image, review the code, and finish updating this plan.

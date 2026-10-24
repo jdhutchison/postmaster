@@ -21,6 +21,7 @@ import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse
 import org.eclipse.microprofile.openapi.annotations.tags.Tag
 import org.jboss.resteasy.reactive.RestForm
+import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.models.ActionInput
 import sh.hutch.postmaster.models.ActionRow
 import sh.hutch.postmaster.models.ConditionInput
@@ -45,7 +46,8 @@ class RulesController(
     private val rules: RuleService,
     private val types: TypeService,
     private val calendars: CalendarService,
-    private val pageToasts: PageToasts
+    private val pageToasts: PageToasts,
+    private val registry: ActionRegistry
 ) {
 
   @CheckedTemplate
@@ -231,7 +233,8 @@ class RulesController(
         },
         types = types.list().map { Option(it.id.toString(), it.name) },
         calendars = calendars.list().map { Option(it.id.toString(), it.name) },
-        errors = errors
+        errors = errors,
+        actionTypes = registry.options()
     )
 
   private fun blankAction() = ActionInput(0, null, "move", "", "", "", "", true)

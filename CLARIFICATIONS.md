@@ -338,6 +338,34 @@ The seeded "Summarising the email" prompt becomes:
 
 `action_required` from the LLM is ignored when the email's type is `Bill`.
 
+**R2 (2026-10-24). A local dev mode with fake data (your new requirement).**
+You want to run Postmaster locally through Gradle, in dev mode or a dev profile, on an in-memory database filled with fake data, so you can see what the UI looks like.
+- `./gradlew quarkusDev` (or `bin/dev`) runs the `dev` profile on in-memory H2 in MariaDB mode. No MariaDB, Dovecot, LLM or configuration file of your own is needed.
+- The H2 driver is added to the build only when `quarkusDev` runs, so production builds and the native image don't include it.
+- `config.DevData`, a bean built only into the dev profile, fills the database at startup. It creates:
+  - calendars and rules
+  - about 60 emails in every state, with events, attachments, rule matches, action results and errors
+  - processing runs
+
+  It also writes a khal config and the attachment files under `build/dev/`.
+- Scheduled processing is off in dev mode. "Run now" and mailbox actions fail cleanly, because there is no mail server.
+- Dev mode's startup configuration is `config/dev.yml`, which the Gradle `quarkusDev` task passes as the application's argument. Production still requires the argument (S11).
+
+**R3 (2026-10-24). Logging (your new requirement).**
+- Logs go to stdout in every profile, including production, so Docker collects them. There is no log file. The format is plain text, not structured.
+- The MDC carries the context, shown with `%X` in each line, and is removed when that work ends:
+
+  | Key | Value |
+  |---|---|
+  | `run` | the processing run's id |
+  | `message_id` | the message's Message-ID, while it's fetched |
+  | `email` | the email's id |
+  | `phase` | `classification`, `llm` or `action` |
+  | `rule` | the rule's name |
+  | `action` | the action type |
+  | `source` | `ui` or `mcp`, for manual actions |
+- `util.Mdc.with(...)` sets keys for a block of code and restores the previous values afterwards, so nested work (run, email, phase, rule and action) cleans up after itself.
+
 ---
 
 ## Technical suggestions

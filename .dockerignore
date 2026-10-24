@@ -1,0 +1,9 @@
+# Only the Gradle build files and the main sources are needed to build the image
+*
+!gradlew
+!settings.gradle.kts
+!build.gradle.kts
+!gradle.properties
+!gradle
+!src
+src/test

@@ -175,3 +175,13 @@ PLAN.md has a new "single agent" section explaining this.
   - one staged test had overlapping rule names
   - `RealKhalTest` now finds khal on the PATH
 - **Phase 9** (deployment) is on hold.
+
+**You:** A new requirement: run the service locally through Gradle, in dev mode or a dev profile, on an in-memory database with fake data, so you can see what the UI will look like. Also, log to stdout even in production so Docker picks it up. It doesn't need to be structured yet, but use the MDC for things like the email id, action, phase and rule, removing them when appropriate.
+
+**Claude:** Both are done. They're recorded as CLARIFICATIONS.md R2 and R3, and as tasks A.1 and A.2 in PLAN.md.
+- `./gradlew quarkusDev` (or `bin/dev`) starts at http://localhost:8080/mail/ with about 60 fake emails, calendars, rules and runs, on in-memory H2.
+- Log lines carry the MDC, e.g. `{action=mark_read, email=12, source=ui}` and `{run=10}`.
+
+**You:** Let me know the address when the local dev mode is ready.
+
+**Claude:** It's at http://localhost:8080/mail/.

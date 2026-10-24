@@ -1,0 +1,7 @@
+# Startup configuration for dev mode (./gradlew quarkusDev or bin/dev), which passes this file
+# as the application's argument. The dev settings themselves are in the "%dev" profile of
+# src/main/resources/application.yaml: an in-memory H2 database filled with fake data, a dev-only
+# encryption key, and a khal config written under build/dev/. Nothing else is needed.
+quarkus:
+  http:
+    port: 8080

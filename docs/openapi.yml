@@ -1,0 +1,1388 @@
+---
+openapi: 3.1.0
+components:
+  schemas:
+    RuleFormFields:
+      type: object
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          description: "Rule name; required on create, ignored on update"
+        description:
+          type:
+          - string
+          - "null"
+          description: Required description
+        priority:
+          type:
+          - string
+          - "null"
+          description: Whole number of 0 or more; blank means 0
+        enabled:
+          type:
+          - string
+          - "null"
+          description: true to enable the rule (edit only)
+        conditions[i].id:
+          type:
+          - string
+          - "null"
+          description: Id of an existing condition
+        conditions[i].attribute:
+          type:
+          - string
+          - "null"
+          description: "subject, sender, message, events, attachments, bill_url, type\
+            \ or link"
+        conditions[i].matchType:
+          type:
+          - string
+          - "null"
+          description: "is, contains, starts_with, regex, has or is_present"
+        conditions[i].test:
+          type:
+          - string
+          - "null"
+          description: Value to match; not used for has and is_present
+        actions[i].id:
+          type:
+          - string
+          - "null"
+          description: Id of an existing action
+        actions[i].actionType:
+          type:
+          - string
+          - "null"
+          description: "One of the action types, e.g. move or set_type"
+        actions[i].destination:
+          type:
+          - string
+          - "null"
+          description: "Folder for move, address for forward_email"
+        actions[i].typeId:
+          type:
+          - string
+          - "null"
+          description: Type id for set_type
+        actions[i].calendarId:
+          type:
+          - string
+          - "null"
+          description: Calendar id for create_events (optional) and process_bill
+        actions[i].notifications:
+          type:
+          - string
+          - "null"
+          description: "Notification durations for create_events, e.g. 4h, 1d"
+        actions[i].enabled:
+          type:
+          - string
+          - "null"
+          description: true when the action is enabled
+tags:
+- name: Calendars
+  description: Calendars events are added to
+- name: Configuration
+  description: Settings stored in the database
+- name: Emails
+  description: Processed emails and actions on them
+- name: Pages
+- name: Prompts
+  description: Prompts used with the LLM
+- name: Rules
+  description: Classification and action rules
+- name: Types
+  description: Types email is classified as
+paths:
+  /mail:
+    get:
+      summary: Dashboard page
+      tags:
+      - Pages
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/calendars:
+    get:
+      summary: Calendars page
+      tags:
+      - Calendars
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Create a calendar (HTMX)
+      tags:
+      - Calendars
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - description
+              - colour
+              - enabled
+              - notificationPeriods
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                description:
+                  type:
+                  - string
+                  - "null"
+                colour:
+                  type:
+                  - string
+                  - "null"
+                enabled:
+                  type:
+                  - string
+                  - "null"
+                notificationPeriods:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: "The calendars table, swapped into the page; the dialog closes"
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: The form with validation errors
+        "400":
+          description: Bad Request
+  /mail/calendars/new:
+    get:
+      summary: Form for a new calendar (HTMX fragment that opens the calendar dialog)
+      tags:
+      - Calendars
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/calendars/{id}:
+    put:
+      summary: Update a calendar (HTMX)
+      tags:
+      - Calendars
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - description
+              - colour
+              - enabled
+              - notificationPeriods
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                description:
+                  type:
+                  - string
+                  - "null"
+                colour:
+                  type:
+                  - string
+                  - "null"
+                enabled:
+                  type:
+                  - string
+                  - "null"
+                notificationPeriods:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: "The calendars table, swapped into the page; the dialog closes"
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: The form with validation errors
+        "404":
+          description: No such calendar
+        "400":
+          description: Bad Request
+    delete:
+      summary: Delete a calendar (HTMX)
+      tags:
+      - Calendars
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: The calendars table
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such calendar
+  /mail/calendars/{id}/edit:
+    get:
+      summary: Form for editing a calendar (HTMX fragment that opens the calendar
+        dialog)
+      tags:
+      - Calendars
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such calendar
+  /mail/calendars/{id}/enabled:
+    post:
+      summary: "Enable or disable a calendar (HTMX); enabled=true enables, anything\
+        \ else disables"
+      tags:
+      - Calendars
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: The calendars table
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such calendar
+        "400":
+          description: Bad Request
+  /mail/configuration:
+    get:
+      summary: Configuration page
+      tags:
+      - Configuration
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/configuration/{key}:
+    put:
+      summary: Update a setting (HTMX fragment)
+      description: Validates the value for the setting's type. Encrypted settings
+        are encrypted before they are stored; a blank value leaves them unchanged.
+      tags:
+      - Configuration
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - value
+              properties:
+                value:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: The setting's displayed value
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: The edit field with the validation error
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such setting
+        "400":
+          description: Bad Request
+    delete:
+      summary: Clear an encrypted setting (HTMX fragment)
+      tags:
+      - Configuration
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The setting's displayed value
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: The setting isn't encrypted
+  /mail/configuration/{key}/edit:
+    get:
+      summary: Field for editing a setting (HTMX fragment)
+      tags:
+      - Configuration
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The edit field
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such setting
+  /mail/dashboard:
+    get:
+      summary: The dashboard's contents (HTMX fragment); it polls itself while a run
+        is in progress
+      tags:
+      - Pages
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/emails:
+    get:
+      summary: Emails page
+      description: "Without filters, the 30 most recently received emails. With any\
+        \ filter, matching emails in pages of 50. Dates are yyyy-MM-dd (inclusive);\
+        \ type is a type id or 'none'; values that don't parse are ignored."
+      tags:
+      - Emails
+      parameters:
+      - name: action
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: errors
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: from
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: page
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: response
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: sender
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: status
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: to
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: type
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/emails/{id}:
+    get:
+      summary: Email detail page
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such email
+    delete:
+      summary: "Delete an email (HTMX): moves it to the trash folder and soft-deletes\
+        \ the record"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect to the emails page
+          content:
+            text/html:
+              schema:
+                type: string
+        "502":
+          description: The mailbox refused; an error toast says why
+        "404":
+          description: No such email
+  /mail/emails/{id}/action-required:
+    post:
+      summary: Set (required=true) or clear an email's action required flag (HTMX);
+        bills can't need action
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - required
+              properties:
+                required:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "502":
+          description: "Refused, e.g. for a bill; an error toast says why"
+        "400":
+          description: Bad Request
+  /mail/emails/{id}/attachments/{attachmentId}:
+    get:
+      summary: Download an attachment; inline=true shows it in the browser when it
+        can be previewed
+      tags:
+      - Emails
+      parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: inline
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      responses:
+        "404":
+          description: "No such attachment, or it hasn't been downloaded"
+  /mail/emails/{id}/attachments/{attachmentId}/preview:
+    get:
+      summary: Preview of an attachment (HTMX fragment that opens the preview dialog)
+      tags:
+      - Emails
+      parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: "No such attachment, or it can't be previewed"
+  /mail/emails/{id}/events/{eventId}/calendar:
+    get:
+      summary: Calendar choice for an event (HTMX fragment that opens the event calendar
+        dialog)
+      tags:
+      - Emails
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such email or event
+    post:
+      summary: "Put an event in another calendar (HTMX): moved in khal if added, otherwise\
+        \ added"
+      tags:
+      - Emails
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - calendarId
+              properties:
+                calendarId:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: No such enabled calendar
+        "502":
+          description: khal failed; an error toast says why
+        "400":
+          description: Bad Request
+  /mail/emails/{id}/move:
+    get:
+      summary: Form for moving an email to another folder (HTMX fragment that opens
+        the move dialog)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Move an email to another IMAP folder (HTMX)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - folder
+              properties:
+                folder:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: No folder chosen
+        "502":
+          description: The mailbox refused; an error toast says why
+        "400":
+          description: Bad Request
+  /mail/emails/{id}/read:
+    post:
+      summary: Mark an email read (read=true) or unread (HTMX)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - read
+              properties:
+                read:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "502":
+          description: The mailbox refused; an error toast says why
+        "400":
+          description: Bad Request
+  /mail/emails/{id}/reprocess:
+    post:
+      summary: Process an email again from its message in the mailbox (HTMX)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "502":
+          description: Reprocessing failed; an error toast says why
+  /mail/emails/{id}/response-required:
+    post:
+      summary: Set (required=true) or clear an email's response required flag (HTMX)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - required
+              properties:
+                required:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Bad Request
+  /mail/emails/{id}/type:
+    post:
+      summary: "Set an email's type (typeId), or clear it when typeId is blank (HTMX)"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - typeId
+              properties:
+                typeId:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: No such type
+        "400":
+          description: Bad Request
+  /mail/prompts:
+    get:
+      summary: Prompts page
+      tags:
+      - Prompts
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Create a prompt
+      tags:
+      - Prompts
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - contents
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                contents:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "303":
+          description: Created; redirects to the prompts page
+        "422":
+          description: The editor with validation errors
+        "400":
+          description: Bad Request
+  /mail/prompts/new:
+    get:
+      summary: Editor for a new prompt
+      tags:
+      - Prompts
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/prompts/preview:
+    post:
+      summary: Render prompt text as markdown (HTMX fragment); raw HTML is escaped
+      tags:
+      - Prompts
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - contents
+              properties:
+                contents:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          description: Bad Request
+  /mail/prompts/{id}:
+    post:
+      summary: Update a prompt
+      tags:
+      - Prompts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - contents
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                contents:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "303":
+          description: Saved; redirects to the prompts page
+        "422":
+          description: The editor with validation errors
+        "404":
+          description: No such prompt
+        "400":
+          description: Bad Request
+    delete:
+      summary: Delete a prompt (HTMX); system prompts can't be deleted
+      tags:
+      - Prompts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: The prompts table
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: A system prompt
+        "404":
+          description: No such prompt
+  /mail/prompts/{id}/edit:
+    get:
+      summary: Editor for a prompt
+      tags:
+      - Prompts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such prompt
+  /mail/rules/{type}:
+    get:
+      summary: Rules page for a rule type
+      tags:
+      - Rules
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Create a rule
+      tags:
+      - Rules
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/RuleFormFields"
+        required: true
+      responses:
+        "303":
+          description: Created; redirects to the rules page
+        "422":
+          description: The form with validation errors
+        "400":
+          description: Bad Request
+  /mail/rules/{type}/new:
+    get:
+      summary: Create rule page
+      tags:
+      - Rules
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/rules/{type}/{id}:
+    post:
+      summary: Update a rule
+      tags:
+      - Rules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/RuleFormFields"
+        required: true
+      responses:
+        "303":
+          description: Saved; redirects to the rules page
+        "422":
+          description: The form with validation errors
+        "404":
+          description: No such rule
+        "400":
+          description: Bad Request
+    delete:
+      summary: Delete a rule (HTMX)
+      description: "Returns the rules table, or with from=edit an HX-Redirect to the\
+        \ rules page"
+      tags:
+      - Rules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      - name: from
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      responses:
+        "200":
+          description: "The rules table, or an HX-Redirect"
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such rule
+  /mail/rules/{type}/{id}/edit:
+    get:
+      summary: Edit rule page
+      tags:
+      - Rules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      responses:
+        "404":
+          description: No such rule
+  /mail/rules/{type}/{id}/enabled:
+    post:
+      summary: "Enable or disable a rule (HTMX); enabled=true enables, anything else\
+        \ disables"
+      tags:
+      - Rules
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: classification|action
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: The rules table
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such rule
+        "400":
+          description: Bad Request
+  /mail/runs:
+    post:
+      summary: "Start processing now, in the background (HTMX)"
+      tags:
+      - Pages
+      responses:
+        "200":
+          description: "The dashboard's contents, showing the run in progress"
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: A run is already in progress
+  /mail/types:
+    get:
+      summary: Types page
+      tags:
+      - Types
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Create a type (HTMX)
+      tags:
+      - Types
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - description
+              - colour
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                description:
+                  type:
+                  - string
+                  - "null"
+                colour:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: "The types table, swapped into the page; the dialog closes"
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: The form with validation errors
+        "400":
+          description: Bad Request
+  /mail/types/new:
+    get:
+      summary: Form for a new type (HTMX fragment that opens the type dialog)
+      tags:
+      - Types
+      responses:
+        "200":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+  /mail/types/{id}:
+    put:
+      summary: Update a type (HTMX)
+      tags:
+      - Types
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              - description
+              - colour
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+                description:
+                  type:
+                  - string
+                  - "null"
+                colour:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: "The types table, swapped into the page; the dialog closes"
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: The form with validation errors
+        "404":
+          description: No such type
+        "400":
+          description: Bad Request
+    delete:
+      summary: Delete a type (HTMX); system types can't be deleted
+      tags:
+      - Types
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: The types table
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: A system type
+        "404":
+          description: No such type
+  /mail/types/{id}/edit:
+    get:
+      summary: Form for editing a type (HTMX fragment that opens the type dialog)
+      tags:
+      - Types
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such type
+info:
+  title: Postmaster
+  version: 0.1.0-SNAPSHOT
+  description: "Email processing, classification and actions"
+servers:
+- url: http://localhost:8080
+  description: Auto generated value
+- url: http://0.0.0.0:8080
+  description: Auto generated value

@@ -35,6 +35,7 @@ import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.EmailRepository
 import sh.hutch.postmaster.repositories.TypeRepository
 import sh.hutch.postmaster.util.IsoDurations
+import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 import java.net.URLConnection
 import java.nio.file.Files
@@ -297,7 +298,9 @@ class EmailService(
   }
 
   /** Processes the email again from its message in the mailbox. */
-  fun reprocess(id: Long): ManualResult {
+  fun reprocess(id: Long): ManualResult = Mdc.with(Mdc.EMAIL to id, Mdc.ACTION to "reprocess") { reprocessEmail(id) }
+
+  private fun reprocessEmail(id: Long): ManualResult {
     if (!exists(id)) {
       throw NotFoundException("Email $id not found")
     }
@@ -307,7 +310,7 @@ class EmailService(
     } catch (e: NotFoundException) {
       throw e
     } catch (e: Exception) {
-      LOG.warnf(e, "Reprocessing email %d failed", id)
+      LOG.warnf(e, "Reprocessing failed: %s", e.message)
       ManualResult(false, "Reprocessing failed: ${e.message ?: e.javaClass.simpleName}")
     }
   }
@@ -359,15 +362,21 @@ class EmailService(
     email.events.firstOrNull { it.id == eventId } ?: throw NotFoundException("Event $eventId not found")
 
   /** Runs a manual action on [email] and records it; failures are recorded rather than thrown. */
-  private fun manual(email: EmailEntity, actionType: String, source: ActionSource, block: () -> String): ManualResult {
+  private fun manual(email: EmailEntity, actionType: String, source: ActionSource, block: () -> String): ManualResult =
+    Mdc.with(Mdc.EMAIL to email.id, Mdc.ACTION to actionType, Mdc.SOURCE to source.code) { runManual(email, actionType, source, block) }
+
+  private fun runManual(email: EmailEntity, actionType: String, source: ActionSource, block: () -> String): ManualResult {
     val result = try {
       ManualResult(true, block())
     } catch (e: Exception) {
       if (e is ValidationException || e is NotFoundException) {
         throw e
       }
-      LOG.warnf(e, "%s on email %d failed", actionType, email.id)
+      LOG.warnf(e, "Manual action failed: %s", e.message)
       ManualResult(false, e.message ?: e.javaClass.simpleName)
+    }
+    if (result.ok) {
+      LOG.infof("Manual action done: %s", result.message)
     }
     email.actionResults.add(EmailActionResultEntity().also {
       it.email = email

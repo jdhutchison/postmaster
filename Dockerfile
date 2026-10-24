@@ -1,0 +1,77 @@
+# Postmaster container image.
+#
+#   docker build -t postmaster .                 # native executable (the default)
+#   docker build -t postmaster --target jvm .    # JVM build: quicker, needs far less memory
+#
+# The native build compiles for the architecture Docker builds for, and needs about 6 GB of
+# memory for the builder. Production (arm64) images are built on tigerbear itself.
+#
+# Mounts (see docs/deployment.md):
+#   /config/postmaster.yml   the startup configuration; its path is the only argument
+#   /config/khal             the khal configuration (postmaster.khal-config points into it)
+#   the calendars directory  wherever khal.ini's calendar paths say, e.g. /data/calendars
+#   /data/attachments        downloaded attachments (the attachments.path setting)
+#
+# Build arguments POSTMASTER_UID and CALENDARS_GID let the container's user match the host's
+# owner of the attachments and the calendars group, so both stay writable.
+
+ARG GRAALVM_IMAGE=ghcr.io/graalvm/native-image-community:25
+ARG JRE_IMAGE=eclipse-temurin:25-jre
+ARG RUNTIME_IMAGE=debian:trixie-slim
+
+# ---------------------------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------------------------
+
+FROM ${JRE_IMAGE} AS jre
+
+FROM ${GRAALVM_IMAGE} AS build
+WORKDIR /src
+# Gradle and the dependencies first, so they're cached while only the sources change
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY gradle gradle
+RUN ./gradlew --no-daemon --console=plain dependencies > /dev/null
+COPY src src
+
+FROM build AS build-jvm
+RUN ./gradlew --no-daemon --console=plain quarkusBuild
+
+FROM build AS build-native
+RUN ./gradlew --no-daemon --console=plain quarkusBuild \
+        -Dquarkus.native.enabled=true \
+        -Dquarkus.package.jar.enabled=false \
+    && cp build/*-runner /src/postmaster
+
+# ---------------------------------------------------------------------------------------------
+# Runtime: khal, curl and headless Chromium, run as postmaster in the calendars group
+# ---------------------------------------------------------------------------------------------
+
+FROM ${RUNTIME_IMAGE} AS runtime
+ARG POSTMASTER_UID=1000
+ARG CALENDARS_GID=1000
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl khal chromium fonts-liberation tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid "${CALENDARS_GID}" calendars \
+    && useradd --uid "${POSTMASTER_UID}" --gid calendars --create-home --shell /usr/sbin/nologin postmaster \
+    && mkdir -p /config/khal /data/attachments /data/calendars /app \
+    && chown postmaster:calendars /data/attachments /data/calendars
+ENV HOME=/home/postmaster \
+    TZ=Australia/Melbourne
+WORKDIR /app
+EXPOSE 8080
+VOLUME ["/config", "/data/attachments", "/data/calendars"]
+
+FROM runtime AS jvm
+ENV JAVA_HOME=/opt/java/openjdk
+COPY --from=jre /opt/java/openjdk /opt/java/openjdk
+COPY --from=build-jvm --chown=postmaster:calendars /src/build/quarkus-app /app/
+USER postmaster
+ENTRYPOINT ["/opt/java/openjdk/bin/java", "-XX:MaxRAMPercentage=75", "-jar", "/app/quarkus-run.jar"]
+CMD ["/config/postmaster.yml"]
+
+FROM runtime AS native
+COPY --from=build-native --chown=postmaster:calendars /src/postmaster /app/postmaster
+USER postmaster
+ENTRYPOINT ["/app/postmaster"]
+CMD ["/config/postmaster.yml"]

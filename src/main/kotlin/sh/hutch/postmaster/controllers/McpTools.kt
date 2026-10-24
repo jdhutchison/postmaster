@@ -3,14 +3,21 @@ package sh.hutch.postmaster.controllers
 import io.quarkiverse.mcp.server.Tool
 import io.quarkiverse.mcp.server.ToolArg
 import io.quarkiverse.mcp.server.ToolCallException
+import io.quarkus.runtime.annotations.RegisterForReflection
 import jakarta.ws.rs.NotFoundException
+import sh.hutch.postmaster.models.ActionResultView
 import sh.hutch.postmaster.models.ActionSource
+import sh.hutch.postmaster.models.AttachmentView
+import sh.hutch.postmaster.models.BillDetails
 import sh.hutch.postmaster.models.CalendarOption
 import sh.hutch.postmaster.models.EmailDetail
 import sh.hutch.postmaster.models.EmailFilter
 import sh.hutch.postmaster.models.EmailRow
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.ErrorView
+import sh.hutch.postmaster.models.EventView
 import sh.hutch.postmaster.models.ManualResult
+import sh.hutch.postmaster.models.RuleResults
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.services.EmailService
 import sh.hutch.postmaster.services.MailboxException
@@ -23,7 +30,17 @@ import java.time.format.DateTimeParseException
  * The MCP server's tools, for Hermes and its postmaster profile (REQUIREMENTS.md "MCP server",
  * CLARIFICATIONS.md D13). Served over Streamable HTTP at `/mail/mcp`. Actions are recorded against
  * the email with source `mcp`; failures come back as tool errors.
+ *
+ * Results are serialised with Jackson, so their types are registered for reflection for the
+ * native image.
  */
+@RegisterForReflection(
+    targets = [
+      McpTools.SearchResult::class, McpTools.TypeInfo::class, McpTools.Types::class, McpTools.Folders::class,
+      McpTools.Calendars::class, EmailRow::class, EmailDetail::class, BillDetails::class, EventView::class,
+      AttachmentView::class, ActionResultView::class, RuleResults::class, ErrorView::class, CalendarOption::class
+    ]
+)
 class McpTools(
     private val emails: EmailService,
     private val types: TypeService,

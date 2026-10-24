@@ -111,7 +111,9 @@ data class RuleForm(
     val actions: List<ActionRow>,
     val types: List<Option>,
     val calendars: List<Option>,
-    val errors: Map<String, String> = emptyMap()
+    val errors: Map<String, String> = emptyMap(),
+    /** Every registered action type (ActionRegistry.options()) */
+    val actionTypes: List<Option> = RuleOptions.ACTION_TYPES
 ) {
   val ruleTypeCode: String
     get() = ruleType.code
@@ -128,9 +130,6 @@ data class RuleForm(
 
   val matchTypes: List<MatchOption>
     get() = RuleOptions.MATCH_TYPES
-
-  val actionTypes: List<Option>
-    get() = RuleOptions.ACTION_TYPES
 
   /** Empty rows for the "add" buttons' templates; the index is replaced in the browser. */
   val conditionTemplate: ConditionRow
@@ -183,7 +182,8 @@ object RuleOptions {
     )
   }
 
-  private val ACTION_LABELS = mapOf(
+  /** Labels of the built-in action types; other types use their handler's label. */
+  val ACTION_LABELS = mapOf(
       ActionTypes.SET_TYPE to "Set type",
       ActionTypes.MOVE to "Move",
       ActionTypes.CHECK_FOR_EVENTS to "Check for events",

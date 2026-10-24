@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Builds the Postmaster container image with Docker.
+#
+# Usage: bin/build-image [native|jvm] [extra docker build arguments...]
+#
+#   native  (default) a GraalVM native executable; the builder needs about 6 GB of memory
+#   jvm     the JVM build: quicker, and fine for trying the image out
+#
+# The image is tagged postmaster:<target>. Set POSTMASTER_UID and CALENDARS_GID to match the
+# host's attachments owner and calendars group (both default to 1000).
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+TARGET="${1:-native}"
+if [ $# -gt 0 ]; then
+  shift
+fi
+case "$TARGET" in
+  native|jvm) ;;
+  *)
+    echo "Unknown target '$TARGET': use native or jvm" >&2
+    exit 2
+    ;;
+esac
+
+exec docker build \
+    --target "$TARGET" \
+    --tag "postmaster:$TARGET" \
+    --build-arg "POSTMASTER_UID=${POSTMASTER_UID:-1000}" \
+    --build-arg "CALENDARS_GID=${CALENDARS_GID:-1000}" \
+    "$@" \
+    "$ROOT"

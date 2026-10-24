@@ -1,25 +1,12 @@
 #!/usr/bin/env bash
 # Runs Postmaster in Quarkus dev mode (live reload) at http://localhost:8080/mail
 #
-# Usage: bin/dev [config file]
+# Usage: bin/dev [extra Gradle arguments]
 #
-# The config file is the YAML startup configuration (see config/postmaster.example.yml)
-# and defaults to config/local.yml, which git ignores. Dev mode needs the MariaDB it
-# names to be running.
+# Dev mode needs no services: it uses an in-memory H2 database filled with fake data (see the
+# "%dev" profile in application.yaml and config/DevData.kt), and scheduled processing is off.
+# The data is recreated on every restart. The startup configuration is config/dev.yml.
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
-CONFIG="${1:-config/local.yml}"
-if [ ! -r "$CONFIG" ]; then
-  echo "Configuration file '$CONFIG' not found. Copy config/postmaster.example.yml to config/local.yml and edit it." >&2
-  exit 2
-fi
-CONFIG_PATH="$(cd "$(dirname "$CONFIG")" && pwd)/$(basename "$CONFIG")"
-
-# Dev mode may start the application without going through main(), so the config
-# location is passed to the JVM as well as as the program argument. (The path must not
-# contain spaces, because --jvm-args is split on them.)
-exec ./gradlew quarkusDev \
-    -Dquarkus.analytics.disabled=true \
-    --quarkus-args="$CONFIG_PATH" \
-    --jvm-args="-Dquarkus.config.locations=file:$CONFIG_PATH"
+exec ./gradlew quarkusDev -Dquarkus.analytics.disabled=true "$@"
