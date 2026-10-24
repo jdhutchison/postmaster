@@ -27,13 +27,13 @@ FROM ${JRE_IMAGE} AS jre
 
 FROM ${GRAALVM_IMAGE} AS build
 WORKDIR /src
-# Gradle and the dependencies first, so they're cached while only the sources change
-COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
+# Gradle and the dependencies first, so they're cached while only the sources change.
+# version.properties is the version this build gets (bin/build-image raises it on the host
+# afterwards); build.gradle.kts reads it, so it's needed before Gradle first runs.
+COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties version.properties ./
 COPY gradle gradle
 RUN ./gradlew --no-daemon --console=plain dependencies > /dev/null
 COPY src src
-# The version this build gets; bin/build-image raises it on the host afterwards
-COPY version.properties ./
 # The commit it's built from, for the status endpoint (there's no .git here)
 ARG GIT_COMMIT=
 
