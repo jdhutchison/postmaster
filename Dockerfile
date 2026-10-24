@@ -62,6 +62,8 @@ RUN apt-get update \
     && chown postmaster:calendars /data/attachments /data/calendars /data/todo
 ENV HOME=/home/postmaster \
     TZ=Australia/Melbourne
+# So the deployment can prune superseded images
+LABEL sh.hutch.service=postmaster
 WORKDIR /app
 EXPOSE 8080
 VOLUME ["/config", "/data/attachments", "/data/calendars", "/data/todo"]
