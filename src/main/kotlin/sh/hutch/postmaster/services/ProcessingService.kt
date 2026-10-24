@@ -2,6 +2,7 @@ package sh.hutch.postmaster.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import io.quarkus.narayana.jta.QuarkusTransaction
+import io.quarkus.runtime.ShutdownEvent
 import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
@@ -17,11 +18,14 @@ import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailRuleMatchEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
 import sh.hutch.postmaster.entities.RuleEntity
+import sh.hutch.postmaster.models.ActionResultStatus
+import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.ActionTypes
 import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.MailboxMessage
 import sh.hutch.postmaster.models.ParsedMessage
+import sh.hutch.postmaster.models.ProcessingProgress
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.models.RunTrigger
@@ -32,6 +36,7 @@ import sh.hutch.postmaster.repositories.TypeRepository
 import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.util.Locale
@@ -61,8 +66,11 @@ class ProcessingService(
 ) {
   private val running = AtomicBoolean(false)
 
-  /** Emails being reprocessed now, so each is reprocessed by one request at a time. */
-  private val reprocessing = ConcurrentHashMap.newKeySet<Long>()
+  /** Set when the application is stopping: no further step or run starts. */
+  private val stopping = AtomicBoolean(false)
+
+  /** Emails being processed now, so each is processed by one pass at a time. */
+  private val active = ConcurrentHashMap.newKeySet<Long>()
 
   /** Whether a run is in progress. */
   val isRunning: Boolean
@@ -70,7 +78,7 @@ class ProcessingService(
 
   /** Runs processing now and returns the run, or null if a run is already in progress. */
   fun runNow(trigger: RunTrigger): ProcessingRunEntity? {
-    if (!running.compareAndSet(false, true)) {
+    if (stopping.get() || !running.compareAndSet(false, true)) {
       return null
     }
     try {
@@ -82,7 +90,7 @@ class ProcessingService(
 
   /** Starts a manual run in the background; false if a run is already in progress. */
   fun runNowAsync(): Boolean {
-    if (!running.compareAndSet(false, true)) {
+    if (stopping.get() || !running.compareAndSet(false, true)) {
       return false
     }
     try {
@@ -134,6 +142,7 @@ class ProcessingService(
     var found = 0
     var processed = 0
     var failed = 0
+    var waiting = 0
     var error: String? = null
     try {
       val done = todos.syncCompleted()
@@ -144,15 +153,32 @@ class ProcessingService(
       LOG.warn("Checking the to-do list failed", e)
     }
     try {
-      val since = Times.now().minus(settings.getDuration(SettingKeys.PROCESSING_LOOKBACK))
-      val listed = mailbox.listInbox(since)
+      // Email left part-way, by an interruption or while the LLM was unavailable, carries on first (R6)
+      for (id in QuarkusTransaction.requiringNew().call { emails.listPendingIds() }) {
+        if (stopping.get()) {
+          break
+        }
+        when (resume(id)) {
+          Outcome.FINISHED -> processed++
+          Outcome.DEFERRED -> waiting++
+          Outcome.INTERRUPTED -> {}
+        }
+      }
+      val listed = mailbox.listInbox(lookbackStart())
       val fresh = QuarkusTransaction.requiringNew().call { listed.filter { !emails.existsByMessageId(it.messageId) } }
       found = fresh.size
       LOG.infof("%d new of %d messages in the inbox", found, listed.size)
       for (message in fresh) {
+        if (stopping.get()) {
+          LOG.info("Stopping: the rest of the new email is left for the next run")
+          break
+        }
         try {
-          process(message)
-          processed++
+          when (process(message)) {
+            Outcome.FINISHED -> processed++
+            Outcome.DEFERRED -> waiting++
+            Outcome.INTERRUPTED -> {}
+          }
         } catch (e: Exception) {
           failed++
           LOG.warnf(e, "Processing message %s failed", message.messageId)
@@ -162,7 +188,10 @@ class ProcessingService(
       error = e.message ?: e.javaClass.simpleName
       LOG.warn("Processing run failed", e)
     }
-    LOG.infof("Processing run finished: %d found, %d processed, %d failed%s", found, processed, failed, error?.let { "; $it" } ?: "")
+    LOG.infof(
+        "Processing run finished: %d found, %d processed, %d failed, %d waiting for the LLM%s",
+        found, processed, failed, waiting, error?.let { "; $it" } ?: ""
+    )
     return QuarkusTransaction.requiringNew().call {
       val run = runs.findById(runId)!!
       run.status = if (error == null) RunStatus.SUCCEEDED else RunStatus.FAILED
@@ -176,156 +205,343 @@ class ProcessingService(
   }
 
   /**
-   * Fetches and processes one listed INBOX message. If it can't be fetched, nothing is recorded and
-   * a later run tries again.
+   * Where the inbox listing starts: processing.lookback before the latest successful run started,
+   * so email that arrived while Postmaster was down or failing is still found (R6).
    */
-  fun process(listed: MailboxMessage): EmailEntity = Mdc.with(Mdc.MESSAGE_ID to listed.messageId) {
+  private fun lookbackStart(): Instant = QuarkusTransaction.requiringNew().call {
+    val now = Times.now()
+    val from = runs.findLatestSucceeded()?.startedAt?.takeIf { it.isBefore(now) } ?: now
+    from.minus(settings.getDuration(SettingKeys.PROCESSING_LOOKBACK))
+  }
+
+  /**
+   * Fetches one listed INBOX message, saves it, then processes it. If it can't be fetched or saved,
+   * nothing has been done with it and a later run tries again.
+   */
+  private fun process(listed: MailboxMessage): Outcome = Mdc.with(Mdc.MESSAGE_ID to listed.messageId) {
     val inbox = settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX"
     val message = mailbox.fetch(inbox, listed.uid)
-    QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
+    // Saved before anything is done with it, so it's never lost track of (R6)
+    val id = QuarkusTransaction.requiringNew().call {
       val email = create(message)
       emails.persist(email)
-      Mdc.with(Mdc.EMAIL to email.id) {
-        LOG.infof("Processing '%s' from %s", email.subject, email.sender)
-        pipeline(ProcessingContext(email, message))
+      email.id!!
+    }
+    active.add(id)
+    try {
+      Mdc.with(Mdc.EMAIL to id) {
+        LOG.infof("Processing '%s' from %s", message.subject, message.sender)
+        drive(Pass(id, message))
       }
-      email
+    } finally {
+      active.remove(id)
+    }
+  }
+
+  /** Carries on processing an email that an earlier pass left part-way. */
+  private fun resume(emailId: Long): Outcome = Mdc.with(Mdc.EMAIL to emailId) {
+    if (!active.add(emailId)) {
+      // It's being reprocessed right now
+      return@with Outcome.INTERRUPTED
+    }
+    try {
+      LOG.info("Carrying on processing the email")
+      drive(Pass(emailId, null))
+    } catch (e: Exception) {
+      LOG.warn("Carrying on processing the email failed", e)
+      Outcome.INTERRUPTED
+    } finally {
+      active.remove(emailId)
     }
   }
 
   /**
-   * Processes an email again, from its message in the mailbox.
+   * Processes an email again, from its message in the mailbox. If the LLM isn't available it's left
+   * pending, and the next run finishes it.
    *
-   * @throws IllegalStateException if the email is already being reprocessed
+   * @throws IllegalStateException if the email is already being processed
    */
   fun reprocess(emailId: Long): EmailEntity {
-    if (!reprocessing.add(emailId)) {
-      throw IllegalStateException("The email is already being processed again")
+    if (!active.add(emailId)) {
+      throw IllegalStateException("The email is already being processed")
     }
     try {
-      return reprocessOnce(emailId)
-    } finally {
-      reprocessing.remove(emailId)
-    }
-  }
-
-  private fun reprocessOnce(emailId: Long): EmailEntity {
-    val (folder, known, messageId) = QuarkusTransaction.requiringNew().call {
-      val email = emails.findActive(emailId) ?: throw jakarta.ws.rs.NotFoundException("Email $emailId not found")
-      Triple(email.folder ?: settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX", email.imapUid?.let { it to email.uidValidity }, email.messageId)
-    }
-    val found = mailbox.locate(folder, messageId, known?.first, known?.second) ?: throw MailboxException("The message can't be found in $folder")
-    val message = mailbox.fetch(folder, found.uid)
-    return QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
-      val email = emails.findActive(emailId)!!
-      reset(email)
-      email.imapUid = found.uid
-      email.uidValidity = found.uidValidity
-      email.folder = folder
-      Mdc.with(Mdc.EMAIL to email.id) {
-        LOG.infof("Reprocessing '%s' from %s", email.subject, email.sender)
-        pipeline(ProcessingContext(email, message))
+      val (folder, known, messageId) = QuarkusTransaction.requiringNew().call {
+        val email = emails.findActive(emailId) ?: throw jakarta.ws.rs.NotFoundException("Email $emailId not found")
+        Triple(email.folder ?: settings.getString(SettingKeys.IMAP_INBOX_FOLDER) ?: "INBOX", email.imapUid?.let { it to email.uidValidity }, email.messageId)
       }
-      email
+      val found = mailbox.locate(folder, messageId, known?.first, known?.second) ?: throw MailboxException("The message can't be found in $folder")
+      val message = mailbox.fetch(folder, found.uid)
+      QuarkusTransaction.requiringNew().run {
+        val email = emails.findActive(emailId)!!
+        reset(email)
+        email.imapUid = found.uid
+        email.uidValidity = found.uidValidity
+        email.folder = folder
+      }
+      Mdc.with(Mdc.EMAIL to emailId) {
+        LOG.info("Reprocessing the email")
+        drive(Pass(emailId, message))
+      }
+      return QuarkusTransaction.requiringNew().call { emails.findById(emailId)!! }
+    } finally {
+      active.remove(emailId)
     }
   }
 
   // ---------------------------------------------------------------------------------------------
 
-  private fun pipeline(context: ProcessingContext) {
-    val email = context.email
+  /** What a pass over an email carries from one step's transaction to the next. */
+  private class Pass(val emailId: Long, val message: ParsedMessage?) {
+    var eventsFound = false
+
+    /** The actions that can't be repeated that this pass has recorded as started. */
+    val started = mutableSetOf<Long>()
+  }
+
+  private enum class Outcome {
+    /** Processing finished: the email is processed, skipped or failed. */
+    FINISHED,
+
+    /** The LLM couldn't be reached; the email waits for the next run. */
+    DEFERRED,
+
+    /** The application is stopping; the email is carried on with on the next run. */
+    INTERRUPTED
+  }
+
+  /** The LLM couldn't be reached, so the email is left for the next run. */
+  private class Deferred(cause: LlmException) : RuntimeException(cause)
+
+  /**
+   * Runs [block] in a transaction of its own, with the email as it is saved, and saves what it
+   * changed: one step of processing (R6).
+   */
+  private fun <T> step(pass: Pass, block: (ProcessingContext) -> T): T =
+    QuarkusTransaction.requiringNew().timeout(TRANSACTION_TIMEOUT).call {
+      val email = emails.findById(pass.emailId) ?: throw IllegalStateException("Email ${pass.emailId} has gone")
+      val context = ProcessingContext(email, pass.message)
+      context.eventsFound = pass.eventsFound
+      if (email.actionResults.any { it.source == ActionSource.RULE && it.actionType == ActionTypes.SKIP_PROCESSING && it.status == ActionResultStatus.DONE }) {
+        context.stop()
+      }
+      val result = block(context)
+      pass.eventsFound = context.eventsFound
+      result
+    }
+
+  /**
+   * Takes the email through the steps it hasn't done yet, saving after each (R6): the
+   * classification rule, the LLM, the classification rule's actions that need the LLM, matching
+   * the action rules, then the actions one at a time. An interruption loses at most the step it
+   * was in, and the next run carries on from there; the action results show which actions have
+   * run. An email that keeps failing is given up on after [MAX_ATTEMPTS] passes.
+   */
+  private fun drive(pass: Pass): Outcome {
     try {
-      // Classification: the first matching rule only
-      val deferred = mutableListOf<QueuedAction>()
-      val queue = mutableListOf<QueuedAction>()
-      var position = 0
-      Mdc.with(Mdc.PHASE to ErrorPhase.CLASSIFICATION.code) {
-        val classifier = rules.listEnabled(RuleType.CLASSIFICATION).firstOrNull { engine.matches(it, context.facts()) }
-        if (classifier == null) {
-          LOG.info("No classification rule matched")
-        } else {
-          Mdc.with(Mdc.RULE to classifier.name) { LOG.info("Classification rule matched") }
-          recordMatch(email, classifier, position++)
-          for (item in executor.actionsOf(classifier, 0, ErrorPhase.CLASSIFICATION)) {
-            when {
-              item.handler?.stage == ActionStage.RECORD -> executor.run(context, item)
-              item.action.actionType in AFTER_SUMMARY -> deferred += item
-              else -> queue += item
-            }
+      val (attempts, saved) = step(pass) { context ->
+        val email = context.email
+        email.attempts++
+        val progress = email.progress ?: ProcessingProgress.RECORDED
+        if (progress == ProcessingProgress.SUMMARISED || progress == ProcessingProgress.MATCHED) {
+          // The summary was saved by an earlier pass
+          pass.eventsFound = email.events.isNotEmpty()
+        }
+        email.attempts to progress
+      }
+      if (attempts > MAX_ATTEMPTS) {
+        step(pass) { context ->
+          context.addError(ErrorPhase.ACTION, "Processing was given up after $MAX_ATTEMPTS attempts; reprocess the email once the problem is fixed")
+          finish(context.email, EmailStatus.FAILED)
+        }
+        return Outcome.FINISHED
+      }
+      var progress = saved
+      if (progress == ProcessingProgress.RECORDED) {
+        classifyByRules(pass)
+        progress = ProcessingProgress.CLASSIFIED
+      }
+      if (!step(pass) { it.stopped }) {
+        if (progress == ProcessingProgress.CLASSIFIED) {
+          if (stopping.get()) {
+            return Outcome.INTERRUPTED
           }
-        }
-      }
-      if (context.stopped) {
-        queue.forEach { executor.run(context, it) }
-        deferred.forEach { executor.run(context, it) }
-        finish(email, EmailStatus.SKIPPED)
-        return
-      }
-
-      // LLM: classify if still unclassified, then summarise (CLARIFICATIONS.md Q15)
-      Mdc.with(Mdc.PHASE to ErrorPhase.LLM.code) {
-        if (email.type == null) {
-          classify(context)
-        }
-        summarise(context)
-        deferred.forEach { executor.run(context, it) }
-      }
-
-      // Action rules: every one that matches
-      Mdc.with(Mdc.PHASE to ErrorPhase.ACTION.code) {
-        rules.listEnabled(RuleType.ACTION).forEachIndexed { index, rule ->
-          if (engine.matches(rule, context.facts())) {
-            Mdc.with(Mdc.RULE to rule.name) { LOG.info("Action rule matched") }
-            recordMatch(email, rule, position++)
-            queue += executor.actionsOf(rule, index + 1, ErrorPhase.ACTION)
+          if (!summarise(pass, attempts)) {
+            return Outcome.DEFERRED
           }
+          progress = ProcessingProgress.SUMMARISED
         }
-        executor.runQueue(context, queue)
+        val afterSummary = Mdc.with(Mdc.PHASE to ErrorPhase.LLM.code) {
+          runActions(pass) { it.phase == ErrorPhase.CLASSIFICATION && it.action.actionType in AFTER_SUMMARY }
+        }
+        if (!afterSummary) {
+          return Outcome.INTERRUPTED
+        }
+        if (progress == ProcessingProgress.SUMMARISED) {
+          matchActionRules(pass)
+        }
       }
-      finish(email, if (context.stopped) EmailStatus.SKIPPED else EmailStatus.PROCESSED)
+      if (!runActions(pass) { true }) {
+        return Outcome.INTERRUPTED
+      }
+      step(pass) { finish(it.email, if (it.stopped) EmailStatus.SKIPPED else EmailStatus.PROCESSED) }
+      return Outcome.FINISHED
     } catch (e: Exception) {
-      LOG.warnf(e, "Processing email %s failed", email.messageId)
-      context.addError(ErrorPhase.ACTION, "Processing failed: ${e.message ?: e.javaClass.simpleName}")
-      finish(email, EmailStatus.FAILED)
+      LOG.warnf(e, "Processing failed")
+      try {
+        step(pass) { context ->
+          context.addError(ErrorPhase.ACTION, "Processing failed: ${e.message ?: e.javaClass.simpleName}")
+          finish(context.email, EmailStatus.FAILED)
+        }
+      } catch (unsaved: Exception) {
+        // The email stays pending, so the next run carries on with it
+        LOG.warn("The failure couldn't be saved", unsaved)
+      }
+      return Outcome.FINISHED
     }
   }
 
-  private fun classify(context: ProcessingContext) {
-    try {
-      val answer = llm.chat(prompts.render("classify", EventFinder.promptContext(context.email)))
-      val name = answer.lines().firstOrNull { it.isNotBlank() }.orEmpty().trim().trim('"', '\'', '.', '*').trim()
-      if (name.equals(NO_CLASSIFICATION, ignoreCase = true) || name.isEmpty()) {
-        return
-      }
-      val type = types.listActive().firstOrNull { it.name.equals(name, ignoreCase = true) }
-      if (type == null) {
-        context.addError(ErrorPhase.LLM, "The LLM chose '$name', which isn't a type")
+  /** The first matching classification rule, with its record actions run at once (Q12). */
+  private fun classifyByRules(pass: Pass) = Mdc.with(Mdc.PHASE to ErrorPhase.CLASSIFICATION.code) {
+    step(pass) { context ->
+      val email = context.email
+      val classifier = rules.listEnabled(RuleType.CLASSIFICATION).firstOrNull { engine.matches(it, context.facts()) }
+      if (classifier == null) {
+        LOG.info("No classification rule matched")
       } else {
-        LOG.infof("The LLM classified it as %s", type.name)
-        context.email.assignType(type)
+        Mdc.with(Mdc.RULE to classifier.name) { LOG.info("Classification rule matched") }
+        recordMatch(email, classifier, 0)
+        executor.actionsOf(classifier, 0, ErrorPhase.CLASSIFICATION)
+            .filter { it.handler?.stage == ActionStage.RECORD }
+            .forEach { executor.run(context, it) }
       }
-    } catch (e: LlmException) {
-      context.addError(ErrorPhase.LLM, "classify: ${e.message}")
+      email.progress = ProcessingProgress.CLASSIFIED
     }
   }
 
-  private fun summarise(context: ProcessingContext) {
-    val email = context.email
+  /**
+   * Asks the LLM to classify the email if it has no type yet, and to summarise it (Q15), then saves
+   * the answers. No transaction is open while the LLM answers. Returns false, leaving the email for
+   * the next run, if the LLM can't be reached and there are attempts left (R6); after that the
+   * failure is recorded as an error and processing carries on without the LLM.
+   */
+  private fun summarise(pass: Pass, attempts: Int): Boolean = Mdc.with(Mdc.PHASE to ErrorPhase.LLM.code) {
+    val (unclassified, prompt) = step(pass) { (it.email.type == null) to EventFinder.promptContext(it.email) }
+    val errors = mutableListOf<String>()
+    fun <T> ask(name: String, question: () -> T): T? =
+      try {
+        question()
+      } catch (e: LlmException) {
+        if (e.transient && attempts < MAX_ATTEMPTS) {
+          throw Deferred(e)
+        }
+        errors += "$name: ${e.message}"
+        null
+      }
     try {
-      val answer = llm.chatJson(prompts.render("summarise", EventFinder.promptContext(email)))
-      answer.path("summary").asText("").trim().ifEmpty { null }?.let { email.summary = it }
-      if (email.link == null) {
-        answer.path("link").asText("").trim().takeIf { it.startsWith("http", ignoreCase = true) }?.let { email.link = it.take(2000) }
+      val classification = if (unclassified) ask("classify") { llm.chat(prompts.render("classify", prompt)) } else null
+      val summary = ask("summarise") { llm.chatJson(prompts.render("summarise", prompt)) }
+      step(pass) { context ->
+        errors.forEach { context.addError(ErrorPhase.LLM, it) }
+        classification?.let { applyClassification(context, it) }
+        summary?.let { applySummary(context, it) }
+        context.email.progress = ProcessingProgress.SUMMARISED
       }
-      if (answer.path("response_required").asBoolean(false)) {
-        email.responseRequired = true
-      }
-      addActionItems(context, answer)
-      events.addEvents(context, answer.path("events"))
-      answer.path("errors").forEach { context.addError(ErrorPhase.LLM, "summarise: ${it.asText()}") }
-    } catch (e: LlmException) {
-      context.addError(ErrorPhase.LLM, "summarise: ${e.message}")
+      true
+    } catch (e: Deferred) {
+      LOG.warnf("The LLM isn't available (%s), so the email will be finished on the next run", e.cause?.message)
+      false
     }
+  }
+
+  /** Every matching action rule, in priority order. */
+  private fun matchActionRules(pass: Pass) = Mdc.with(Mdc.PHASE to ErrorPhase.ACTION.code) {
+    step(pass) { context ->
+      val email = context.email
+      var position = email.ruleMatches.size
+      for (rule in rules.listEnabled(RuleType.ACTION)) {
+        if (engine.matches(rule, context.facts())) {
+          Mdc.with(Mdc.RULE to rule.name) { LOG.info("Action rule matched") }
+          recordMatch(email, rule, position++)
+        }
+      }
+      email.progress = ProcessingProgress.MATCHED
+    }
+  }
+
+  /**
+   * Runs the matched rules' actions that pass [only] and have no result yet, one at a time, each in
+   * a transaction of its own (R6). An action that can't be repeated is recorded as started, and
+   * that saved, before it runs. Returns false if the application is stopping.
+   */
+  private fun runActions(pass: Pass, only: (QueuedAction) -> Boolean): Boolean {
+    while (true) {
+      if (stopping.get()) {
+        return false
+      }
+      var started: Long? = null
+      val ran = step(pass) { context ->
+        val next = executor.next(context, executor.ordered(queueOf(context.email).filter(only)), pass.started)
+            ?: return@step false
+        Mdc.with(Mdc.PHASE to next.phase.code) {
+          val id = next.action.id!!
+          if (next.handler?.repeatable == false && id !in pass.started) {
+            executor.markStarted(context, next)
+            started = id
+          } else {
+            executor.run(context, next)
+          }
+        }
+        true
+      }
+      started?.let { pass.started += it }
+      if (!ran) {
+        return true
+      }
+    }
+  }
+
+  /** The actions of the rules that matched the email, in the order the rules matched. */
+  private fun queueOf(email: EmailEntity): List<QueuedAction> {
+    var order = 0
+    return email.ruleMatches.sortedWith(compareBy({ it.position }, { it.id })).flatMap { match ->
+      val rule = match.rule ?: return@flatMap emptyList()
+      if (match.ruleType == RuleType.CLASSIFICATION) {
+        executor.actionsOf(rule, 0, ErrorPhase.CLASSIFICATION)
+      } else {
+        executor.actionsOf(rule, ++order, ErrorPhase.ACTION)
+      }
+    }
+  }
+
+  /** The LLM's choice of type (the classify prompt). */
+  private fun applyClassification(context: ProcessingContext, answer: String) {
+    val name = answer.lines().firstOrNull { it.isNotBlank() }.orEmpty().trim().trim('"', '\'', '.', '*').trim()
+    if (name.equals(NO_CLASSIFICATION, ignoreCase = true) || name.isEmpty()) {
+      return
+    }
+    val type = types.listActive().firstOrNull { it.name.equals(name, ignoreCase = true) }
+    if (type == null) {
+      context.addError(ErrorPhase.LLM, "The LLM chose '$name', which isn't a type")
+    } else {
+      LOG.infof("The LLM classified it as %s", type.name)
+      context.email.assignType(type)
+    }
+  }
+
+  /** The LLM's summary (the summarise prompt). */
+  private fun applySummary(context: ProcessingContext, answer: JsonNode) {
+    val email = context.email
+    answer.path("summary").asText("").trim().ifEmpty { null }?.let { email.summary = it }
+    if (email.link == null) {
+      answer.path("link").asText("").trim().takeIf { it.startsWith("http", ignoreCase = true) }?.let { email.link = it.take(2000) }
+    }
+    if (answer.path("response_required").asBoolean(false)) {
+      email.responseRequired = true
+    }
+    addActionItems(context, answer)
+    events.addEvents(context, answer.path("events"))
+    answer.path("errors").forEach { context.addError(ErrorPhase.LLM, "summarise: ${it.asText()}") }
   }
 
   /**
@@ -372,6 +588,7 @@ class ProcessingService(
       email.dropActionItems()
     }
     email.status = status
+    email.progress = null
     email.processedAt = Times.now()
     LOG.infof("Email %s: type %s, %d error(s)", status.code, email.type?.name ?: "none", email.errors.size)
   }
@@ -390,6 +607,7 @@ class ProcessingService(
     email.isRead = message.isRead
     email.receivedAt = message.receivedAt
     email.status = EmailStatus.PENDING
+    email.progress = ProcessingProgress.RECORDED
     val extensions = settings.getList(SettingKeys.ATTACHMENTS_EXTENSIONS).map { it.lowercase(Locale.ROOT).trimStart('.') }
     for (part in message.attachments) {
       val extension = part.filename.substringAfterLast('.', "").lowercase(Locale.ROOT)
@@ -424,6 +642,24 @@ class ProcessingService(
     email.responseRequired = false
     email.dropActionItems()
     email.status = EmailStatus.PENDING
+    email.progress = ProcessingProgress.RECORDED
+    email.attempts = 0
+  }
+
+  /**
+   * Lets processing reach the end of its current step before the application stops, waiting up to
+   * [SHUTDOWN_WAIT]; no further step starts. Whatever is left is carried on with by the next run
+   * after a restart (R6).
+   */
+  fun onStop(@Observes event: ShutdownEvent) {
+    stopping.set(true)
+    val deadline = System.nanoTime() + SHUTDOWN_WAIT.toNanos()
+    while ((running.get() || active.isNotEmpty()) && System.nanoTime() < deadline) {
+      Thread.sleep(200)
+    }
+    if (running.get() || active.isNotEmpty()) {
+      LOG.warn("Stopping in the middle of processing; the next run carries on from the last step saved")
+    }
   }
 
   /** Marks runs that were interrupted by a restart as failed. */
@@ -441,6 +677,11 @@ class ProcessingService(
     private val LOG = Logger.getLogger(ProcessingService::class.java)
     private const val NO_CLASSIFICATION = "NO CLASSIFICATION"
     private const val TRANSACTION_TIMEOUT = 1800
+
+    /** Passes over an email before it's given up on (R6). */
+    const val MAX_ATTEMPTS = 5
+
+    private val SHUTDOWN_WAIT: Duration = Duration.ofSeconds(20)
 
     /** An action item's description when the LLM said action is needed but not what. */
     const val DEFAULT_ACTION = "The email asks you to do something."

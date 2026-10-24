@@ -15,6 +15,7 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.ProcessingProgress
 import sh.hutch.postmaster.services.MessageIds
 import sh.hutch.postmaster.util.Times
 import java.math.BigDecimal
@@ -61,6 +62,15 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   @Convert(converter = EmailStatusConverter::class)
   @Column(name = "status", nullable = false, length = 20)
   var status: EmailStatus = EmailStatus.PENDING
+
+  /** The last processing step saved, while the email is pending; null once processing has finished (R6). */
+  @Convert(converter = ProcessingProgressConverter::class)
+  @Column(name = "progress", length = 20)
+  var progress: ProcessingProgress? = null
+
+  /** How many times processing has started on the email since it was recorded or reprocessed. */
+  @Column(name = "attempts", nullable = false)
+  var attempts: Int = 0
 
   /** Plain text body. */
   @Column(name = "message")

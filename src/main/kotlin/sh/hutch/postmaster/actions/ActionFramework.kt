@@ -65,6 +65,14 @@ interface ActionHandler {
   val label: String
     get() = ActionRegistry.humanise(actionType)
 
+  /**
+   * Whether running the action again after an interruption is safe: it notices what an earlier,
+   * interrupted run did (CLARIFICATIONS.md R6). One that isn't is recorded as started before it
+   * runs, and an interrupted one is recorded as failed rather than run again.
+   */
+  val repeatable: Boolean
+    get() = true
+
   /** Carries out [action] on the email; throwing records the action as failed. */
   fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome
 }
@@ -114,6 +122,10 @@ class ProcessingContext(val email: EmailEntity, val message: ParsedMessage?) {
     stopped = true
   }
 
+  /** The result recorded for [item] in this or an earlier pass, if it has one. */
+  fun resultFor(item: QueuedAction): EmailActionResultEntity? =
+    email.actionResults.lastOrNull { it.source == ActionSource.RULE && it.ruleAction?.id == item.action.id && it.rule?.id == item.rule.id }
+
   fun facts(): EmailFacts = RuleEngine.factsOf(email)
 
   fun addError(phase: ErrorPhase, message: String) {
@@ -126,17 +138,22 @@ class ProcessingContext(val email: EmailEntity, val message: ParsedMessage?) {
     })
   }
 
+  /** Records what [action] did, completing its started result if it has one. */
   internal fun record(rule: RuleEntity?, action: RuleActionEntity?, actionType: String, outcome: ActionOutcome) {
-    email.actionResults.add(EmailActionResultEntity().also {
+    val started = email.actionResults.lastOrNull {
+      it.status == ActionResultStatus.STARTED && it.source == ActionSource.RULE && action != null && it.ruleAction?.id == action.id && it.rule?.id == rule?.id
+    }
+    val result = started ?: EmailActionResultEntity().also {
       it.email = email
       it.rule = rule
       it.ruleAction = action
       it.actionType = actionType
       it.source = ActionSource.RULE
-      it.status = outcome.status
-      it.detail = outcome.detail?.take(MAX_ERROR)
-      it.executedAt = Times.now()
-    })
+      email.actionResults.add(it)
+    }
+    result.status = outcome.status
+    result.detail = outcome.detail?.take(MAX_ERROR)
+    result.executedAt = Times.now()
   }
 
   companion object {
@@ -189,12 +206,11 @@ class ActionExecutor(private val registry: ActionRegistry) {
   }
 
   /**
-   * Runs the queued actions by stage, then handler order, then rule order. Only the first move or
-   * delete, and the first mark read or unread, runs; the others conflict with it.
+   * The queued actions in the order they run: by stage, then handler order, then rule order. In the
+   * stages where actions conflict, rule priority comes first, because it decides which one runs.
    */
-  fun runQueue(context: ProcessingContext, queue: List<QueuedAction>) {
-    // In the stages where actions conflict, rule priority decides which runs, so it comes first
-    val ordered = queue.sortedWith(
+  fun ordered(queue: List<QueuedAction>): List<QueuedAction> =
+    queue.sortedWith(
         compareBy<QueuedAction>(
             { it.handler?.stage ?: ActionStage.RECORD },
             { if (it.handler?.stage?.let { stage -> stage in CONFLICTING } == true) it.ruleOrder else 0 },
@@ -203,10 +219,41 @@ class ActionExecutor(private val registry: ActionRegistry) {
             { it.action.position }
         )
     )
+
+  /**
+   * The next action in [ordered] to run, working from the results already recorded, so processing
+   * can carry on after an interruption (CLARIFICATIONS.md R6). On the way it records the actions
+   * that won't run: everything after skip_processing, actions that conflict with an earlier move or
+   * read state change (only the first of each runs), and actions that can't be repeated that were
+   * started by an interrupted pass ([startedNow] holds those started by this one). Null when every
+   * action has a result.
+   */
+  fun next(context: ProcessingContext, ordered: List<QueuedAction>, startedNow: Set<Long>): QueuedAction? {
     val winners = mutableMapOf<ActionStage, QueuedAction>()
     for (item in ordered) {
       val stage = item.handler?.stage
-      if (stage != null && stage in CONFLICTING) {
+      val conflicting = stage != null && stage in CONFLICTING
+      val result = context.resultFor(item)
+      if (result != null && result.status != ActionResultStatus.STARTED) {
+        if (conflicting && ran(result)) {
+          winners.putIfAbsent(stage, item)
+        }
+        continue
+      }
+      if (result != null && item.handler?.repeatable == false && item.action.id !in startedNow) {
+        Mdc.with(Mdc.RULE to item.rule.name, Mdc.ACTION to item.action.actionType) {
+          record(context, item, ActionOutcome.failed(INTERRUPTED))
+        }
+        if (conflicting) {
+          winners.putIfAbsent(stage, item)
+        }
+        continue
+      }
+      if (context.stopped) {
+        Mdc.with(Mdc.RULE to item.rule.name, Mdc.ACTION to item.action.actionType) { record(context, item, ActionOutcome.skipped(STOPPED)) }
+        continue
+      }
+      if (conflicting) {
         val winner = winners[stage]
         if (winner != null) {
           val detail = "Conflicts with ${winner.action.actionType} from rule ${winner.rule.name}"
@@ -216,13 +263,23 @@ class ActionExecutor(private val registry: ActionRegistry) {
           }
           continue
         }
-        if (!context.stopped) {
-          winners[stage] = item
-        }
+        winners[stage] = item
       }
-      run(context, item)
+      return item
     }
+    return null
   }
+
+  /** Records [item] as started, before an action that can't be repeated runs. */
+  fun markStarted(context: ProcessingContext, item: QueuedAction) =
+    Mdc.with(Mdc.RULE to item.rule.name, Mdc.ACTION to item.action.actionType) {
+      LOG.info("Action started")
+      context.record(item.rule, item.action, item.action.actionType, ActionOutcome(ActionResultStatus.STARTED, null))
+    }
+
+  /** Whether [result] is from an action that ran, rather than one skipped for a conflict or after skip_processing. */
+  private fun ran(result: EmailActionResultEntity): Boolean =
+    result.status != ActionResultStatus.SKIPPED || (result.detail != STOPPED && result.detail?.startsWith("Conflicts with ") != true)
 
   private fun record(context: ProcessingContext, item: QueuedAction, outcome: ActionOutcome) {
     if (outcome.status != ActionResultStatus.FAILED) {
@@ -238,6 +295,7 @@ class ActionExecutor(private val registry: ActionRegistry) {
   companion object {
     private val LOG = Logger.getLogger(ActionExecutor::class.java)
     const val STOPPED = "Processing was stopped by skip_processing"
+    const val INTERRUPTED = "Processing was interrupted while this ran, so it may or may not have happened; check before running it again"
     private val CONFLICTING = setOf(ActionStage.MOVE, ActionStage.READ_STATE)
   }
 }

@@ -1,5 +1,10 @@
 package sh.hutch.postmaster.processing
 
+import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.containing
+import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.github.tomakehurst.wiremock.stubbing.Scenario
 import io.quarkus.test.junit.QuarkusTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -11,12 +16,15 @@ import org.junit.jupiter.api.assertThrows
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.models.RunTrigger
 import sh.hutch.postmaster.services.MailboxException
+import sh.hutch.postmaster.services.ProcessingService
 import sh.hutch.postmaster.testsupport.TestMessages
 import sh.hutch.postmaster.testsupport.TestMessages.message
 import sh.hutch.postmaster.testsupport.row
 import sh.hutch.postmaster.testsupport.rows
 import sh.hutch.postmaster.testsupport.update
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
@@ -175,16 +183,168 @@ class ProcessingFlowTest : PipelineTest() {
   }
 
   @Test
-  fun `LLM failures are recorded and processing carries on`() {
-    llm(SUMMARISE, "broken", status = 500)
+  fun `an answer the LLM gets wrong is recorded and processing carries on`() {
+    llm(SUMMARISE, "not json at all")
     rule(RuleType.ACTION, "Read all", listOf(condition("subject", "contains", "carry")), listOf(action("mark_read")))
-    inbox(message("<flow-llmfail@mail.example>", "carry on"))
+    inbox(message("<flow-llmwrong@mail.example>", "carry on"))
 
     run()
 
-    assertEquals("processed", email("flow-llmfail@mail.example")["status"])
-    assertTrue(errors("flow-llmfail@mail.example").any { it["phase"] == "llm" })
-    assertEquals(true, email("flow-llmfail@mail.example")["is_read"], "the action phase still ran")
+    assertEquals("processed", email("flow-llmwrong@mail.example")["status"])
+    assertTrue(errors("flow-llmwrong@mail.example").any { it["phase"] == "llm" })
+    assertEquals(true, email("flow-llmwrong@mail.example")["is_read"], "the action phase still ran")
+  }
+
+  @Test
+  fun `while the LLM can't be reached the email waits, and the next run finishes it`() {
+    // CLAR R6: actions don't run on a half-processed email
+    llm(SUMMARISE, "busy", status = 503)
+    rule(RuleType.ACTION, "Read all", listOf(condition("subject", "contains", "wait")), listOf(action("mark_read")))
+    inbox(message("<flow-llmdown@mail.example>", "wait for it"))
+
+    run()
+
+    val waiting = email("flow-llmdown@mail.example")
+    assertEquals("pending", waiting["status"])
+    assertEquals("classified", waiting["progress"])
+    assertEquals(false, waiting["is_read"], "no action ran")
+    assertTrue(errors("flow-llmdown@mail.example").isEmpty())
+
+    llm(SUMMARISE, """{"summary": "Back again"}""")
+    run()
+
+    val done = email("flow-llmdown@mail.example")
+    assertEquals("processed", done["status"])
+    assertNull(done["progress"])
+    assertEquals("Back again", done["summary"])
+    assertEquals(listOf("done"), actionResults("flow-llmdown@mail.example").map { it["status"] })
+  }
+
+  @Test
+  fun `a busy LLM is asked again straight away`() {
+    // The first request is refused; the retry gets the answer
+    llm(SUMMARISE, """{"summary": "Second time lucky"}""")
+    wireMock.stubFor(
+        post(urlEqualTo("/v1/chat/completions")).withRequestBody(containing(SUMMARISE))
+            .inScenario("busy").whenScenarioStateIs(Scenario.STARTED).willSetStateTo("free")
+            .willReturn(aResponse().withStatus(503))
+    )
+    inbox(message("<flow-llmbusy@mail.example>", "Busy"))
+
+    run()
+
+    assertEquals("Second time lucky", email("flow-llmbusy@mail.example")["summary"])
+    assertEquals("processed", email("flow-llmbusy@mail.example")["status"])
+  }
+
+  @Test
+  fun `once the attempts run out the email is processed without the LLM`() {
+    llm(SUMMARISE, "down", status = 503)
+    rule(RuleType.ACTION, "Read all", listOf(condition("subject", "contains", "giving")), listOf(action("mark_read")))
+    inbox(message("<flow-llmgone@mail.example>", "giving up"))
+
+    repeat(ProcessingService.MAX_ATTEMPTS - 1) { run() }
+    assertEquals("pending", email("flow-llmgone@mail.example")["status"])
+    run()
+
+    val email = email("flow-llmgone@mail.example")
+    assertEquals("processed", email["status"])
+    assertEquals(ProcessingService.MAX_ATTEMPTS, (email["attempts"] as Number).toInt())
+    assertTrue(errors("flow-llmgone@mail.example").any { it["phase"] == "llm" && (it["message"] as String).contains("503") })
+    assertEquals(true, email["is_read"])
+  }
+
+  // Interruptions (CLAR R6)
+
+  @Test
+  fun `an interrupted email carries on from its last saved step, without repeating finished actions`() {
+    rule(
+        RuleType.ACTION, "Read and file", listOf(condition("subject", "contains", "Interrupted")),
+        listOf(action("mark_read"), action("move", index = 1, destination = "Folders/School"))
+    )
+    inbox(message("<flow-resume@mail.example>", "Interrupted"))
+    run()
+    // As if the application stopped after the message was moved but before that was saved
+    val id = email("flow-resume@mail.example")["id"]
+    dataSource.update("DELETE FROM Email_action_results WHERE email_id = ? AND action_type = 'move'", id)
+    dataSource.update(
+        "UPDATE Emails SET status = 'pending', progress = 'matched', processed_at = NULL, folder = 'INBOX', moved_to = NULL WHERE id = ?", id
+    )
+
+    run()
+
+    val email = email("flow-resume@mail.example")
+    assertEquals("processed", email["status"])
+    assertEquals("Folders/School", email["folder"], "the move is found to have happened")
+    assertEquals(listOf("mark_read" to "done", "move" to "done"), actionResults("flow-resume@mail.example").map { it["action_type"] to it["status"] })
+    assertEquals(listOf("Interrupted"), TestMessages.folderContents(greenMail, "Folders/School").map { it.first })
+  }
+
+  @Test
+  fun `a forward that was interrupted isn't sent again`() {
+    rule(RuleType.ACTION, "Forward", listOf(condition("subject", "contains", "Forward once")), listOf(action("forward_email", destination = "once@mail.example")))
+    inbox(message("<flow-forward-once@mail.example>", "Forward once"))
+    run()
+    val sent = greenMail.receivedMessages.count { it.subject == "Fwd: Forward once" }
+    // As if the application stopped while it was being sent
+    val id = email("flow-forward-once@mail.example")["id"]
+    dataSource.update("UPDATE Email_action_results SET status = 'started', detail = NULL WHERE email_id = ?", id)
+    dataSource.update("UPDATE Emails SET status = 'pending', progress = 'matched' WHERE id = ?", id)
+
+    run()
+
+    assertEquals(sent, greenMail.receivedMessages.count { it.subject == "Fwd: Forward once" }, "not sent twice")
+    val result = actionResults("flow-forward-once@mail.example").single()
+    assertEquals("failed", result["status"])
+    assertTrue((result["detail"] as String).contains("interrupted"))
+    assertTrue(errors("flow-forward-once@mail.example").any { (it["message"] as String).startsWith("forward_email:") })
+    assertEquals("processed", email("flow-forward-once@mail.example")["status"])
+  }
+
+  @Test
+  fun `a new email is saved before anything is done with it`() {
+    rule(RuleType.ACTION, "Forward", listOf(condition("subject", "contains", "Saved first")), listOf(action("forward_email", destination = "first@mail.example")))
+    inbox(message("<flow-saved-first@mail.example>", "Saved first"))
+
+    run()
+
+    val email = email("flow-saved-first@mail.example")
+    assertEquals("processed", email["status"])
+    assertEquals(1, (email["attempts"] as Number).toInt())
+    assertNull(email["progress"], "progress is cleared once processing finishes")
+  }
+
+  @Test
+  fun `an email that keeps failing is given up on`() {
+    inbox(message("<flow-give-up@mail.example>", "Give up"))
+    run()
+    val id = email("flow-give-up@mail.example")["id"]
+    dataSource.update("UPDATE Emails SET status = 'pending', progress = 'recorded', attempts = ? WHERE id = ?", ProcessingService.MAX_ATTEMPTS, id)
+
+    run()
+
+    assertEquals("failed", email("flow-give-up@mail.example")["status"])
+    assertTrue(errors("flow-give-up@mail.example").any { (it["message"] as String).contains("given up") })
+  }
+
+  @Test
+  fun `the lookback counts back from the latest successful run`() {
+    // Email that arrived while Postmaster was down is still found
+    settings.update("processing.lookback", "1d")
+    try {
+      run()
+      dataSource.update(
+          "UPDATE Processing_runs SET started_at = ? WHERE status = 'succeeded'",
+          LocalDateTime.ofInstant(Instant.now().minusSeconds(4L * 86400), ZoneOffset.UTC)
+      )
+      inbox(message("<flow-while-down@mail.example>", "While down", sent = Instant.now().minusSeconds(3L * 86400)))
+
+      run()
+
+      assertEquals("processed", email("flow-while-down@mail.example")["status"])
+    } finally {
+      settings.update("processing.lookback", "3650d")
+    }
   }
 
   // Action rules (CLAR Q12)

@@ -56,7 +56,7 @@ class CreateEventsHandler(
           ?.let { runCatching { IsoDurations.parseList(it) }.getOrDefault(emptyList()) } ?: emptyList()
       val uid = calendar.addEvent(
           target.name,
-          CalendarEvent(null, event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
+          CalendarEvent(CalendarClient.eventUid(context.email.id!!, event.id!!), event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
       )
       event.calendar = target
       event.isAdded = true

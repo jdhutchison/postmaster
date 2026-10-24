@@ -21,6 +21,8 @@ import sh.hutch.postmaster.models.RuleInput
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.repositories.TypeRepository
 import sh.hutch.postmaster.services.CalendarService
+import sh.hutch.postmaster.services.LlmClient
+import sh.hutch.postmaster.services.MailboxClient
 import sh.hutch.postmaster.services.ProcessingService
 import sh.hutch.postmaster.services.RuleService
 import sh.hutch.postmaster.services.SettingsService
@@ -34,6 +36,7 @@ import sh.hutch.postmaster.testsupport.WireMockTestResource
 import sh.hutch.postmaster.testsupport.rows
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 
 /**
  * Base for the processing pipeline tests: GreenMail stands in for Dovecot and
@@ -69,6 +72,12 @@ abstract class PipelineTest {
   @Inject
   lateinit var dataSource: AgroalDataSource
 
+  @Inject
+  lateinit var llmClient: LlmClient
+
+  @Inject
+  lateinit var mailboxClient: MailboxClient
+
   lateinit var attachments: Path
 
   private val mapper = ObjectMapper()
@@ -79,6 +88,9 @@ abstract class PipelineTest {
     TestMessages.createFolders(greenMail, "Trash", "Folders/Bills", "Folders/School")
     wireMock.resetAll()
     FakeTools.reset()
+    // Failing calls are retried without waiting
+    llmClient.retryDelays = listOf(Duration.ZERO)
+    mailboxClient.reconnectDelay = Duration.ZERO
     attachments = Files.createTempDirectory("postmaster-attachments")
     settings.update("imap.host", "127.0.0.1")
     settings.update("imap.port", greenMail.imap.port.toString())

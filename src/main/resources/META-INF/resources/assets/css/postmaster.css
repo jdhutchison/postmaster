@@ -1197,7 +1197,8 @@ select.pm-input:disabled {
   background: color-mix(in srgb, var(--pm-cyan) 25%, var(--pm-background));
 }
 
-.pm-badge--pending {
+.pm-badge--pending,
+.pm-badge--started {
   background: color-mix(in srgb, var(--pm-yellow) 35%, var(--pm-background));
 }
 

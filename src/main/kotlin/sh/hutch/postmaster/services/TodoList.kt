@@ -28,24 +28,49 @@ class TodoList(private val root: Path) {
    *
    * @throws TodoListException if the index has no end line, or a file can't be read or written
    */
-  fun add(entry: TodoEntry): String = io("add '${entry.title}' to") {
+  fun add(entry: TodoEntry): String {
+    val name = reserveName(entry.title)
+    write(name, entry)
+    return name
+  }
+
+  /**
+   * A name for an item called [title] that no file or task uses yet, without writing anything.
+   * Saving it before [write] lets an interrupted write be finished under the same name
+   * (CLARIFICATIONS.md R6).
+   *
+   * @throws TodoListException if the index has no end line or can't be read
+   */
+  fun reserveName(title: String): String = io("name '$title' in") {
+    uniqueName(title, endedIndex().lines)
+  }
+
+  /**
+   * Writes the item [name] for [entry]: its file, unless it's there already, and its task in the
+   * index, unless it's listed already. Writing it again finishes an interrupted write.
+   *
+   * @throws TodoListException if the index has no end line, or a file can't be read or written
+   */
+  fun write(name: String, entry: TodoEntry): Unit = io("add '$name' to") {
     Files.createDirectories(root)
+    val index = endedIndex()
+    val file = root.resolve("$name.md")
+    if (!Files.exists(file)) {
+      Files.writeString(file, content(entry), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+    }
+    if (index.lines.none { it.contains("[[$name]]") || it.contains("[[$name|") }) {
+      index.lines.add(index.lines.indexOfLast { it.trim() == END_MARKER }, "- [ ] [[$name]] $TAG_TEXT")
+      write(root.resolve(INDEX), index)
+    }
+  }
+
+  /** The index, or a new one if there's none yet; it must have the end line. */
+  private fun endedIndex(): Text {
     val index = readIndex() ?: Text(mutableListOf(END_MARKER), "\n", true)
-    val end = index.lines.indexOfLast { it.trim() == END_MARKER }
-    if (end < 0) {
+    if (index.lines.none { it.trim() == END_MARKER }) {
       throw TodoListException("$INDEX in $root has no $END_MARKER line")
     }
-    val name = uniqueName(entry.title, index.lines)
-    val file = root.resolve("$name.md")
-    Files.writeString(file, content(entry), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
-    try {
-      index.lines.add(end, "- [ ] [[$name]] $TAG_TEXT")
-      write(root.resolve(INDEX), index)
-    } catch (e: Exception) {
-      Files.deleteIfExists(file)
-      throw e
-    }
-    name
+    return index
   }
 
   /**

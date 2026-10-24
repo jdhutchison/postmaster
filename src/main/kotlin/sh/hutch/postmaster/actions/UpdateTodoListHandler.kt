@@ -18,7 +18,8 @@ class UpdateTodoListHandler(private val todos: TodoListService) : ActionHandler 
   override fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome {
     val email = context.email
     val open = email.openActionItems()
-    val pending = open.filter { it.todoName == null }
+    // An item with a name but no time written was interrupted while it was written
+    val pending = open.filter { it.todoName == null || it.todoCreatedAt == null }
     if (pending.isEmpty()) {
       return ActionOutcome.skipped(if (open.isEmpty()) "No action items" else "Its action items are already in the to-do list")
     }

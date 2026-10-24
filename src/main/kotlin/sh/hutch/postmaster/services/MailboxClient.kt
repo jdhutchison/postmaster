@@ -27,6 +27,7 @@ import jakarta.mail.search.ReceivedDateTerm
 import jakarta.mail.util.ByteArrayDataSource
 import org.eclipse.angus.mail.imap.IMAPFolder
 import org.eclipse.angus.mail.imap.IMAPStore
+import org.jboss.logging.Logger
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Entities
 import sh.hutch.postmaster.models.AttachmentPart
@@ -38,6 +39,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.time.Duration
 import java.time.Instant
 import java.util.Date
 import java.util.Properties
@@ -49,6 +51,8 @@ import java.util.Properties
  */
 @ApplicationScoped
 class MailboxClient(private val settings: SettingsService) {
+  /** How long to wait before connecting again when Dovecot can't be reached. Tests shorten it. */
+  var reconnectDelay: Duration = Duration.ofSeconds(5)
 
   /** INBOX messages received at or after [since] (all when null), newest first. */
   fun listInbox(since: Instant? = null): List<MailboxMessage> =
@@ -128,14 +132,15 @@ class MailboxClient(private val settings: SettingsService) {
 
   /**
    * Where the message with [messageId] is in [folder]. A known [uid] is trusted only while the
-   * folder's UIDVALIDITY is still [uidValidity]; otherwise the message is searched for by its
+   * folder's UIDVALIDITY is still [uidValidity] and a message has it; otherwise the message is searched for by its
    * Message-ID, because the UID may now belong to another message. Null if it isn't there, or if
    * it has to be searched for and its id was generated (it has no Message-ID header).
    */
   fun locate(folder: String, messageId: String, uid: Long? = null, uidValidity: Long? = null): MessageLocation? =
     withFolder(folder, Folder.READ_ONLY, "find message $messageId") { imap ->
       val validity = imap.uidValidity
-      val found = if (uid != null && uidValidity == validity) uid else search(imap, messageId)
+      val trusted = uid?.takeIf { uidValidity == validity && imap.getMessageByUID(it) != null }
+      val found = trusted ?: search(imap, messageId)
       found?.let { MessageLocation(it, validity) }
     }
 
@@ -369,13 +374,7 @@ class MailboxClient(private val settings: SettingsService) {
       }
     }
     val store = Session.getInstance(properties).getStore(protocol)
-    try {
-      store.connect(host, username, settings.getString(SettingKeys.IMAP_PASSWORD).orEmpty())
-    } catch (e: AuthenticationFailedException) {
-      throw MailboxException("Dovecot rejected the username or password", e)
-    } catch (e: MessagingException) {
-      throw MailboxException("Dovecot ($host) could not be reached: ${e.message}", e)
-    }
+    connect(store, host, username)
     try {
       return block(store)
     } catch (e: MailboxException) {
@@ -386,6 +385,25 @@ class MailboxClient(private val settings: SettingsService) {
       throw MailboxException("Could not $action: ${e.message}", e)
     } finally {
       runCatching { store.close() }
+    }
+  }
+
+  /** Connects [store], trying once more after a pause if Dovecot can't be reached (CLARIFICATIONS.md R6). */
+  private fun connect(store: Store, host: String, username: String) {
+    val password = settings.getString(SettingKeys.IMAP_PASSWORD).orEmpty()
+    for (attempt in 1..CONNECT_ATTEMPTS) {
+      try {
+        store.connect(host, username, password)
+        return
+      } catch (e: AuthenticationFailedException) {
+        throw MailboxException("Dovecot rejected the username or password", e)
+      } catch (e: MessagingException) {
+        if (attempt == CONNECT_ATTEMPTS) {
+          throw MailboxException("Dovecot ($host) could not be reached: ${e.message}", e)
+        }
+        LOG.warnf("Dovecot (%s) could not be reached (%s); trying again", host, e.message)
+        Thread.sleep(reconnectDelay.toMillis())
+      }
     }
   }
 
@@ -427,6 +445,8 @@ class MailboxClient(private val settings: SettingsService) {
   }
 
   companion object {
+    private val LOG = Logger.getLogger(MailboxClient::class.java)
+    private const val CONNECT_ATTEMPTS = 2
     private const val CONNECT_TIMEOUT = "20000"
     private const val READ_TIMEOUT = "60000"
   }

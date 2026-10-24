@@ -33,11 +33,25 @@ class TodoListService(private val settings: SettingsService, private val items: 
     val now = Times.now()
     val created = LocalDateTime.ofInstant(now, settings.getZoneId(SettingKeys.PROCESSING_TIMEZONE)).truncatedTo(ChronoUnit.SECONDS)
     val entry = TodoEntry(item.description, created, item.dueDate, body(email, item))
-    val name = lock.withLock { list().add(entry) }
-    item.todoName = name
+    val name = lock.withLock {
+      val list = list()
+      // The name is saved before the files are written, so if processing is interrupted after
+      // writing them the item isn't written again under another name (R6)
+      val name = item.todoName ?: list.reserveName(item.description).also { reserve(item, it) }
+      list.write(name, entry)
+      name
+    }
     item.todoCreatedAt = now
     LOG.infof("Added '%s' to the to-do list", name)
     return name
+  }
+
+  /** Saves [name] against [item] straight away, in a transaction of its own. */
+  private fun reserve(item: EmailActionItemEntity, name: String) {
+    item.todoName = name
+    val id = item.id ?: return
+    // An item that isn't saved yet (only in dev data) can't be found from another transaction
+    QuarkusTransaction.requiringNew().run { items.findById(id)?.todoName = name }
   }
 
   /**

@@ -70,6 +70,28 @@ enum class MatchType(
   }
 }
 
+/**
+ * How far processing an email has got: the last step saved (CLARIFICATIONS.md R6). An interrupted
+ * email carries on from the step after it.
+ */
+enum class ProcessingProgress(override val code: String) : CodedEnum {
+  /** The email is saved; nothing has been done with it. */
+  RECORDED("recorded"),
+
+  /** The classification rule has matched and its record actions have run. */
+  CLASSIFIED("classified"),
+
+  /** The LLM's classification and summary are saved. */
+  SUMMARISED("summarised"),
+
+  /** The matching action rules are saved; their actions run one at a time. */
+  MATCHED("matched");
+
+  companion object {
+    fun fromCode(code: String): ProcessingProgress = codedEnumOf(code)
+  }
+}
+
 /** Processing status of an email (CLARIFICATIONS.md D1). */
 enum class EmailStatus(override val code: String) : CodedEnum {
   PENDING("pending"),
@@ -110,7 +132,13 @@ enum class ActionSource(override val code: String) : CodedEnum {
 enum class ActionResultStatus(override val code: String) : CodedEnum {
   DONE("done"),
   SKIPPED("skipped"),
-  FAILED("failed");
+  FAILED("failed"),
+
+  /**
+   * An action that can't safely run twice (forward_email) is recorded as started before it runs, so
+   * an interrupted one isn't run again (CLARIFICATIONS.md R6).
+   */
+  STARTED("started");
 
   companion object {
     fun fromCode(code: String): ActionResultStatus = codedEnumOf(code)

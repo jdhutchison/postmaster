@@ -76,7 +76,8 @@ Done ticks the task (`- [x]`) and sets `completed: true` in the item's file. Eac
    - `actionType` is the name stored in `Rule_actions.action_type`. Action types are plain strings, so no migration is needed.
    - `stage` decides when the action runs; `order` orders handlers within a stage.
    - Return `ActionOutcome.done(detail)`, `skipped(detail)` or `failed(detail)`. Throwing records the action as failed with the exception's message, and adds an error to the email.
-   - `context.email` is the `EmailEntity` being processed and `context.message` the parsed message. Changes to the entity are saved with the email.
+   - `context.email` is the `EmailEntity` being processed. `context.message`, the parsed message, is there only while a new email is first processed, not when processing carries on after an interruption. Changes to the entity are saved when the action finishes.
+   - **Make it safe to run again.** Each action runs in its own transaction, and if processing is interrupted before that's saved, the action runs again on the next run (CLARIFICATIONS.md R6). Have it notice what an earlier run did, e.g. give anything it creates an id made from the email, or check whether the change is already there. If that's impossible, set `override val repeatable = false`: the action is then recorded as started before it runs, and an interrupted one is recorded as failed instead of running again.
    - `action.destination`, `action.type`, `action.calendar` and `action.notifications` are the rule action's values.
 
 2. **Use the shared helpers** rather than talking to the outside world directly:

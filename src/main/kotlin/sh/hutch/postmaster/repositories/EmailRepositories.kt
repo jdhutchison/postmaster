@@ -11,6 +11,7 @@ import sh.hutch.postmaster.entities.EmailErrorEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
 import sh.hutch.postmaster.entities.EmailRuleMatchEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
+import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.services.MessageIds
 
@@ -24,6 +25,10 @@ class EmailRepository : PanacheRepository<EmailEntity> {
   fun existsByMessageId(messageId: String): Boolean = count("messageHash", MessageIds.hash(messageId)) > 0
 
   fun findActive(id: Long): EmailEntity? = find("id = ?1 and deleted = false", id).firstResult()
+
+  /** Active emails whose processing hasn't finished, oldest first (CLARIFICATIONS.md R6). */
+  fun listPendingIds(): List<Long> =
+    find("status = ?1 and deleted = false order by receivedAt, id", EmailStatus.PENDING).list().map { it.id!! }
 
   /** The most recently received active emails. */
   fun listRecent(limit: Int): List<EmailEntity> =
@@ -68,6 +73,9 @@ class EmailErrorRepository : PanacheRepository<EmailErrorEntity> {
 @ApplicationScoped
 class ProcessingRunRepository : PanacheRepository<ProcessingRunEntity> {
   fun findLatest(): ProcessingRunEntity? = find("order by startedAt desc, id desc").firstResult()
+
+  fun findLatestSucceeded(): ProcessingRunEntity? =
+    find("status = ?1 order by startedAt desc, id desc", RunStatus.SUCCEEDED).firstResult()
 
   fun findRunning(): ProcessingRunEntity? =
     find("status = ?1 order by startedAt desc, id desc", RunStatus.RUNNING).firstResult()

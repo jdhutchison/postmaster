@@ -128,6 +128,20 @@ class TodoListTest {
   }
 
   @Test
+  fun `writing an item again finishes an interrupted write without doubling it`() {
+    // CLAR R6: the name is saved first, so a write cut short can be done again
+    index("<!-- todo-items:end -->\n")
+    val name = list().reserveName("Pay")
+    Files.writeString(root.resolve("Pay.md"), "---\ntodo-item: true\ncompleted: false\n---\n")
+
+    list().write(name, TodoEntry("Pay", created, null, "Notes"))
+    list().write(name, TodoEntry("Pay", created, null, "Notes"))
+
+    assertEquals("- [ ] [[Pay]] #todo-item\n<!-- todo-items:end -->\n", read("index.md"))
+    assertEquals("---\ntodo-item: true\ncompleted: false\n---\n", read("Pay.md"), "the file there is kept")
+  }
+
+  @Test
   fun `completing an item ticks it in the index and sets completed in its front matter`() {
     index("- [ ] [[Pay]] #todo-item\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n")
     Files.writeString(root.resolve("Pay.md"), "---\ntodo-item: true\ncompleted: false\ndue: 2026-10-28\n---\n\nNotes\ncompleted: false\n")

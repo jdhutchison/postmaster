@@ -27,18 +27,22 @@ The image's argument is the startup file, `/config/postmaster.yml` by default.
 | `/config/khal` | the khal configuration; set `postmaster.khal-config: /config/khal/khal.ini` |
 | the calendars directory | the vdirs that `khal.ini`'s `path`s name, mounted at those same paths (read-write, for the `calendars` group) |
 | `/data/attachments` | downloaded attachments and bills; set the `attachments.path` setting to it |
+| `/data/todo` | the markdown to-do list (`todo.path`) |
 
 For example:
 
 ```sh
-docker run -d --name postmaster \
+docker run -d --name postmaster --stop-timeout 30 \
     --network services --network mariadb \
     -v /drive/services/postmaster/postmaster.yml:/config/postmaster.yml:ro \
     -v /drive/sys/config/khal.ini:/config/khal/khal.ini:ro \
     -v /drive/sys/data/calendars:/drive/sys/data/calendars \
     -v /drive/services/postmaster/attachments:/data/attachments \
+    -v /drive/services/postmaster/todo:/data/todo \
     postmaster:native
 ```
+
+`--stop-timeout 30` (`stop_grace_period: 30s` in a compose file) gives Postmaster time to finish the step it's in when it's stopped; Docker's default is 10 seconds. Stopping it at any point is safe: the next run carries on from the last step saved (CLARIFICATIONS.md R6).
 
 - The UI is at `http://postmaster:8080/mail/`. nginx serves it at `https://hutch.sh/mail` with basic auth.
 - The MCP server is at `http://postmaster:8080/mail/mcp`. Keep it off nginx ([mcp.md](mcp.md)).

@@ -111,7 +111,10 @@ class ProcessBillHandler(
     if (context.email.events.any { it.isAdded && it.allDay && it.title == title && it.startsAt == day.atStartOfDay() }) {
       return "reminder on $day already added"
     }
-    val uid = calendar.addEvent(target.name, CalendarEvent(null, title, day.atStartOfDay(), null, true, null, notes, emptyList()))
+    val uid = calendar.addEvent(
+        target.name,
+        CalendarEvent("pm-${context.email.id}-bill-$day", title, day.atStartOfDay(), null, true, null, notes, emptyList())
+    )
     context.email.events.add(EmailEventEntity().also {
       it.email = context.email
       it.calendar = target

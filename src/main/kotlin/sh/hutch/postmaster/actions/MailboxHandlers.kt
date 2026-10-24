@@ -24,6 +24,26 @@ internal fun EmailEntity.location(mailbox: MailboxClient): Pair<String, Long> {
   return folder to found.uid
 }
 
+/**
+ * Moves the message to [destination]. If it isn't in its folder but is already in [destination], an
+ * earlier, interrupted attempt moved it, and that's recorded instead (CLARIFICATIONS.md R6).
+ *
+ * @throws IllegalStateException if the message can't be found
+ */
+internal fun EmailEntity.moveTo(destination: String, mailbox: MailboxClient) {
+  val current = folder ?: throw IllegalStateException("The email's folder isn't known")
+  val found = mailbox.locate(current, messageId, imapUid, uidValidity)
+  if (found == null) {
+    if (current != destination && mailbox.locate(destination, messageId) != null) {
+      movedTo(destination, mailbox)
+      return
+    }
+    throw IllegalStateException("The message can't be found in $current")
+  }
+  mailbox.move(current, found.uid, destination)
+  movedTo(destination, mailbox)
+}
+
 /** Records that the message is now in [destination], finding its new UID there. */
 internal fun EmailEntity.movedTo(destination: String, mailbox: MailboxClient) {
   folder = destination
@@ -66,9 +86,7 @@ class MoveHandler(private val mailbox: MailboxClient) : ActionHandler {
 
   override fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome {
     val destination = action.destination?.takeIf { it.isNotBlank() } ?: return ActionOutcome.failed("No folder to move to")
-    val (folder, uid) = context.email.location(mailbox)
-    mailbox.move(folder, uid, destination)
-    context.email.movedTo(destination, mailbox)
+    context.email.moveTo(destination, mailbox)
     return ActionOutcome.done("Moved to $destination")
   }
 }
@@ -80,10 +98,9 @@ class DeleteHandler(private val mailbox: MailboxClient, private val settings: Se
   override val order = 1
 
   override fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome {
-    val (folder, uid) = context.email.location(mailbox)
-    mailbox.delete(folder, uid)
-    val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER).orEmpty()
-    context.email.movedTo(trash, mailbox)
+    val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER)?.takeIf { it.isNotBlank() }
+        ?: return ActionOutcome.failed("The trash folder (imap.trash_folder) isn't set")
+    context.email.moveTo(trash, mailbox)
     return ActionOutcome.done("Moved to $trash")
   }
 }
@@ -92,6 +109,9 @@ class DeleteHandler(private val mailbox: MailboxClient, private val settings: Se
 class ForwardEmailHandler(private val mailbox: MailboxClient) : ActionHandler {
   override val actionType = ActionTypes.FORWARD_EMAIL
   override val stage = ActionStage.FORWARD
+
+  // A second forward would send the email twice
+  override val repeatable = false
 
   override fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome {
     val to = action.destination?.takeIf { it.isNotBlank() } ?: return ActionOutcome.failed("No address to forward to")

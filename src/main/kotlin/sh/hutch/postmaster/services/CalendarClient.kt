@@ -28,10 +28,17 @@ class CalendarClient(
 
   fun calendars(): List<KhalCalendar> = khal.calendarPaths()
 
-  /** Adds [event] to [calendar] and returns its UID. */
+  /**
+   * Adds [event] to [calendar] and returns its UID. An event whose UID is already in the calendar
+   * isn't added again: give events a UID made from what they are (see [eventUid]) so an action
+   * interrupted after adding one can run again (CLARIFICATIONS.md R6).
+   */
   fun addEvent(calendar: String, event: CalendarEvent): String {
-    calendar(calendar)
+    val target = calendar(calendar)
     val uid = event.uid ?: "pm-${UUID.randomUUID()}"
+    if (event.uid != null && findEventFile(uid, target) != null) {
+      return uid
+    }
     val ics = IcsWriter.event(event.copy(uid = uid), settings.getZoneId(SettingKeys.PROCESSING_TIMEZONE))
     val file = Files.createTempFile("postmaster-event-", ".ics")
     try {
@@ -77,7 +84,13 @@ class CalendarClient(
   private fun calendar(name: String): KhalCalendar =
     calendars().firstOrNull { it.name == name } ?: throw CalendarException("There is no khal calendar named '$name'")
 
-  private fun eventFile(uid: String, calendar: KhalCalendar): Path {
+  private fun eventFile(uid: String, calendar: KhalCalendar): Path =
+    findEventFile(uid, calendar) ?: throw CalendarException("There is no event $uid in the ${calendar.name} calendar")
+
+  private fun findEventFile(uid: String, calendar: KhalCalendar): Path? {
+    if (!Files.isDirectory(calendar.path)) {
+      return null
+    }
     val line = "UID:" + IcsWriter.escape(uid)
     val files = try {
       Files.list(calendar.path).use { stream -> stream.filter { it.name.endsWith(".ics") }.toList() }
@@ -85,10 +98,12 @@ class CalendarClient(
       throw CalendarException("The ${calendar.name} calendar's directory ${calendar.path} could not be read", e)
     }
     return files.firstOrNull { file -> runCatching { file.readText().lines().any { it.trim() == line } }.getOrDefault(false) }
-        ?: throw CalendarException("There is no event $uid in the ${calendar.name} calendar")
   }
 
   companion object {
+    /** The UID of an email's event in khal: the same each time the event is added. */
+    fun eventUid(emailId: Long, eventId: Long): String = "pm-$emailId-$eventId"
+
     private val KHAL_TIMEOUT = Duration.ofSeconds(60)
   }
 }

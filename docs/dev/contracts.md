@@ -1114,6 +1114,7 @@ The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
 - `val actionType: String`
 - `val stage: ActionStage`
 - `val order: Int`, which orders handlers within a stage
+- `val repeatable: Boolean` (default `true`): whether running the action again after an interruption is safe (R6). `forward_email` isn't.
 - `fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome`
 
 A handler is an `@ApplicationScoped` bean. `ActionRegistry` (`handler(type)` and `types()`) collects every `ActionHandler` bean, so **a new action type is just a new bean**. `RuleService` validates action types against `ActionRegistry.types()`.
@@ -1149,8 +1150,13 @@ It records results through the orchestrator.
   - `READ_STATE` actions conflict the same way.
 - **`skip_processing`** stops processing at once (`stopped`). Remaining queued actions are recorded as `skipped`, with detail `Processing was stopped by skip_processing`.
 
+**Resuming (R6):** `ActionExecutor.next(context, ordered, startedNow)` works out the next action to run from the results already recorded, so the queue can carry on after an interruption. An action with a result doesn't run again. An action that isn't `repeatable` is recorded as `started` (and that saved) before it runs; one found `started` by a later pass is recorded as `failed` ("Processing was interrupted while this ran…") instead of running again. Repeatable actions notice what an interrupted run did:
+- `move` and `delete` record the move when the message is already in the destination;
+- `create_events` and the bill reminder use a UID made from the email and event (`CalendarClient.eventUid`), and `addEvent` doesn't add a UID that's already in the calendar;
+- `update_todo_list` saves an item's name before writing its files, and writing again finishes a write cut short.
+
 **Recording:**
-- Every executed or skipped action becomes an `Email_action_results` row: `source=rule`, `rule_id`, `rule_action_id`, `action_type`, `status` and `detail`.
+- Every executed or skipped action becomes an `Email_action_results` row: `source=rule`, `rule_id`, `rule_action_id`, `action_type`, `status` (`done`, `skipped`, `failed`, or `started` while a non-repeatable action runs) and `detail`.
 - Failures also add an `Email_errors` row: phase `classification` for an action run during classification, otherwise `action`. The message is `<action_type>: <detail>`.
 - Every matching rule becomes an `Email_rule_matches` row, with `position` in the order they matched.
 
@@ -1201,38 +1207,48 @@ It records results through the orchestrator.
 
 ### 5.5 Orchestrator (`services.ProcessingService`)
 
-**`runNow(trigger: RunTrigger): ProcessingRunEntity?`** runs synchronously. It returns null if a run is already in progress (one at a time, process-wide).
+**`runNow(trigger: RunTrigger): ProcessingRunEntity?`** runs synchronously. It returns null if a run is already in progress (one at a time, process-wide) or the application is stopping.
 - It records a `Processing_runs` row: `running`, then `succeeded` or `failed` with `error`.
-- Counts: `emails_found` (new messages listed), `emails_processed` and `emails_failed`.
+- Counts: `emails_found` (new messages listed), `emails_processed` (including emails carried on with) and `emails_failed` (messages that couldn't be fetched or saved).
+
+**Processing in saved steps (R6).** An email is saved before anything is done with it, then again after each step, each step in **its own transaction**. `Emails.progress` is the last step saved (`recorded`, `classified`, `summarised`, `matched`; null once finished) and `Emails.attempts` counts the passes started. A pass that stops part-way (a crash, a restart, a failure saving) loses at most the step it was in, and the email stays `pending`.
 
 **Each run:**
-1. `MailboxClient.listInbox(now - processing.lookback)`, newest first. Messages whose Message-ID `existsByMessageId` are skipped (Q14).
-2. Each new message is processed in **its own transaction**, so a failure affects only that email. If fetching it from IMAP fails, nothing is recorded and the next run retries it (counted as failed).
+1. `TodoListService.syncCompleted()`.
+2. Every `pending` email (oldest first) is carried on with from the step after its `progress`.
+3. `MailboxClient.listInbox(since)`, newest first, where `since` is `processing.lookback` before the latest **successful** run started (or before now if there's none), so email that arrived while Postmaster was down is still found. Messages whose Message-ID `existsByMessageId` are skipped (Q14).
+4. Each new message is fetched and saved (`status=pending`, `progress=recorded`), then processed. If fetching or saving fails, nothing has been done with it and the next run tries again (counted as failed).
 
-**`process(listed)`:**
-1. Create the email record (`status=pending`) with the parsed fields and the attachments whose extension is in `attachments.extensions`. Embedded images are already left out.
-2. **Classification:** the first matching classification rule only. Record the match and run its actions as in 5.2.
-3. If processing was stopped, `status=skipped`, and stop here.
-4. **LLM phase** (Q15):
+**The steps:**
+1. **Record:** the parsed fields and the attachments whose extension is in `attachments.extensions` (embedded images are already left out).
+2. **Classification:** the first matching classification rule only. The match is recorded and its `RECORD` actions run. `progress=classified`.
+3. If processing was stopped (a `skip_processing` result), the remaining actions are recorded as skipped and `status=skipped`.
+4. **LLM** (Q15), with no transaction open while the LLM answers:
    - With no type yet: the `classify` prompt (plain chat). The answer is trimmed and compared with type names, ignoring case. `NO CLASSIFICATION` or an unknown name leaves the email unclassified; an unknown name is also recorded as an `llm` error.
    - Then always `summarise` (`chatJson`), which stores:
      - `summary`
      - `link`, unless one is already set
      - `response_required` (OR-ed)
      - the `action_items` (or, from an older prompt, `action_required` and `action` as one item), through `addActionItem`, so never for Bill (Q13); a `due` that isn't a date is an `llm` error
-     - the `events`, if the email has none yet
+     - the `events`, except those the email already has (same title and start)
      - each `errors` entry, as an `llm` error
+   - **If the LLM can't be reached or is busy** (`LlmException.transient`, after `LlmClient`'s retries) and the email has attempts left, nothing is saved and the email waits for the next run, before any action has run. On the last attempt the failure becomes an `llm` error and processing carries on, as does any other LLM failure (e.g. an answer that isn't JSON). `progress=summarised`.
    - Then any `fetch_link_contents` and `check_for_events` from the classification rule.
-   - LLM failures become `llm` errors, and processing carries on.
-5. **Action phase:** every matching action rule, in order, with facts recomputed after the LLM phase. Matches are recorded, and the queue runs as in 5.2.
-6. **Finish:** `status=processed` (`failed` if an unexpected exception escaped; errors alone don't fail it) and `processed_at` = now. Bill emails have their action items dropped.
+5. **Action rules:** every matching action rule, in order, with facts recomputed after the LLM phase. Matches are recorded. `progress=matched`.
+6. **Actions**, one per transaction, as in 5.2.
+7. **Finish:** `status=processed` (`failed` if an unexpected exception escaped; errors alone don't fail it), `progress=null` and `processed_at` = now. Bill emails have their action items dropped.
+
+An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an `action` error says so and `status=failed`. One pass works on an email at a time.
 
 **`reprocess(emailId)`:**
-- It clears the email's rule matches, action results, errors, events not yet added, type, summary, link, link contents and summary, bill fields and flags.
-- It fetches the message again from its `folder`/`imap_uid`. When the UID is null, it uses `findUid`.
-- It reruns steps 2–6 on the same record. A message that can't be found raises `MailboxException`.
+- It refuses (`IllegalStateException`) while the email is being processed.
+- It finds the message again in its folder (`MailboxClient.locate`, checking UIDVALIDITY) and fetches it.
+- It clears the email's rule matches, action results, errors, events not yet added, type, summary, link, link contents and summary, bill fields, flags and action items not in the to-do list, and resets `progress=recorded` and `attempts=0`.
+- It reruns the steps from 2. If the LLM can't be reached, the email is left `pending` for the next run. A message that can't be found raises `MailboxException`.
 
-**Startup:** runs left `running`, e.g. after a crash, are marked `failed` (`error = Interrupted by a restart`).
+**Startup:** runs left `running`, e.g. after a crash, are marked `failed` (`error = Interrupted by a restart`). Emails left `pending` are carried on with by the next run.
+
+**Shutdown:** on `ShutdownEvent` no further run or step starts, and the current step gets up to 20 seconds to finish. Whatever is left is carried on with after the restart.
 
 **Threads:** `runNow` works from any thread, including ones Quarkus doesn't manage (e.g. the common fork-join pool). A run sets the thread's context class loader to the application's for its duration, and `MailboxClient` does the same around Jakarta Mail, which finds its providers through it.
 

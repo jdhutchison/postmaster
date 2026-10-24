@@ -64,6 +64,17 @@ class CalendarClientTest {
   }
 
   @Test
+  fun `an event whose UID is already in the calendar isn't added again`() {
+    // CLAR R6: create_events can run again after an interruption without duplicating events
+    calendar.addEvent("Kids medical", event(uid = "pm-1-2"))
+
+    assertEquals("pm-1-2", calendar.addEvent("Kids medical", event(uid = "pm-1-2")))
+
+    assertEquals(1, FakeTools.khalCalls().size, "khal was asked once")
+    assertEquals(1, FakeTools.eventFiles("Kids medical").size)
+  }
+
+  @Test
   fun `a new event gets its own UID`() {
     val uid = calendar.addEvent("Football", event())
 

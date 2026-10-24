@@ -389,6 +389,22 @@ An email can ask for several things to be done, and a new action writes them to 
 - **Done** next to an item on the email page (or MCP `complete_action_item`) marks it done here, ticks it in `index.md` (`- [x]`) and sets `completed: true` in its file. If the files can't be written, nothing changes and an error says why. Clearing action required (`set_action_required` false) does this for every open item.
 - **Each processing run** first checks the to-do list. Items ticked in `index.md`, or with `completed: true` in their file, are marked done here.
 
+**R6 (2026-10-25). Processing survives interruptions, so no email is lost track of (your request).**
+Before this, each email was processed in one transaction while its side effects happened outside it. A failure before the commit forgot the email: one already moved out of INBOX was never seen again, and one still there was processed again, repeating its forwards and calendar events.
+- **Saved steps.** A new email is saved (`pending`) before anything is done with it, then after each step: classification, the LLM, matching the action rules, and each action. `Emails.progress` is the last step saved and `Emails.attempts` the passes started (migration V6).
+- **Carrying on.** Each run starts by carrying on with every `pending` email from the step after its `progress`. The recorded action results say which actions have run.
+- **Safe to repeat:**
+  - a move or delete notices the message is already in its destination;
+  - calendar events (and bill reminders) have UIDs made from the email and event, and an event whose UID is already in the calendar isn't added again;
+  - a to-do item's name is saved before its files are written, and writing them again finishes the job.
+- **Forwarding** can't be made safe to repeat. It's recorded as `started` before it sends, and a forward found `started` by a later pass is recorded as failed, telling you to check before running it again. A second copy is never sent automatically.
+- **When the LLM is down** (it can't be reached or is busy, after retries after 2 and 10 seconds), the email waits for the next run before any action runs on it. After five attempts it's processed without the LLM, with the failure recorded as an error.
+- **Giving up:** an email is marked failed, with an error saying why, if a sixth pass would start. Reprocess it once the problem is fixed.
+- **The lookback** counts back from the start of the latest successful run, so email that arrived while Postmaster was down or failing is still found.
+- **IMAP:** a failed connection is tried once more after 5 seconds.
+- **Stopping:** when the application is told to stop it starts no new step and gives the current one up to 20 seconds. Run the container with `--stop-timeout 30` (or `stop_grace_period: 30s`).
+- **Holding transactions:** no database transaction is open while the LLM classifies or summarises. Actions that call the LLM, khal or Chromium still run inside their own action's transaction.
+
 ---
 
 ## Technical suggestions

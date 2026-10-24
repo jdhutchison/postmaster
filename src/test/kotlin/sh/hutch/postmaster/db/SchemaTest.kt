@@ -305,7 +305,9 @@ class SchemaTest {
             "response_required", "moved_to", "received_at", "processed_at",
             "message_id", "message_hash", "imap_uid", "uid_validity", "folder", "html_message", "link_contents",
             "link_summary",
-            "status", "action_required", "action_description", "is_read", "deleted", "deleted_at"
+            "status", "action_required", "action_description", "is_read", "deleted", "deleted_at",
+            // CLAR R6: processing in saved steps
+            "progress", "attempts"
         ),
         // REQ Email_events; CLAR D8
         "Email_events" to setOf(

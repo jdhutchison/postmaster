@@ -221,6 +221,7 @@ These are reusable, so the action handlers can share them.
 - [x] **A.1** `build: done` `tests: done` Dev mode on an in-memory database with fake data (CLARIFICATIONS.md R2).
 - [x] **A.2** `build: done` `tests: done` Logging to stdout with MDC context: run, email, phase, rule, action and source (CLARIFICATIONS.md R3).
 - [x] **A.3** `build: done` `tests: done` Action items and the `update_todo_list` action, writing to and reading from a markdown to-do list (CLARIFICATIONS.md R5).
+- [x] **A.4** `build: done` `tests: done` Processing in saved, resumable steps, so no email is lost track of; actions safe to repeat; LLM and IMAP retries; lookback from the last successful run; graceful shutdown (CLARIFICATIONS.md R6).
 
 ## Phase 9: Deployment (in `/data/code/ansible`), on hold
 

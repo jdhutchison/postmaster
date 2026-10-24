@@ -8,7 +8,7 @@ import org.jboss.logging.Logger
 import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.actions.AttachmentStore
 import sh.hutch.postmaster.actions.location
-import sh.hutch.postmaster.actions.movedTo
+import sh.hutch.postmaster.actions.moveTo
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
@@ -27,6 +27,7 @@ import sh.hutch.postmaster.models.EmailDetail
 import sh.hutch.postmaster.models.EmailFilter
 import sh.hutch.postmaster.models.EmailPage
 import sh.hutch.postmaster.models.EmailRow
+import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.ErrorView
 import sh.hutch.postmaster.models.EventView
@@ -194,9 +195,7 @@ class EmailService(
     val email = get(id)
     val destination = folder?.trim()?.takeIf { it.isNotEmpty() } ?: throw ValidationException(mapOf("folder" to "Choose a folder"))
     return manual(email, ActionTypes.MOVE, source) {
-      val (current, uid) = email.location(mailbox)
-      mailbox.move(current, uid, destination)
-      email.movedTo(destination, mailbox)
+      email.moveTo(destination, mailbox)
       "Moved to $destination"
     }
   }
@@ -221,10 +220,9 @@ class EmailService(
   fun delete(id: Long, source: ActionSource): ManualResult {
     val email = get(id)
     val result = manual(email, ActionTypes.DELETE, source) {
-      val (folder, uid) = email.location(mailbox)
-      mailbox.delete(folder, uid)
-      val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER).orEmpty()
-      email.movedTo(trash, mailbox)
+      val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER)?.takeIf { it.isNotBlank() }
+          ?: throw IllegalStateException("The trash folder (imap.trash_folder) isn't set")
+      email.moveTo(trash, mailbox)
       "Moved to $trash"
     }
     if (result.ok) {
@@ -320,7 +318,7 @@ class EmailService(
         val alarms = target.notificationPeriods?.let { runCatching { IsoDurations.parseList(it) }.getOrNull() }.orEmpty()
         val uid = calendar.addEvent(
             target.name,
-            CalendarEvent(null, event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
+            CalendarEvent(CalendarClient.eventUid(email.id!!, event.id!!), event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
         )
         event.calendar = target
         event.isAdded = true
@@ -338,8 +336,12 @@ class EmailService(
       throw NotFoundException("Email $id not found")
     }
     return try {
-      processing.reprocess(id)
-      ManualResult(true, "Processed the email again")
+      val email = processing.reprocess(id)
+      if (email.status == EmailStatus.PENDING) {
+        ManualResult(true, "The LLM couldn't be reached, so the next run will finish processing the email")
+      } else {
+        ManualResult(true, "Processed the email again")
+      }
     } catch (e: NotFoundException) {
       throw e
     } catch (e: Exception) {

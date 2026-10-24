@@ -44,20 +44,26 @@ Pages and MCP results use view models (`models/EmailViews.kt`, `Dashboard.kt`, t
 
 `ProcessingScheduler` checks every minute whether a run is due (`processing.frequency` after the last run started), so a frequency change applies without a restart. "Run now" on the dashboard starts a run straight away. Only one run happens at a time, and each is recorded in `Processing_runs`.
 
-A run lists INBOX messages received within `processing.lookback`, newest first, and processes each one not yet in the database (matched by Message-ID), each in its own transaction (CLARIFICATIONS.md Q14). For each email:
+A run first marks done the action items ticked off in the to-do list, then carries on with any email left part-way, then lists the INBOX messages received within `processing.lookback` of the latest successful run, newest first, and processes each one not yet in the database (matched by Message-ID; CLARIFICATIONS.md Q14).
+
+**No email is lost track of (R6).** A new email is saved before anything is done with it, and saved again after each step, each step in a transaction of its own. If processing stops part-way (a crash, a restart, the database going away), the email stays `pending` with the last step it saved, and the next run carries on from there. The steps:
 
 1. **Record.** The parsed message is stored, with the attachments whose extensions are in `attachments.extensions`.
 2. **Classification.** Enabled classification rules are tested in priority order (highest first; ties go to the older rule). A rule matches when all its conditions match (Q21). Only the first matching rule applies. Its record-only actions (`set_type`, `set_reply_needed`, `skip_processing`) run at once; the rest wait (Q12).
-3. **LLM.** An email still without a type goes to the `classify` prompt. Every email then goes to `summarise`, which gives the summary, link, response and action flags, and events (R1). After that, the classification rule's `fetch_link_contents` and `check_for_events` run.
-4. **Action rules.** Every enabled action rule that matches (with the facts as they are after the LLM) adds its actions to the queue.
-5. **Actions.** The queue runs in a fixed order of stages: record, gather (fetch, events, downloads, bills), forward, read state, then move or delete last. Only one move/delete and one read/unread runs; the highest-priority rule wins and the others are recorded as conflicts.
+3. **LLM.** An email still without a type goes to the `classify` prompt. Every email then goes to `summarise`, which gives the summary, link, response flag, action items and events (R1, R5). No transaction is open while the LLM answers. If the LLM can't be reached, the email waits for the next run before any action runs, up to five attempts. After that, the classification rule's `fetch_link_contents` and `check_for_events` run.
+4. **Action rules.** Every enabled action rule that matches (with the facts as they are after the LLM) is recorded.
+5. **Actions**, one at a time, each saved as it finishes, in a fixed order of stages: record, gather (fetch, events, downloads, bills, to-do list), forward, read state, then move or delete last. Only one move/delete and one read/unread runs; the highest-priority rule wins and the others are recorded as conflicts.
 6. **Finish.** The status is `processed`, `skipped` (by `skip_processing`) or `failed`. Every rule match, action result and error is recorded against the email.
 
-Errors from the outside world (IMAP, the LLM, khal, fetching, the to-do list), and settings that can't be read, are recorded against the email, and processing carries on. `SettingsService` and `PromptRenderer` don't roll back the email's transaction when they throw, so a failed action never loses the work already done. Bills never have action items (Q13): `EmailEntity` enforces that whenever the type or the items change.
+**Carrying on safely.** The recorded action results say which actions have run, so none runs twice. Actions are written to be safe to repeat if they were cut off part-way: a move notices the message is already in its destination, calendar events have UIDs made from the email and event so they aren't added twice, and a to-do item's name is saved before its files are written. `forward_email` can't be made safe to repeat, so it's recorded as started before it sends; if it's found started later, it's recorded as failed ("check before running it again") rather than sent twice. An email that fails five passes in a row is marked failed for you to reprocess.
 
-**Finding the message again.** Each email stores the message's folder, UID and the folder's UIDVALIDITY. Mailbox actions use the UID only while the folder's UIDVALIDITY is unchanged; otherwise they find the message by its Message-ID, so a rebuilt mailbox can't make an action hit another message.
+**Other safeguards.** The LLM client tries again after 2 and 10 seconds when the LLM can't be reached or is busy, and the IMAP client tries once more to connect. When the application is told to stop, it lets the current step finish (up to 20 seconds) and starts no new one.
 
-**Reprocessing** replaces the email's rule matches, results, errors and summary. Events already added to a calendar and action items already in the to-do list are kept; the LLM's events and items are added again except those the email already has. An email is reprocessed by one request at a time.
+Errors from the outside world (IMAP, the LLM, khal, fetching, the to-do list), and settings that can't be read, are recorded against the email, and processing carries on. `SettingsService` and `PromptRenderer` don't roll back the step's transaction when they throw, so a failed action never loses the work already done. Bills never have action items (Q13): `EmailEntity` enforces that whenever the type or the items change.
+
+**Finding the message again.** Each email stores the message's folder, UID and the folder's UIDVALIDITY. Mailbox actions use the UID only while the folder's UIDVALIDITY is unchanged and a message has it; otherwise they find the message by its Message-ID, so a rebuilt mailbox can't make an action hit another message.
+
+**Reprocessing** replaces the email's rule matches, results, errors and summary, and runs the steps again. Events already added to a calendar and action items already in the to-do list are kept; the LLM's events and items are added again except those the email already has. One pass works on an email at a time.
 
 ## User interface
 

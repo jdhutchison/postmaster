@@ -15,6 +15,7 @@ import sh.hutch.postmaster.testsupport.htmx
 import sh.hutch.postmaster.testsupport.rows
 import sh.hutch.postmaster.testsupport.testId
 import sh.hutch.postmaster.testsupport.toasts
+import sh.hutch.postmaster.testsupport.update
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
@@ -128,6 +129,26 @@ class TodoListFlowTest : PipelineTest() {
     assertEquals(2, items(sold).size)
     val results = actionResults(sold).filter { it["action_type"] == "update_todo_list" }
     assertEquals("skipped", results.single()["status"])
+  }
+
+  @Test
+  fun `an interrupted write is finished under the same name`() {
+    // CLAR R6: the name is saved before the files are written
+    processTurntable()
+    val id = id(sold)
+    Files.delete(todo.resolve("Post turntable in three days.md"))
+    Files.writeString(todo.resolve("index.md"), index().replace("- [ ] [[Post turntable in three days]] #todo-item\n", ""))
+    dataSource.update("UPDATE Email_action_items SET todo_created_at = NULL WHERE description = 'Post turntable in three days' AND email_id = ?", id)
+    dataSource.update("DELETE FROM Email_action_results WHERE email_id = ? AND action_type = 'update_todo_list'", id)
+    dataSource.update("UPDATE Emails SET status = 'pending', progress = 'matched' WHERE id = ?", id)
+
+    run()
+
+    assertTrue(Files.exists(todo.resolve("Post turntable in three days.md")))
+    assertFalse(Files.exists(todo.resolve("Post turntable in three days 2.md")))
+    assertEquals(1, index().lines().count { it.contains("[[Post turntable in three days]]") }, index())
+    assertEquals(1, index().lines().count { it.contains("[[Leave feedback for the buyer]]") }, index())
+    assertTrue(items(sold).all { it["todo_created_at"] != null })
   }
 
   @Test

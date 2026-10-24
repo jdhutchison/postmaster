@@ -9,6 +9,7 @@ import sh.hutch.postmaster.models.ConditionAttribute
 import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.MatchType
+import sh.hutch.postmaster.models.ProcessingProgress
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.models.RunTrigger
@@ -38,6 +39,9 @@ class MatchTypeConverter : CodedEnumConverter<MatchType>(MatchType::class.java)
 
 @Converter
 class EmailStatusConverter : CodedEnumConverter<EmailStatus>(EmailStatus::class.java)
+
+@Converter
+class ProcessingProgressConverter : CodedEnumConverter<ProcessingProgress>(ProcessingProgress::class.java)
 
 @Converter
 class ErrorPhaseConverter : CodedEnumConverter<ErrorPhase>(ErrorPhase::class.java)

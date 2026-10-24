@@ -5,7 +5,8 @@ package sh.hutch.postmaster.services
 
 class MailboxException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
-class LlmException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+/** [transient] when the LLM couldn't be reached or was busy, so asking again later may work. */
+class LlmException(message: String, cause: Throwable? = null, val transient: Boolean = false) : RuntimeException(message, cause)
 
 class FetchException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
