@@ -7,14 +7,24 @@ Legend:
 - Each task carries two markers:
   - `build:` is updated by the builder agent
   - `tests:` is updated by the tester agent
-- Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need).
+- Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–4 are complete. Phase 4 was assessed by the coordinator on 2026-10-24 from the tester's run on 3896b0c: 488 tests in 48 suites, with 0 failures, 0 errors and 0 skipped. The only later commit (670417e) wraps lines in tests and was confirmed to compile. Phase 5 (processing pipeline) is next.
+**Status:** Phases 0–4 are complete. Phase 5 is in progress with the builder as the only agent; testing is deferred until everything is built (2026-10-24).
 
 Standing rules:
 - Commit after each completed task.
 - Log every change to tigerbear or kodiakbear in `changes.md`.
 - Write further communication between us to `DISCUSSION.md`.
+
+## Working arrangement (from 2026-10-24): single agent
+
+To save tokens, the tester agent has stopped. Testing restarts once everything is built. Until then:
+- **One agent.** The builder is the only agent. It works through Phases 5–9 and 10.1 continuously, sending the coordinator a short status at the end of each phase. It stops only for your decisions or anything touching tigerbear or kodiakbear. The Ansible play is never run against a host without your go-ahead.
+- **Progress doesn't depend on the tester.** A task is ticked `[x]` once its build side is done and verified: it compiles, its behaviour has been checked with throwaway checks, and the existing suite still passes at the end of the phase. The builder ticks the box itself.
+- **Deferred tests.** `tests: todo` now means "tests deferred until testing restarts".
+- **Contracts.** The builder keeps `docs/dev/contracts.md` up to date so the tester can catch up later.
+
+The earlier two-agent arrangement below applied to Phases 0–4.
 
 ## Working arrangement (from 2026-10-22)
 

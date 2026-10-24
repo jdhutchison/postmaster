@@ -149,3 +149,12 @@ H2 remains the test database as required. The one-off MariaDB run catches these 
 - the scheduler
 
 To avoid another deadlock, the tester owns full-suite runs and runs the suite as soon as the builder commits.
+
+**You:** The tester agent is to cease work and the project revert to just one agent once it has finished what it is working on right now. This is to save tokens. Once everything is built the testing will be restarted, but building and the recording of progress in the PLAN.md file is not to be dependent on the tester.
+
+**Claude:** Done.
+- **Tester:** it finishes its current item, commits only tests that pass against committed code (anything else is staged in the scratchpad), and stops with a handover.
+- **Builder:** it's now the only agent. It continues through Phases 5–9 and 10.1 without stopping between phases, and ticks tasks in PLAN.md itself once they're built and verified: they compile, their behaviour is checked, and the existing suite passes at each phase end. `tests: todo` now means "deferred".
+- **Stopping:** the builder still stops for your decisions and for anything touching tigerbear or kodiakbear.
+
+PLAN.md has a new "single agent" section explaining this.
