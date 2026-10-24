@@ -10,3 +10,5 @@ class LlmException(message: String, cause: Throwable? = null) : RuntimeException
 class FetchException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
 class CalendarException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+class TodoListException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)

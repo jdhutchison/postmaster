@@ -16,6 +16,7 @@ object Placeholders {
   val HTML = Placeholder("{{html}}", "HTML of the email")
   val PAGE = Placeholder("{{page}}", "Contents of the page linked from the email")
   val TYPES = Placeholder("{{types}}", "Email types and their descriptions")
+  val RECEIVED = Placeholder("{{received}}", "When the email was received, e.g. Sunday 25 October 2026, 14:03")
 
-  val ALL: List<Placeholder> = listOf(CALENDARS, EVENTS, SUBJECT, SENDER, TEXT, HTML, PAGE, TYPES)
+  val ALL: List<Placeholder> = listOf(CALENDARS, EVENTS, SUBJECT, SENDER, RECEIVED, TEXT, HTML, PAGE, TYPES)
 }

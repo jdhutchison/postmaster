@@ -52,15 +52,21 @@
       </aside>
 
       <div class="pm-pane">
-        {#if detail.responseRequired || detail.actionRequired}
+        {#if detail.responseRequired || !detail.actionItems.isEmpty}
         <div class="pm-flags" data-testid="email-flags">
-          {#if detail.actionRequired}
-          <div class="pm-flag pm-flag--action" data-testid="email-action-required">
-            <span class="pm-label">Action needed</span>
-            <span class="pm-flag__text">{detail.actionDescription ?: 'The email asks you to do something.'}</span>
-            <button type="button" class="pm-button pm-button--small" data-testid="clear-action-required" hx-post="{base}/emails/{detail.id}/action-required" hx-vals='{"required": "false"}'>Done</button>
+          {#for item in detail.actionItems}
+          <div class="pm-flag pm-flag--action{#if item.completed} pm-flag--done{/if}" data-testid="action-item-{item.id}"{#if item.completed} data-completed="true"{/if}>
+            <span class="pm-label">{#if item.completed}Done{#else}Action needed{/if}</span>
+            <span class="pm-flag__text">
+              <span class="pm-flag__description" data-testid="action-item-description">{item.description}</span>
+              {#if item.dueDate || item.todoName}<span class="pm-flag__meta">{#if item.dueDate}<span data-testid="action-item-due">Due {item.dueDate}</span>{/if}{#if item.dueDate && item.todoName} · {/if}{#if item.todoName}<span data-testid="action-item-todo">In the to-do list</span>{/if}</span>{/if}
+              {#if item.notes}<span class="pm-flag__notes" data-testid="action-item-notes">{item.notes}</span>{/if}
+            </span>
+            {#if !item.completed}
+            <button type="button" class="pm-button pm-button--small" data-testid="complete-action-item-{item.id}" hx-post="{base}/emails/{detail.id}/action-items/{item.id}/done" aria-label="Done: {item.description}">Done</button>
+            {/if}
           </div>
-          {/if}
+          {/for}
           {#if detail.responseRequired}
           <div class="pm-flag pm-flag--reply" data-testid="email-response-required">
             <span class="pm-label">Reply needed</span>

@@ -1691,6 +1691,29 @@ textarea.pm-prompt-text {
   color: var(--pm-orange);
 }
 
+/* An action item's due date and notes, under its description */
+.pm-flag__meta,
+.pm-flag__notes {
+  display: block;
+  margin-top: var(--pm-space-1);
+  color: var(--pm-comment);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.pm-flag__notes {
+  max-width: var(--pm-measure);
+}
+
+.pm-flag--done .pm-label,
+.pm-flag--done .pm-flag__text {
+  color: var(--pm-comment);
+}
+
+.pm-flag--done .pm-flag__description {
+  text-decoration: line-through;
+}
+
 .pm-flag--reply .pm-label {
   color: var(--pm-cyan);
 }

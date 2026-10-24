@@ -56,12 +56,12 @@ class EnumsTest {
   @Test
   fun `the built-in action types are those in the requirements`() {
     // REQ Creating a new rule 9 and Rule_Actions schema; CLAR Q13 revision
-    // (no set_action_needed action)
+    // (no set_action_needed action); CLAR R5 (update_todo_list)
     assertEquals(
         setOf(
             "set_type", "move", "check_for_events", "download_attachments", "set_reply_needed",
             "fetch_link_contents", "create_events", "skip_processing", "mark_read", "mark_unread", "process_bill",
-            "forward_email", "delete"
+            "forward_email", "delete", "update_todo_list"
         ),
         ActionTypes.BUILT_IN.toSet()
     )

@@ -79,7 +79,7 @@ class McpToolsTest : PipelineTest() {
     assertTrue(
         tools.containsAll(listOf(
             "search_emails", "get_email", "set_email_type", "move_email", "mark_email_read", "delete_email", "forward_email",
-            "set_response_required", "set_action_required", "set_event_calendar", "reprocess_email",
+            "set_response_required", "set_action_required", "complete_action_item", "set_event_calendar", "reprocess_email",
             "list_types", "list_folders", "list_calendars"
         )),
         "tools: $tools"

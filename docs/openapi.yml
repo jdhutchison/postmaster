@@ -535,6 +535,36 @@ paths:
           description: The mailbox refused; an error toast says why
         "404":
           description: No such email
+  /mail/emails/{id}/action-items/{itemId}/done:
+    post:
+      summary: "Mark an action item done, and tick it off in the to-do list if it's\
+        \ there (HTMX)"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such email or action item
+        "502":
+          description: The to-do list couldn't be updated; an error toast says why
   /mail/emails/{id}/action-required:
     post:
       summary: Set (required=true) or clear an email's action required flag (HTMX);

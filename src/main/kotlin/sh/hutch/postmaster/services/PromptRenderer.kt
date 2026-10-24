@@ -7,6 +7,8 @@ import sh.hutch.postmaster.models.PromptContext
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.PromptRepository
 import sh.hutch.postmaster.repositories.TypeRepository
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** Fills a prompt's {{placeholders}} (CLARIFICATIONS.md Q15, D19). */
 @ApplicationScoped
@@ -30,6 +32,9 @@ class PromptRenderer(
     val values = mapOf(
         "subject" to { context.subject.orEmpty() },
         "sender" to { context.sender.orEmpty() },
+        "received" to {
+          context.receivedAt?.let { RECEIVED.format(it.atZone(settings.getZoneId(SettingKeys.PROCESSING_TIMEZONE))) }.orEmpty()
+        },
         "text" to { cut(context.text) },
         "html" to { cut(context.html) },
         "page" to { cut(context.page) },
@@ -52,5 +57,6 @@ class PromptRenderer(
 
   companion object {
     private val PLACEHOLDER = Regex("\\{\\{(\\w+)}}")
+    private val RECEIVED = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH)
   }
 }

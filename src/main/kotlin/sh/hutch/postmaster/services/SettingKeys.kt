@@ -37,4 +37,7 @@ object SettingKeys {
 
   const val BILLS_PAY_LINK_TEXT = "bills.pay_link_text"
   const val BILLS_BILL_LINK_TEXT = "bills.bill_link_text"
+
+  const val TODO_PATH = "todo.path"
+  const val TODO_POSTMASTER_URL = "todo.postmaster_url"
 }

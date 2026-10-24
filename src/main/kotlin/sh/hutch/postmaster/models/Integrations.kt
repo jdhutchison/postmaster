@@ -47,7 +47,8 @@ data class PromptContext(
     val text: String? = null,
     val html: String? = null,
     val page: String? = null,
-    val events: List<PromptEvent> = emptyList()
+    val events: List<PromptEvent> = emptyList(),
+    val receivedAt: Instant? = null
 )
 
 /** A link in an HTML document. */

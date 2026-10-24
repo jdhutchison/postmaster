@@ -123,6 +123,18 @@ data class BillDetails(
     val downloadUrl: String?
 )
 
+/** Something an email asks the user to do (R5). [todoName] is its name in the to-do list, if it's there. */
+@TemplateData
+data class ActionItemView(
+    val id: Long,
+    val description: String,
+    val dueDate: LocalDate?,
+    val notes: String?,
+    val completed: Boolean,
+    val completedAt: Instant?,
+    val todoName: String?
+)
+
 /** An event found in an email. [calendarId] is its calendar, or the suggested one if it isn't added. */
 @TemplateData
 data class EventView(
@@ -201,6 +213,7 @@ data class EmailDetail(
     val responseRequired: Boolean,
     val actionRequired: Boolean,
     val actionDescription: String?,
+    val actionItems: List<ActionItemView>,
     val bill: BillDetails?,
     val events: List<EventView>,
     val attachments: List<AttachmentView>,

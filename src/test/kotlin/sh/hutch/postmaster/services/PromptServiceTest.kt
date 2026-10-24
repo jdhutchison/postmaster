@@ -64,11 +64,11 @@ class PromptServiceTest {
   }
 
   @Test
-  fun `the placeholders are the seven in the requirements plus the types table`() {
-    // REQ Editing or creating a prompt 4 (1-7); CLAR D19 ({{types}})
+  fun `the placeholders are the seven in the requirements plus the types table and received date`() {
+    // REQ Editing or creating a prompt 4 (1-7); CLAR D19 ({{types}}), R5 ({{received}})
     assertEquals(
         listOf(
-            "{{calendars}}", "{{events}}", "{{subject}}", "{{sender}}", "{{text}}", "{{html}}", "{{page}}",
+            "{{calendars}}", "{{events}}", "{{subject}}", "{{sender}}", "{{received}}", "{{text}}", "{{html}}", "{{page}}",
             "{{types}}"
         ),
         Placeholders.ALL.map { it.token }

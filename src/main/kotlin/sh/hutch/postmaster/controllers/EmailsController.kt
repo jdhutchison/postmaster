@@ -183,6 +183,16 @@ class EmailsController(private val emails: EmailService, private val types: Type
     done(id, emails.setActionRequired(id, required == "true", null, ActionSource.UI))
 
   @POST
+  @Path("/{id: \\d+}/action-items/{itemId: \\d+}/done")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Mark an action item done, and tick it off in the to-do list if it's there (HTMX)")
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "404", description = "No such email or action item")
+  @APIResponse(responseCode = "502", description = "The to-do list couldn't be updated; an error toast says why")
+  fun completeActionItem(@PathParam("id") id: Long, @PathParam("itemId") itemId: Long): Response =
+    done(id, emails.completeActionItem(id, itemId, ActionSource.UI))
+
+  @POST
   @Path("/{id: \\d+}/reprocess")
   @Produces(MediaType.TEXT_HTML)
   @Operation(summary = "Process an email again from its message in the mailbox (HTMX)")

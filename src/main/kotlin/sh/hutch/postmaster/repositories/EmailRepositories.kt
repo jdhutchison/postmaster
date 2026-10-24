@@ -3,6 +3,7 @@ package sh.hutch.postmaster.repositories
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
 import io.quarkus.panache.common.Page
 import jakarta.enterprise.context.ApplicationScoped
+import sh.hutch.postmaster.entities.EmailActionItemEntity
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
@@ -48,6 +49,13 @@ class EmailRuleMatchRepository : PanacheRepository<EmailRuleMatchEntity> {
 class EmailActionResultRepository : PanacheRepository<EmailActionResultEntity> {
   fun listForEmail(emailId: Long): List<EmailActionResultEntity> =
     list("email.id = ?1 order by executedAt, id", emailId)
+}
+
+@ApplicationScoped
+class EmailActionItemRepository : PanacheRepository<EmailActionItemEntity> {
+  /** Action items that are in the to-do list and not done yet, of active emails. */
+  fun listOpenInTodoList(): List<EmailActionItemEntity> =
+    list("completed = false and todoName is not null and email.deleted = false order by id")
 }
 
 @ApplicationScoped

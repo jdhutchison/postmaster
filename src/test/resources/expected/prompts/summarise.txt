@@ -1,11 +1,16 @@
-Analyse the text of this email to identify if there are any events (there may be zero, one or multiple) that can be added to a calendar, and if there is a link to a page then extract the link. Summarise the contents of the email message. Attempt to identify if a response is required. Also attempt to identify if the email asks or implies that the recipient needs to do something other than reply, such as complete or sign a form, make a booking or payment, provide information, or do something by a deadline. Return the details as JSON with this structure:
+Analyse the text of this email to identify if there are any events (there may be zero, one or multiple) that can be added to a calendar, and if there is a link to a page then extract the link. Summarise the contents of the email message. Attempt to identify if a response is required. Also attempt to identify if the email asks or implies that the recipient needs to do something other than reply, such as complete or sign a form, make a booking or payment, provide information, or do something by a deadline. List each separate thing to be done as its own action item. Return the details as JSON with this structure:
 
 {
   "summary": "<summary of email>",
   "link": "<url of link>",
   "response_required": <true|false>,
-  "action_required": <true|false>,
-  "action": "<short description of what needs to be done, including any deadline>",
+  "action_items": [
+    {
+      "action": "<short description of one thing that needs to be done, phrased as a task>",
+      "due": "<the deadline as a date, yyyy-mm-dd, if one is given or can be worked out from when the email was received, leave null otherwise>",
+      "notes": "<string> details from the email needed to do it"
+    }
+  ],
   "events": [
     {
       "title": "<title of your event>",
@@ -21,6 +26,7 @@ Analyse the text of this email to identify if there are any events (there may be
 
 Do not guess any details. Only the summary is mandatory; include the other fields only if values are detected. Report errors when processing email, if any.
 
+Received: {{received}}
 Sender: {{sender}}
 Subject: {{subject}}
 Contents: {{text}}

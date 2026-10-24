@@ -29,7 +29,8 @@ data class SettingGroup(val key: String, val label: String, val settings: List<S
         "attachments" to "Attachments",
         "events" to "Events",
         "fetch" to "Fetching pages",
-        "bills" to "Bills"
+        "bills" to "Bills",
+        "todo" to "To-do list"
     )
 
     /** [settings] grouped by key prefix, keeping their order. */

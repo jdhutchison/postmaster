@@ -8,6 +8,7 @@ import jakarta.enterprise.event.Observes
 import org.jboss.logging.Logger
 import sh.hutch.postmaster.entities.CalendarEntity
 import sh.hutch.postmaster.entities.ConditionEntity
+import sh.hutch.postmaster.entities.EmailActionItemEntity
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
@@ -35,6 +36,8 @@ import sh.hutch.postmaster.repositories.RuleRepository
 import sh.hutch.postmaster.repositories.TypeRepository
 import sh.hutch.postmaster.services.SettingKeys
 import sh.hutch.postmaster.services.SettingsService
+import sh.hutch.postmaster.services.TodoList
+import sh.hutch.postmaster.services.TodoListService
 import sh.hutch.postmaster.util.Times
 import java.awt.Color
 import java.awt.Font
@@ -43,12 +46,14 @@ import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import javax.imageio.ImageIO
 import kotlin.random.Random
@@ -68,7 +73,8 @@ class DevData(
     private val calendars: CalendarRepository,
     private val rules: RuleRepository,
     private val emails: EmailRepository,
-    private val runs: ProcessingRunRepository
+    private val runs: ProcessingRunRepository,
+    private val todos: TodoListService
 ) {
   private val random = Random(42)
   private val now = Times.now()
@@ -80,12 +86,16 @@ class DevData(
     writeKhalConfig(khalConfig, root.resolve("calendars"))
     settings.update(SettingKeys.ATTACHMENTS_PATH, attachments.toString())
     settings.update(SettingKeys.ATTACHMENTS_EXTENSIONS, "pdf, png, txt")
+    val todo = root.resolve("todo")
+    settings.update(SettingKeys.TODO_PATH, todo.toString())
+    settings.update(SettingKeys.TODO_POSTMASTER_URL, "http://localhost:8080/mail")
     QuarkusTransaction.requiringNew().run {
       if (emails.count() == 0L) {
+        writeTodoIndex(todo)
         seed(attachments)
       }
     }
-    LOG.infof("Dev data: %d emails, khal config %s, attachments in %s", emails.count(), khalConfig, attachments)
+    LOG.infof("Dev data: %d emails, khal config %s, attachments in %s, to-do list in %s", emails.count(), khalConfig, attachments, todo)
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -135,6 +145,9 @@ class DevData(
     val forwardPayslips = rule(RuleType.ACTION, "Forward payslips", "Send payslips to the accountant", 0,
         listOf(cond(ConditionAttribute.TYPE, MatchType.IS, payslip.name)),
         listOf(act(ActionTypes.FORWARD_EMAIL, destination = "accounts@example.test")))
+    val todoRule = rule(RuleType.ACTION, "To-do list", "Put what school and eBay email asks for on the to-do list", 5,
+        listOf(cond(ConditionAttribute.TYPE, MatchType.REGEX, "school$|^Ebay$")),
+        listOf(act(ActionTypes.UPDATE_TODO_LIST)))
     rule(RuleType.ACTION, "Archive statements", "File statement notifications", 0,
         listOf(cond(ConditionAttribute.TYPE, MatchType.IS, statement.name)),
         listOf(act(ActionTypes.MARK_READ), act(ActionTypes.MOVE, destination = "Archive")))
@@ -188,7 +201,15 @@ class DevData(
           summary = text, read = i % 2 == 0, link = if (i == 0) "https://brunswicksouthps.example/excursion" else null
       ) { e ->
         e.responseRequired = isHigh || i == 1
-        e.flagActionRequired(i == 0 || i == 4, if (i == 0) "Sign and return the permission form by Friday" else if (i == 4) "Pay \$420 for camp by the 30th" else null)
+        when (i) {
+          0 -> {
+            todo(e, e.addActionItem("Sign and return the zoo excursion permission form", friday(e),
+                "The permission form is attached. The excursion costs \$35; bring a hat, water bottle and lunch."))
+            e.addActionItem("Pay \$35 for the zoo excursion", friday(e), "Pay through the school app.")
+                ?.let { e.completeActionItem(it) }
+          }
+          4 -> todo(e, e.addActionItem("Pay \$420 for Year 8 camp", LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1).plusMonths(1).minusDays(1)))
+        }
         val added = i != 3
         event(e, title, null, start, school, added = added, location = if (i == 0) "Melbourne Zoo" else "School hall")
         if (i == 0) {
@@ -203,6 +224,7 @@ class DevData(
         if (added) {
           matched(e, schoolEvents, 1, ActionTypes.CREATE_EVENTS to "Added $title (Kids school)", ActionTypes.MARK_READ to "Marked read")
         }
+        e.actionItems.firstOrNull()?.todoName?.let { matched(e, todoRule, 2, ActionTypes.UPDATE_TODO_LIST to "Added to the to-do list: $it") }
       }
     }
 
@@ -234,7 +256,9 @@ class DevData(
     email("Item sold: vintage turntable", "eBay", "ebay@ebay.example", hoursAgo = 8, type = ebay,
         text = "Congratulations, your item sold for \$240. Please post it within 3 business days.",
         summary = "The vintage turntable sold for \$240 and needs posting within 3 business days.") { e ->
-      e.flagActionRequired(true, "Post the turntable within 3 business days")
+      todo(e, e.addActionItem("Post the turntable", e.receivedAt!!.atZone(ZoneOffset.UTC).toLocalDate().plusDays(3),
+          "It sold for \$240. Post it within 3 business days of the sale."))
+      matched(e, todoRule, 0, ActionTypes.UPDATE_TODO_LIST to "Added to the to-do list: Post the turntable")
     }
 
     // Unclassified, skipped, failed and pending email
@@ -389,6 +413,27 @@ class DevData(
     emails.persist(email)
     details(email)
   }
+
+  /** A to-do list with just its heading and the line that items go above. */
+  private fun writeTodoIndex(todo: Path) {
+    if (Files.isDirectory(todo)) {
+      Files.list(todo).use { files -> files.filter { it.fileName.toString().endsWith(".md") }.forEach(Files::delete) }
+    }
+    Files.createDirectories(todo)
+    Files.writeString(todo.resolve(TodoList.INDEX), "# To-do\n\n<!-- todo-items:start -->\n${TodoList.END_MARKER}\n")
+  }
+
+  /** Writes [item] to the to-do list, as update_todo_list would. */
+  private fun todo(email: EmailEntity, item: EmailActionItemEntity?) {
+    if (item != null) {
+      emails.flush()
+      todos.add(email, item)
+    }
+  }
+
+  /** The Friday after the email was received. */
+  private fun friday(email: EmailEntity): LocalDate =
+    email.receivedAt!!.atZone(ZoneOffset.UTC).toLocalDate().with(TemporalAdjusters.next(DayOfWeek.FRIDAY))
 
   private fun matched(email: EmailEntity, rule: RuleEntity, position: Int, vararg results: Pair<String, String>) {
     email.ruleMatches.add(EmailRuleMatchEntity().also {

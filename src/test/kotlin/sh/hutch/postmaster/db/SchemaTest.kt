@@ -318,6 +318,11 @@ class SchemaTest {
         "Email_rule_matches" to setOf("id", "email_id", "rule_id"),
         // CLAR D7: the actions each matching rule triggered (REQ Viewing an individual email 5, 6)
         "Email_action_results" to setOf("id", "email_id", "rule_id", "action_type"),
+        // CLAR R5: what each email asks the user to do, and its place in the to-do list
+        "Email_action_items" to setOf(
+            "id", "email_id", "position", "description", "due_date", "notes", "completed", "completed_at",
+            "todo_name", "todo_created_at", "created_at", "last_updated_at"
+        ),
         // CLAR D7: processing errors (REQ Emails errors)
         "Email_errors" to setOf("id", "email_id", "message"),
         // PLAN 1.1, 5.6: each processing run is recorded

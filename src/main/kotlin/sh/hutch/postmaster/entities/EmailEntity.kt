@@ -16,6 +16,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.services.MessageIds
+import sh.hutch.postmaster.util.Times
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -100,11 +101,15 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   @Column(name = "response_required", nullable = false)
   var responseRequired: Boolean = false
 
-  /** True when the text implies the user needs to do something; never true for bills (Q13). */
+  /**
+   * True when the email has action items that aren't done; never true for bills (Q13). Kept in step
+   * with [actionItems].
+   */
   @Column(name = "action_required", nullable = false)
   var actionRequired: Boolean = false
     protected set
 
+  /** The open action items' descriptions, separated by "; ". Kept in step with [actionItems]. */
   @Column(name = "action_description")
   var actionDescription: String? = null
     protected set
@@ -148,38 +153,79 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   var actionResults: MutableList<EmailActionResultEntity> = mutableListOf()
 
   @OneToMany(mappedBy = "email", cascade = [CascadeType.ALL], orphanRemoval = true)
+  @OrderBy("position ASC, id ASC")
+  var actionItems: MutableList<EmailActionItemEntity> = mutableListOf()
+
+  @OneToMany(mappedBy = "email", cascade = [CascadeType.ALL], orphanRemoval = true)
   @OrderBy("createdAt ASC, id ASC")
   var errors: MutableList<EmailErrorEntity> = mutableListOf()
 
-  /** Sets the type. Setting it to Bill clears the action required flag (Q13). */
+  /** Sets the type. Setting it to Bill drops the action items (Q13). */
   fun assignType(newType: TypeEntity?) {
     type = newType
     if (newType?.isBill == true) {
-      clearActionRequired()
+      dropActionItems()
+    } else {
+      syncActionRequired()
     }
+  }
+
+  /** The action items that aren't done yet. */
+  fun openActionItems(): List<EmailActionItemEntity> = actionItems.filter { !it.completed }
+
+  /**
+   * Adds something the email asks the user to do (CLARIFICATIONS.md R5) and returns it. Nothing is
+   * added for bills (Q13), or when an item with the same description is already there, as it is
+   * when an email is reprocessed.
+   */
+  fun addActionItem(description: String, dueDate: LocalDate? = null, notes: String? = null): EmailActionItemEntity? {
+    val text = description.trim().take(MAX_DESCRIPTION)
+    if (type?.isBill == true || text.isEmpty() || actionItems.any { it.description.equals(text, ignoreCase = true) }) {
+      return null
+    }
+    val item = EmailActionItemEntity().also {
+      it.email = this
+      it.position = (actionItems.maxOfOrNull { existing -> existing.position } ?: -1) + 1
+      it.description = text
+      it.dueDate = dueDate
+      it.notes = notes?.trim()?.ifEmpty { null }
+    }
+    actionItems.add(item)
+    syncActionRequired()
+    return item
+  }
+
+  /** Marks [item] done. */
+  fun completeActionItem(item: EmailActionItemEntity) {
+    if (!item.completed) {
+      item.completed = true
+      item.completedAt = Times.now()
+    }
+    syncActionRequired()
   }
 
   /**
-   * Records whether the email's text implies the user needs to do something. Ignored for bills,
-   * whose action required flag is always false (Q13).
+   * Removes the action items that aren't in the to-do list: before the email is processed again, and
+   * when it becomes a bill. Items in the to-do list stay, so they're never written there twice.
    */
-  fun flagActionRequired(required: Boolean, description: String?) {
-    if (type?.isBill == true) {
-      clearActionRequired()
-      return
-    }
-    actionRequired = required
-    actionDescription = if (required) description else null
+  fun dropActionItems() {
+    actionItems.removeIf { it.todoName == null }
+    syncActionRequired()
   }
 
-  fun clearActionRequired() {
-    actionRequired = false
-    actionDescription = null
+  private fun syncActionRequired() {
+    val open = if (type?.isBill == true) emptyList() else openActionItems()
+    actionRequired = open.isNotEmpty()
+    actionDescription = open.joinToString("; ") { it.description }.ifEmpty { null }
   }
 
   @PrePersist
   @PreUpdate
   fun syncMessageHash() {
     messageHash = MessageIds.hash(messageId)
+  }
+
+  companion object {
+    const val MAX_DESCRIPTION = 500
   }
 }

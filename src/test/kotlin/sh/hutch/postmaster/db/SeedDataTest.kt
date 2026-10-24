@@ -97,7 +97,8 @@ class SeedDataTest {
   @Test
   fun `the Summarise prompt is the revised prompt in R1`() {
     // CLAR Q13 revision and R1: the Summarise prompt also identifies required
-    // action, and D19 adds the email placeholders and fixes the JSON
+    // action, and D19 adds the email placeholders and fixes the JSON. R5 asks
+    // for a list of action items and adds the received date.
     val expected = SeedDataTest::class.java.getResource("/expected/prompts/summarise.txt")!!.readText().trimEnd()
 
     assertEquals(expected, prompt("summarise").trimEnd())
@@ -271,6 +272,9 @@ class SeedDataTest {
     assertSetting("fetch.timeout", "duration")
     assertSetting("bills.pay_link_text", "list")
     assertSetting("bills.bill_link_text", "list")
+    // CLAR R5: the to-do list
+    assertSetting("todo.path", "path")
+    assertSetting("todo.postmaster_url", "text")
   }
 
   @Test
@@ -377,7 +381,7 @@ class SeedDataTest {
   companion object {
     private val HEX_COLOUR = Regex("^#[0-9a-fA-F]{6}$")
     private val PLACEHOLDER = Regex("\\{\\{\\s*([a-z_]+)\\s*}}")
-    private val PLACEHOLDERS = setOf("calendars", "events", "subject", "sender", "text", "html", "page", "types")
+    private val PLACEHOLDERS = setOf("calendars", "events", "subject", "sender", "received", "text", "html", "page", "types")
     private val DURATION = Regex(
         "^(P(\\d+W)?(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(\\.\\d+)?S)?)?|(\\d+[wdhms])+)$",
         RegexOption.IGNORE_CASE

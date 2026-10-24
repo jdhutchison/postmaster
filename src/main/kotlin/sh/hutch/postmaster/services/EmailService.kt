@@ -14,6 +14,7 @@ import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailErrorEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
+import sh.hutch.postmaster.models.ActionItemView
 import sh.hutch.postmaster.models.ActionResultStatus
 import sh.hutch.postmaster.models.ActionResultView
 import sh.hutch.postmaster.models.ActionSource
@@ -60,7 +61,8 @@ class EmailService(
     private val settings: SettingsService,
     private val store: AttachmentStore,
     private val processing: ProcessingService,
-    private val registry: ActionRegistry
+    private val registry: ActionRegistry,
+    private val todos: TodoListService
 ) {
 
   /**
@@ -161,6 +163,9 @@ class EmailService(
         responseRequired = email.responseRequired,
         actionRequired = email.actionRequired,
         actionDescription = email.actionDescription,
+        actionItems = email.actionItems.map {
+          ActionItemView(it.id!!, it.description, it.dueDate, it.notes, it.completed, it.completedAt, it.todoName)
+        },
         bill = bill,
         events = email.events.map { view(it) },
         attachments = email.attachments.map { view(it) },
@@ -249,7 +254,11 @@ class EmailService(
     }
   }
 
-  /** Sets or clears action required. Bills never need action (Q13), so setting it on one fails. */
+  /**
+   * Sets action required by adding an action item ([description], unless the email already has an
+   * open item and no description is given), or clears it by marking every open item done, ticking
+   * them off in the to-do list too. Bills never need action (Q13), so setting it on one fails.
+   */
   @Transactional
   fun setActionRequired(id: Long, required: Boolean, description: String?, source: ActionSource): ManualResult {
     val email = get(id)
@@ -258,11 +267,33 @@ class EmailService(
         throw IllegalStateException("Bills never need action; they're handled by process_bill")
       }
       if (required) {
-        email.flagActionRequired(true, description?.trim()?.ifEmpty { null } ?: email.actionDescription)
+        val text = description?.trim()?.ifEmpty { null }
+        if (text != null || email.openActionItems().isEmpty()) {
+          email.addActionItem(text ?: ProcessingService.DEFAULT_ACTION)
+        }
+        "Action required"
       } else {
-        email.clearActionRequired()
+        for (item in email.openActionItems()) {
+          todos.complete(item)
+          email.completeActionItem(item)
+        }
+        "Action no longer required"
       }
-      if (required) "Action required" else "Action no longer required"
+    }
+  }
+
+  /** Marks one of the email's action items done, and ticks it off in the to-do list if it's there (R5). */
+  @Transactional
+  fun completeActionItem(emailId: Long, itemId: Long, source: ActionSource): ManualResult {
+    val email = get(emailId)
+    val item = email.actionItems.firstOrNull { it.id == itemId } ?: throw NotFoundException("Action item $itemId not found")
+    return manual(email, COMPLETE_ACTION_ITEM, source) {
+      if (item.completed) {
+        return@manual "'${item.description}' is already done"
+      }
+      todos.complete(item)
+      email.completeActionItem(item)
+      if (item.todoName == null) "Done: ${item.description}" else "Done: ${item.description}, and ticked off in the to-do list"
     }
   }
 
@@ -436,6 +467,7 @@ class EmailService(
 
     const val SET_RESPONSE_REQUIRED = "set_response_required"
     const val SET_ACTION_REQUIRED = "set_action_required"
+    const val COMPLETE_ACTION_ITEM = "complete_action_item"
     const val CHANGE_EVENT_CALENDAR = "change_event_calendar"
 
     private const val MAX_DETAIL = 4000

@@ -47,10 +47,10 @@ class SettingsServiceTest {
 
   @Test
   fun `lists every setting in display order`() {
-    // CLAR D9: the set of settings is fixed and seeded
+    // CLAR D9: the set of settings is fixed and seeded; R5 adds the two to-do list settings
     val list = settings.list()
 
-    assertEquals(28, list.size)
+    assertEquals(30, list.size)
     assertEquals(list.sortedBy { it.position }, list)
     assertEquals("processing.frequency", list.first().key)
   }

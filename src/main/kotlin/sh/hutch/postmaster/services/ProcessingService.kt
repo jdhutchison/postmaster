@@ -1,5 +1,6 @@
 package sh.hutch.postmaster.services
 
+import com.fasterxml.jackson.databind.JsonNode
 import io.quarkus.narayana.jta.QuarkusTransaction
 import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
@@ -31,6 +32,8 @@ import sh.hutch.postmaster.repositories.TypeRepository
 import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 import java.time.Duration
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -52,6 +55,7 @@ class ProcessingService(
     private val llm: LlmClient,
     private val prompts: PromptRenderer,
     private val events: EventFinder,
+    private val todos: TodoListService,
     private val workers: ManagedExecutor
 ) {
   private val running = AtomicBoolean(false)
@@ -127,6 +131,14 @@ class ProcessingService(
     var processed = 0
     var failed = 0
     var error: String? = null
+    try {
+      val done = todos.syncCompleted()
+      if (done > 0) {
+        LOG.infof("%d action item(s) were ticked off in the to-do list", done)
+      }
+    } catch (e: Exception) {
+      LOG.warn("Checking the to-do list failed", e)
+    }
     try {
       val since = Times.now().minus(settings.getDuration(SettingKeys.PROCESSING_LOOKBACK))
       val listed = mailbox.listInbox(since)
@@ -288,16 +300,42 @@ class ProcessingService(
       if (answer.path("response_required").asBoolean(false)) {
         email.responseRequired = true
       }
-      email.flagActionRequired(
-          answer.path("action_required").asBoolean(false),
-          answer.path("action").asText("").trim().ifEmpty { null }
-      )
+      addActionItems(context, answer)
       if (email.events.isEmpty()) {
         events.addEvents(context, answer.path("events"))
       }
       answer.path("errors").forEach { context.addError(ErrorPhase.LLM, "summarise: ${it.asText()}") }
     } catch (e: LlmException) {
       context.addError(ErrorPhase.LLM, "summarise: ${e.message}")
+    }
+  }
+
+  /**
+   * The action items in the LLM's answer: `action_items`, each with an `action`, an optional `due`
+   * date and `notes` (R5). An edited prompt may still give the single `action_required` and `action`
+   * instead, which becomes one item.
+   */
+  private fun addActionItems(context: ProcessingContext, answer: JsonNode) {
+    val email = context.email
+    val items = answer.path("action_items")
+    if (items.isArray) {
+      for (item in items) {
+        val description = (if (item.isTextual) item.asText() else item.path("action").asText("")).trim()
+        if (description.isEmpty()) {
+          continue
+        }
+        val due = item.path("due").asText("").trim().takeIf { it.isNotEmpty() && it != "null" }?.let { text ->
+          try {
+            LocalDate.parse(text.take(10))
+          } catch (e: DateTimeParseException) {
+            context.addError(ErrorPhase.LLM, "summarise: '$text' isn't a date (yyyy-mm-dd) for '$description'")
+            null
+          }
+        }
+        email.addActionItem(description, due, item.path("notes").asText("").trim().takeIf { it != "null" })
+      }
+    } else if (answer.path("action_required").asBoolean(false)) {
+      email.addActionItem(answer.path("action").asText("").trim().ifEmpty { DEFAULT_ACTION })
     }
   }
 
@@ -313,7 +351,7 @@ class ProcessingService(
 
   private fun finish(email: EmailEntity, status: EmailStatus) {
     if (email.type?.isBill == true) {
-      email.clearActionRequired()
+      email.dropActionItems()
     }
     email.status = status
     email.processedAt = Times.now()
@@ -366,7 +404,7 @@ class ProcessingService(
     email.billPayLink = null
     email.billDownloadUrl = null
     email.responseRequired = false
-    email.clearActionRequired()
+    email.dropActionItems()
     email.status = EmailStatus.PENDING
   }
 
@@ -385,6 +423,9 @@ class ProcessingService(
     private val LOG = Logger.getLogger(ProcessingService::class.java)
     private const val NO_CLASSIFICATION = "NO CLASSIFICATION"
     private const val TRANSACTION_TIMEOUT = 1800
+
+    /** An action item's description when the LLM said action is needed but not what. */
+    const val DEFAULT_ACTION = "The email asks you to do something."
 
     /** Classification rule actions that need the LLM's summary, so they run after it (CLARIFICATIONS.md Q12). */
     private val AFTER_SUMMARY = setOf(ActionTypes.FETCH_LINK_CONTENTS, ActionTypes.CHECK_FOR_EVENTS)

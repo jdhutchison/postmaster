@@ -373,6 +373,22 @@ After comparing the two, you chose Water.css for light and dark mode.
 - **Favicon:** the envelope on the accent blue, light or dark to match the device.
 - **Unchanged:** the seeded type colours (from Dracula) stay, because they're data you can change on the Types page.
 
+**R5 (2026-10-25). Action items and the `update_todo_list` action (your new requirement).**
+An email can ask for several things to be done, and a new action writes them to a markdown to-do list.
+- **Action items.** You chose a list over the single action an email had before.
+  - The `summarise` prompt asks for `action_items`, each with an `action`, an optional `due` date (`yyyy-mm-dd`) and `notes`. It also gets the new `{{received}}` placeholder (e.g. "Sunday 25 October 2026, 14:03", in `processing.timezone`), so deadlines like "in three days" can be worked out.
+  - Migration V5 changes the seeded prompt only where its text still matches. A prompt that answers with the old `action_required` and `action` still works: the action becomes one item.
+  - Items are stored in `Email_action_items`. `Emails.action_required` and `action_description` stay, kept in step with the items that aren't done, so filters, the dashboard and MCP work as before.
+  - Bills never have action items (Q13). Reprocessing drops the items that aren't in the to-do list and doesn't add an item twice.
+- **The to-do list.** Two new settings, in a "To-do list" group: `todo.path`, the folder (default `/data/todo`), and `todo.postmaster_url`, the address of these pages for links back to the email (empty for no links).
+- **`update_todo_list`** writes each open item that isn't in the list yet:
+  - **The item's file** is named after it, e.g. `Post turntable in three days.md`. Characters that can't be in a file name or a `[[link]]` are replaced, and the name is numbered if it's taken.
+  - **Its front matter** is `todo-item: true`, `tags: [todo-item]`, `created` (local time when it was written, `yyyy-MM-ddTHH:mm:ss`) and `completed: false`, with `due: yyyy-mm-dd` as the second-last line when there's a due date.
+  - **Below the front matter** come the item's notes (or the email's summary), the email's subject and sender, and a link to the email here.
+  - **`index.md`** gets `- [ ] [[name]] #todo-item` just above its `<!-- todo-items:end -->` line. A missing `index.md` is created. One without that line fails the action, and no file is written.
+- **Done** next to an item on the email page (or MCP `complete_action_item`) marks it done here, ticks it in `index.md` (`- [x]`) and sets `completed: true` in its file. If the files can't be written, nothing changes and an error says why. Clearing action required (`set_action_required` false) does this for every open item.
+- **Each processing run** first checks the to-do list. Items ticked in `index.md`, or with `completed: true` in their file, are marked done here.
+
 ---
 
 ## Technical suggestions

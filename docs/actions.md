@@ -6,7 +6,7 @@ Rules trigger actions. Each action type is an `ActionHandler` bean in the `actio
 
 | Action | Stage (order) | What it does |
 |---|---|---|
-| `set_type` | record | Sets the email's type. Setting Bill clears action required. |
+| `set_type` | record | Sets the email's type. Setting Bill drops the action items. |
 | `set_reply_needed` | record | Sets response required. |
 | `skip_processing` | record | Stops processing; queued actions are recorded as skipped and the email's status is `skipped`. |
 | `fetch_link_contents` | gather (10) | Fetches the email's link with headless Chromium, stores its text and the LLM's summary of it. |
@@ -14,12 +14,45 @@ Rules trigger actions. Each action type is an `ActionHandler` bean in the `actio
 | `download_attachments` | gather (30) | Saves the attachments of interest under `attachments.path`, for download from the UI. |
 | `create_events` | gather (40) | Adds the email's events to the action's calendar (or the suggested one, or one the LLM picks), with the action's notifications or the calendar's. |
 | `process_bill` | gather (50) | For Bill emails: finds the biller, amount, due date and links, adds a reminder the day before it's due, and saves the bill. |
+| `update_todo_list` | gather (60) | Writes the email's open action items to the markdown to-do list in `todo.path`: a file per item and a task in `index.md` (see below). |
 | `forward_email` | forward | Forwards the email with its attachments to the action's address. |
 | `mark_read`, `mark_unread` | read state | Sets or clears `\Seen` in the mailbox. |
 | `move` | move (0) | Moves the message to the action's folder. |
 | `delete` | move (1) | Moves the message to `imap.trash_folder`. |
 
 Stages run in the order shown. Within a stage, handlers run by `order`, then by rule priority. In the read-state and move stages, only the highest-priority rule's action runs; the others are recorded as conflicts (CLARIFICATIONS.md Q12).
+
+## Action items and the to-do list
+
+The LLM's summary lists what an email asks the user to do as action items, each with an optional due date and notes (CLARIFICATIONS.md R5). The email page shows each item with a **Done** button.
+
+`update_todo_list` writes each open item that isn't in the to-do list yet to the `todo.path` folder:
+
+```markdown
+---
+todo-item: true
+tags:
+  - todo-item
+created: 2026-10-25T14:03:12
+completed: false
+due: 2026-10-28
+---
+
+Sold for $240; use the prepaid label
+
+Email: Item sold from eBay
+
+[Open the email in Postmaster](http://tigerbear:8080/mail/emails/42)
+```
+
+The file is named after the item, e.g. `Post turntable in three days.md`. `due` is there only when the item has a due date, and the link only when `todo.postmaster_url` is set. `index.md` gets the task just above its end line:
+
+```markdown
+- [ ] [[Post turntable in three days]] #todo-item
+<!-- todo-items:end -->
+```
+
+Done ticks the task (`- [x]`) and sets `completed: true` in the item's file. Each processing run starts by marking done here the items ticked off there, in `index.md` or in their file.
 
 ## Adding an action type
 

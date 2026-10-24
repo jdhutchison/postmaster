@@ -111,7 +111,8 @@ class EventFinder(
           sender = listOfNotNull(email.senderName, email.sender?.let { "<$it>" }).joinToString(" "),
           text = email.message,
           html = email.htmlMessage,
-          page = null
+          page = null,
+          receivedAt = email.receivedAt
       )
   }
 }

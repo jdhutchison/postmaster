@@ -196,7 +196,8 @@ object RuleOptions {
       ActionTypes.MARK_UNREAD to "Mark unread",
       ActionTypes.PROCESS_BILL to "Process bill",
       ActionTypes.FORWARD_EMAIL to "Forward email",
-      ActionTypes.DELETE to "Delete"
+      ActionTypes.DELETE to "Delete",
+      ActionTypes.UPDATE_TODO_LIST to "Update to-do list"
   )
 
   val ACTION_TYPES: List<Option> = ActionTypes.BUILT_IN.map { Option(it, ACTION_LABELS[it] ?: it) }

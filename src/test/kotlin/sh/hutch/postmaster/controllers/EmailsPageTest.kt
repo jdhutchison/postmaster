@@ -121,7 +121,7 @@ class EmailsPageTest : PipelineTest() {
 
     assertEquals("From school", page.testId("page-title").text())
     assertEquals("Sender <sender@example.test>", page.testId("email-from").text())
-    assertTrue(page.testId("email-action-required").text().contains("Sign the form"))
+    assertEquals("Sign the form", page.select("[data-testid=action-item-description]").text())
     assertEquals("School news", page.testId("email-summary").text())
     val full = page.testId("full-message")
     assertEquals("details", full.tagName())

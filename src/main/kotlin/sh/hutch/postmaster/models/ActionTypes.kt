@@ -18,10 +18,11 @@ object ActionTypes {
   const val PROCESS_BILL = "process_bill"
   const val FORWARD_EMAIL = "forward_email"
   const val DELETE = "delete"
+  const val UPDATE_TODO_LIST = "update_todo_list"
 
-  /** All built-in action types, in the order the requirements list them. */
+  /** All built-in action types, in the order the requirements list them, then later additions (R5). */
   val BUILT_IN: List<String> = listOf(
       SET_TYPE, MOVE, CHECK_FOR_EVENTS, DOWNLOAD_ATTACHMENTS, SET_REPLY_NEEDED, FETCH_LINK_CONTENTS,
-      CREATE_EVENTS, SKIP_PROCESSING, MARK_READ, MARK_UNREAD, PROCESS_BILL, FORWARD_EMAIL, DELETE
+      CREATE_EVENTS, SKIP_PROCESSING, MARK_READ, MARK_UNREAD, PROCESS_BILL, FORWARD_EMAIL, DELETE, UPDATE_TODO_LIST
   )
 }

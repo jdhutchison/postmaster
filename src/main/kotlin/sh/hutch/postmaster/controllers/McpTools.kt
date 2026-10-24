@@ -5,6 +5,7 @@ import io.quarkiverse.mcp.server.ToolArg
 import io.quarkiverse.mcp.server.ToolCallException
 import io.quarkus.runtime.annotations.RegisterForReflection
 import jakarta.ws.rs.NotFoundException
+import sh.hutch.postmaster.models.ActionItemView
 import sh.hutch.postmaster.models.ActionResultView
 import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.AttachmentView
@@ -38,7 +39,7 @@ import java.time.format.DateTimeParseException
     targets = [
       McpTools.SearchResult::class, McpTools.TypeInfo::class, McpTools.Types::class, McpTools.Folders::class,
       McpTools.Calendars::class, EmailRow::class, EmailDetail::class, BillDetails::class, EventView::class,
-      AttachmentView::class, ActionResultView::class, RuleResults::class, ErrorView::class, CalendarOption::class
+      AttachmentView::class, ActionItemView::class, ActionResultView::class, RuleResults::class, ErrorView::class, CalendarOption::class
     ]
 )
 class McpTools(
@@ -147,13 +148,24 @@ class McpTools(
 
   @Tool(
       name = "set_action_required",
-      description = "Sets or clears whether an email needs action (other than a reply). Bills never need action."
+      description = "Sets or clears whether an email needs action (other than a reply). Setting it adds an action item " +
+          "(the description); clearing it marks all the email's action items done, in the to-do list too. Bills never need action."
   )
   fun setActionRequired(
       @ToolArg(description = "The email's id") id: Long,
       @ToolArg(description = "true if action is needed, false once it's done") required: Boolean,
       @ToolArg(description = "What needs doing, when setting it", required = false) description: String?
   ): String = done { emails.setActionRequired(id, required, description, ActionSource.MCP) }
+
+  @Tool(
+      name = "complete_action_item",
+      description = "Marks one of an email's action items done (see actionItems in get_email), and ticks it off in the " +
+          "to-do list if it's there."
+  )
+  fun completeActionItem(
+      @ToolArg(name = "email_id", description = "The email's id") emailId: Long,
+      @ToolArg(name = "item_id", description = "The action item's id, from get_email") itemId: Long
+  ): String = done { emails.completeActionItem(emailId, itemId, ActionSource.MCP) }
 
   @Tool(
       name = "set_event_calendar",

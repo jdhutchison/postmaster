@@ -14,6 +14,7 @@ import sh.hutch.postmaster.models.PromptContext
 import sh.hutch.postmaster.models.PromptEvent
 import sh.hutch.postmaster.repositories.PromptRepository
 import sh.hutch.postmaster.testsupport.IntegrationProfile
+import java.time.Instant
 
 /**
  * Filling in prompt placeholders (REQ Editing or creating a prompt 4 and the
@@ -38,7 +39,8 @@ class PromptRendererTest {
       text = "Grade 3 are going to the zoo.",
       html = "<p>Grade 3</p>",
       page = "<h1>Newsletter</h1>",
-      events = listOf(PromptEvent(7, "Zoo excursion", "2026-11-05T09:00", "Melbourne Zoo", null))
+      events = listOf(PromptEvent(7, "Zoo excursion", "2026-11-05T09:00", "Melbourne Zoo", null)),
+      receivedAt = Instant.parse("2026-10-25T03:00:00Z")
   )
 
   @Test
@@ -50,6 +52,8 @@ class PromptRendererTest {
     assertTrue(rendered.contains("Sender: office@brunswicksouth.example"))
     assertTrue(rendered.contains("Subject: Zoo excursion"))
     assertTrue(rendered.contains("Contents: Grade 3 are going to the zoo."))
+    // CLAR R5: in the processing timezone, Australia/Melbourne
+    assertTrue(rendered.contains("Received: Sunday 25 October 2026, 14:00"), rendered)
     assertFalse(rendered.contains("{{"), "no placeholders left")
     assertTrue(rendered.contains("\"response_required\": <true|false>"), "JSON braces untouched")
     assertTrue(rendered.contains("  \"events\": [\n    {\n"))

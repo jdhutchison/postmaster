@@ -85,7 +85,7 @@ Portability decisions (D20):
 | `Email_action_results.source` | `rule`, `ui`, `mcp` |
 | `Email_action_results.status` | `done`, `skipped`, `failed` |
 | `Rules.rule_type` and `Email_rule_matches.rule_type` | `classification`, `action` |
-| `Rule_actions.action_type` | the requirement strings exactly: `set_type`, `move`, `check_for_events`, `download_attachments`, `set_reply_needed`, `fetch_link_contents`, `create_events`, `skip_processing`, `mark_read`, `mark_unread`, `process_bill`, `forward_email`, `delete` |
+| `Rule_actions.action_type` | the requirement strings exactly: `set_type`, `move`, `check_for_events`, `download_attachments`, `set_reply_needed`, `fetch_link_contents`, `create_events`, `skip_processing`, `mark_read`, `mark_unread`, `process_bill`, `forward_email`, `delete`, and `update_todo_list` (R5) |
 | `Conditions.attribute` | `subject`, `sender`, `message`, `events`, `attachments`, `bill_url`, `type`, `link` |
 | `Conditions.match_type` | `is`, `contains`, `starts_with`, `regex`, `has`, `is_present` |
 | `Conditions.test` | NULL for `has` and `is_present` (Q10), otherwise the text to match |
@@ -146,7 +146,7 @@ Each type has a colour, `#rrggbb` lower-case hex.
 | `bill_details` | Checking for the bill details | sender, subject, html |
 | `identify_events` | Identifying events | sender, subject, text |
 
-The `summarise` prompt asks for the `action_required` and `action` JSON fields (R1).
+The `summarise` prompt asks for `action_items`, each with `action`, `due` and `notes` (R5; it asked for `action_required` and `action` in R1), and uses `{{received}}`, the received time in `processing.timezone`.
 
 **Settings** (`V2`): 28 rows, `position` in this order.
 
@@ -233,10 +233,11 @@ Property names are the camelCase form of the columns.
 - `createdAt` and `lastUpdatedAt` are set automatically on insert and update, in `AuditedEntity`. `id` is in `BaseEntity`.
 - **Time binding.** `Instant` fields are mapped with `@JdbcTypeCode(SqlTypes.TIMESTAMP)` and the UTC JDBC zone, so columns hold UTC wall time on both databases whatever the JVM zone. `Email_events` `startsAt`/`endsAt` (`LocalDateTime`) and `Emails.billDueDate` (`LocalDate`) use `SqlTypes.LOCAL_DATE_TIME`/`LOCAL_DATE`, bound with `setObject`, so no zone shift. Timestamps are truncated to microseconds (`sh.hutch.postmaster.util.Times.now()`).
 - `TypeEntity.BILL_KEY` is `"bill"`. `TypeEntity` has `isSystem` and `isBill`; `PromptEntity` has `isSystem`.
-- **`EmailEntity` enforces Q13.** `type`, `actionRequired` and `actionDescription` have protected setters. Change them only through these methods:
+- **`EmailEntity` enforces Q13 and R5.** `type`, `actionRequired` and `actionDescription` have protected setters; the last two follow the action items (`actionItems`, `Email_action_items`) that aren't done. Change them only through these methods:
   - `assignType(type)`: setting a Bill type clears the action flag
-  - `flagActionRequired(required, description)`: ignored for bills, and `description` is kept only when `required`
-  - `clearActionRequired()`
+  - `addActionItem(description, dueDate?, notes?)`: returns the new item; nothing for bills, or when an item with the same description (ignoring case) exists
+  - `completeActionItem(item)`
+  - `dropActionItems()`: removes the items that aren't in the to-do list (`todoName` null); used before reprocessing and when the type becomes Bill
 - `EmailEntity.messageHash` is recomputed from `messageId` on insert and update.
 
 ### Repositories (`sh.hutch.postmaster.repositories`, Panache Kotlin `PanacheRepository<…Entity>`)
@@ -1122,7 +1123,7 @@ A handler is an `@ApplicationScoped` bean. `ActionRegistry` (`handler(type)` and
 | Stage | Built-in actions |
 |---|---|
 | `RECORD` | `set_type`, `set_reply_needed`, `skip_processing` |
-| `GATHER` | `fetch_link_contents` (10), `check_for_events` (20), `download_attachments` (30), `create_events` (40), `process_bill` (50) |
+| `GATHER` | `fetch_link_contents` (10), `check_for_events` (20), `download_attachments` (30), `create_events` (40), `process_bill` (50), `update_todo_list` (60) |
 | `FORWARD` | `forward_email` |
 | `READ_STATE` | `mark_read`, `mark_unread` |
 | `MOVE` | `move`, `delete` (last) |
@@ -1218,13 +1219,13 @@ It records results through the orchestrator.
      - `summary`
      - `link`, unless one is already set
      - `response_required` (OR-ed)
-     - `action_required` and `action_description`, through `flagActionRequired`, so never for Bill (Q13)
+     - the `action_items` (or, from an older prompt, `action_required` and `action` as one item), through `addActionItem`, so never for Bill (Q13); a `due` that isn't a date is an `llm` error
      - the `events`, if the email has none yet
      - each `errors` entry, as an `llm` error
    - Then any `fetch_link_contents` and `check_for_events` from the classification rule.
    - LLM failures become `llm` errors, and processing carries on.
 5. **Action phase:** every matching action rule, in order, with facts recomputed after the LLM phase. Matches are recorded, and the queue runs as in 5.2.
-6. **Finish:** `status=processed` (`failed` if an unexpected exception escaped; errors alone don't fail it) and `processed_at` = now. Bill emails have `action_required` cleared.
+6. **Finish:** `status=processed` (`failed` if an unexpected exception escaped; errors alone don't fail it) and `processed_at` = now. Bill emails have their action items dropped.
 
 **`reprocess(emailId)`:**
 - It clears the email's rule matches, action results, errors, events not yet added, type, summary, link, link contents and summary, bill fields and flags.
@@ -1266,7 +1267,8 @@ It records results through the orchestrator.
   | `delete(id, source)`: to `imap.trash_folder`, then soft-deletes the email (D11) | `delete` |
   | `forward(id, to, source)` | `forward_email` |
   | `setResponseRequired(id, required, source)` | `set_response_required` |
-  | `setActionRequired(id, required, description?, source)`: setting it on a Bill fails (Q13) | `set_action_required` |
+  | `setActionRequired(id, required, description?, source)`: setting it adds an item (unless one is open and there's no description), and fails on a Bill (Q13); clearing it completes every open item, in the to-do list too | `set_action_required` |
+  | `completeActionItem(emailId, itemId, source)`: ticks the item off in the to-do list (`TodoListService.complete`), then marks it done; if the files can't be written nothing changes | `complete_action_item` |
   | `changeEventCalendar(emailId, eventId, calendarId, source)`: an added event is moved in khal (`CalendarClient.moveEvent`); one not yet added is added to the chosen calendar, with the calendar's notification periods | `change_event_calendar` |
 - `reprocess(id): ManualResult` calls `ProcessingService.reprocess`.
 - `folders()` lists the IMAP folders.
@@ -1318,6 +1320,7 @@ It records results through the orchestrator.
 | `POST /emails/{id}/move` (`folder`) | 422 if blank |
 | `POST /emails/{id}/type` (`typeId`; blank clears) | 422 for an unknown type |
 | `POST /emails/{id}/response-required` and `/action-required` (`required=true\|false`) | |
+| `POST /emails/{id}/action-items/{itemId}/done` | 404 for an unknown item; 502 if the to-do list can't be written |
 | `POST /emails/{id}/reprocess` | |
 | `GET /emails/{id}/events/{eventId}/calendar` | form fragment for `event-calendar-dialog`: radio buttons `calendarId` (`calendar-choice-<id>`), `cancel-calendar` and `save-calendar` |
 | `POST /emails/{id}/events/{eventId}/calendar` (`calendarId`) | 422 unless it's an enabled calendar |
@@ -1331,7 +1334,7 @@ It records results through the orchestrator.
     - the lede `email-byline` shows the type badge, status and unread
     - the actions are `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart)
   - **Pane, in order:**
-    - the flags `email-flags`, shown only when set, as ruled lines: `email-action-required` ("Action needed", the description and `clear-action-required` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
+    - the flags `email-flags`, shown only when set, as ruled lines: each action item, `action-item-<id>` ("Action needed", or "Done" with `data-completed="true"`; `action-item-description`, optional `action-item-due`, `action-item-todo` and `action-item-notes`; `complete-action-item-<id>` "Done" while it's open) and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
     - the summary `email-summary`, as a lede
     - the sections
   - **Layout:** the details are the rail (an inspector, `.pm-page--inspector`), after the pane below 960px.
@@ -1382,6 +1385,7 @@ It records results through the orchestrator.
 | `forward_email` | `id`, `to` | message |
 | `set_response_required` | `id`, `required` | message |
 | `set_action_required` | `id`, `required`, optional `description` (refused for bills) | message |
+| `complete_action_item` | `email_id`, `item_id` | message |
 | `set_event_calendar` | `email_id`, `event_id`, `calendar` (enabled calendar name) | message |
 | `reprocess_email` | `id` | message |
 | `list_types` | | `{types: [{id, name, description}]}` |
