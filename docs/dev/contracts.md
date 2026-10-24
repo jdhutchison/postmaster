@@ -956,7 +956,7 @@ The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
 - Subject: `Fwd: <subject>`. From: `smtp.from_address`, or `imap.username` if that's blank.
 - The body is `multipart/mixed`, holding:
   - a `multipart/alternative` with a text part and, when the original has HTML, an HTML part. Each starts with the header block below and quotes the original's text or HTML.
-  - each original attachment, copied unchanged
+  - each original attachment, with its bytes unchanged and always base64-encoded. A text encoding would turn line endings into CRLF.
 
   The header block:
 

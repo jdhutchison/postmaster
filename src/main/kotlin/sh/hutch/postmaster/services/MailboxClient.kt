@@ -191,6 +191,8 @@ class MailboxClient(private val settings: SettingsService) {
         dataHandler = DataHandler(ByteArrayDataSource(bytes, attachment.contentType))
         fileName = attachment.filename
         disposition = Part.ATTACHMENT
+        // Otherwise an all-ASCII file gets a text encoding, which turns its line endings into CRLF
+        setHeader("Content-Transfer-Encoding", "base64")
       })
     }
     return MimeMessage(session).apply {
