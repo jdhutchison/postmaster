@@ -96,6 +96,36 @@ class LlmClient(private val settings: SettingsService) {
     }
   }
 
+  /**
+   * Asks the LLM server which models it has (`GET <llm.url>/models`), giving up after [timeout]
+   * without retrying: whether it's up, for the status endpoint (CLARIFICATIONS.md R7). Returns the
+   * models' ids.
+   *
+   * @throws LlmException if it can't be reached or answers with an error
+   */
+  fun checkModels(timeout: Duration): List<String> {
+    val url = settings.getString(SettingKeys.LLM_URL).orEmpty().trimEnd('/') + "/models"
+    val request = HttpRequest.newBuilder(URI.create(url))
+        .timeout(timeout)
+        .apply { settings.getString(SettingKeys.LLM_API_KEY)?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") } }
+        .GET()
+        .build()
+    val response = try {
+      HttpClient.newBuilder().connectTimeout(timeout).build().send(request, HttpResponse.BodyHandlers.ofString())
+    } catch (e: HttpTimeoutException) {
+      throw LlmException("No answer from $url within ${IsoDurations.format(timeout)}", e, transient = true)
+    } catch (e: IOException) {
+      throw LlmException("LLM could not be reached at $url: ${e.message ?: e.javaClass.simpleName}", e, transient = true)
+    } catch (e: InterruptedException) {
+      Thread.currentThread().interrupt()
+      throw LlmException("The check was interrupted", e)
+    }
+    if (response.statusCode() !in 200..299) {
+      throw LlmException("LLM returned HTTP ${response.statusCode()} for $url", transient = true)
+    }
+    return runCatching { json.readTree(response.body()).path("data").mapNotNull { it.path("id").asText(null) } }.getOrDefault(emptyList())
+  }
+
   /** The model's answer to [prompt] as a JSON object. */
   fun chatJson(prompt: String): JsonNode = parseObject(chat(prompt, json = true))
 

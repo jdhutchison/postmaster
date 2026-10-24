@@ -32,12 +32,14 @@ COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle gradle
 RUN ./gradlew --no-daemon --console=plain dependencies > /dev/null
 COPY src src
+# The version this build gets; bin/build-image raises it on the host afterwards
+COPY version.properties ./
 
 FROM build AS build-jvm
-RUN ./gradlew --no-daemon --console=plain quarkusBuild
+RUN ./gradlew --no-daemon --console=plain quarkusBuild -PkeepVersion
 
 FROM build AS build-native
-RUN ./gradlew --no-daemon --console=plain quarkusBuild \
+RUN ./gradlew --no-daemon --console=plain quarkusBuild -PkeepVersion \
         -Dquarkus.native.enabled=true \
         -Dquarkus.package.jar.enabled=false \
     && cp build/*-runner /src/postmaster
@@ -54,13 +56,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid "${CALENDARS_GID}" calendars \
     && useradd --uid "${POSTMASTER_UID}" --gid calendars --create-home --shell /usr/sbin/nologin postmaster \
-    && mkdir -p /config/khal /data/attachments /data/calendars /app \
-    && chown postmaster:calendars /data/attachments /data/calendars
+    && mkdir -p /config/khal /data/attachments /data/calendars /data/todo /app \
+    && chown postmaster:calendars /data/attachments /data/calendars /data/todo
 ENV HOME=/home/postmaster \
     TZ=Australia/Melbourne
 WORKDIR /app
 EXPOSE 8080
-VOLUME ["/config", "/data/attachments", "/data/calendars"]
+VOLUME ["/config", "/data/attachments", "/data/calendars", "/data/todo"]
+# Unhealthy while the status endpoint says DOWN (the database or Dovecot is unavailable);
+# DEGRADED still counts as healthy (CLARIFICATIONS.md R7)
+HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -fsS -o /dev/null http://localhost:8080/mail/health || exit 1
 
 FROM runtime AS jvm
 ENV JAVA_HOME=/opt/java/openjdk

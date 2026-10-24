@@ -11,6 +11,10 @@ quarkus:
   # Only the "en" locale is needed (dates use Locale.ENGLISH); keeps native images deterministic
   locales: en
   default-locale: en
+  native:
+    # The version and build time, for the status endpoint
+    resources:
+      includes: build-info.properties
   http:
     root-path: /mail
     port: 8080

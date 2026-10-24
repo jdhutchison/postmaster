@@ -405,6 +405,28 @@ Before this, each email was processed in one transaction while its side effects 
 - **Stopping:** when the application is told to stop it starts no new step and gives the current one up to 20 seconds. Run the container with `--stop-timeout 30` (or `stop_grace_period: 30s`).
 - **Holding transactions:** no database transaction is open while the LLM classifies or summarises. Actions that call the LLM, khal or Chromium still run inside their own action's transaction.
 
+**R7 (2026-10-25). A status endpoint, and build numbers for versions (your request).**
+- **Endpoint:** `GET /mail/health`, also at `/mail/status`, returns JSON. The layout follows the IETF draft "Health Check Response Format for HTTP APIs":
+  - an overall `status` and the `time` of the check;
+  - `application`: the name, `version`, `builtAt`, `startedAt`, `uptime` (ISO 8601) and `uptimeSeconds`;
+  - `processing`: whether a run is in progress, the current and last runs, when the last successful run started, whether scheduling is on and when the next run is due, how many emails are pending, and how many failed in the last day;
+  - `checks`, keyed by dependency (`database`, `dovecot`, `llm`, `smtp`): each with `status` (`UP` or `DOWN`), `critical`, `componentType`, `target` (no credentials), `responseTimeMs` and `output` (why it's down, or the LLM's models).
+
+  Every field is always present, null when there's no value. The response isn't cached (`Cache-Control: no-store`).
+- **Checks:**
+  - the database: a connection is validated;
+  - Dovecot: a login, then logout;
+  - SMTP: a connection, logging in if `smtp.username` is set;
+  - the LLM: `GET <llm.url>/models`.
+
+  They run in parallel, each given 5 seconds, without the usual retries, so the endpoint answers within about 6 seconds.
+- **Overall status:**
+  - `OK`: everything is up.
+  - `DEGRADED`: the LLM or SMTP is down. Postmaster carries on: email waits for the LLM (R6), and forwarding fails.
+  - `DOWN`: the database or Dovecot is down. Postmaster is running but can't do its job. The response is HTTP 503 (200 otherwise), so `curl -f` and Docker's `HEALTHCHECK` (now in the image) treat it as unhealthy. `DOWN` is the usual word for this (MicroProfile Health, Spring Boot), and the response arriving at all shows the process is up.
+- **Versions:** the version is a build number, shown as `v<n>`, starting at v1. `version.properties` holds the number the next build gets. Every successful `quarkusBuild` raises it by one (`-PkeepVersion` builds without raising it), and so does `bin/build-image`, which also tags the image `postmaster:v<n>`. Commit the file with each release. `builtAt` is set only by production builds; dev mode and tests show null.
+- **Dev mode** points the LLM at 127.0.0.1, so it never contacts kodiakbear.
+
 ---
 
 ## Technical suggestions

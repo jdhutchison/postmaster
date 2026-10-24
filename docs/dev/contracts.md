@@ -1409,3 +1409,10 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 | `list_calendars` | | `{calendars: [{id, name, colour}]}` |
 
 Type and calendar names are matched ignoring case.
+
+## Status endpoint (R7)
+
+- **Routes:** `GET /mail/health` (`HealthController`) and `GET /mail/status` (`StatusController`), both `application/json` with `Cache-Control: no-store`. HTTP 503 when `status` is `DOWN`, otherwise 200.
+- **Body:** `HealthReport` (`models/Health.kt`): `status` (`OK`, `DEGRADED`, `DOWN`), `time`, `application` (`ApplicationInfo`), `processing` (`ProcessingInfo`, or null if the database can't be read) and `checks` (`database`, `dovecot`, `llm`, `smtp` → `DependencyCheck`). Every field is always present, null when there's no value.
+- **Checks** run in parallel on the managed executor, each with `HealthService.CHECK_TIMEOUT` (5 s) and no retries: `AgroalDataSource` connection `isValid`, `MailboxClient.checkImap` (login), `MailboxClient.checkSmtp` (connect, with auth if `smtp.username` is set), and `LlmClient.checkModels` (`GET <llm.url>/models`). `database` and `dovecot` are critical (`DOWN` overall); `llm` and `smtp` aren't (`DEGRADED`).
+- **Version:** `BuildInfo` reads `build-info.properties` (written by the Gradle `buildInfo` task from `version.properties`): `version` = `v<build number>`, `builtAt` only for `quarkusBuild`. A successful `quarkusBuild` raises `version.properties` unless `-PkeepVersion` is given.

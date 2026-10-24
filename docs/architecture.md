@@ -73,6 +73,10 @@ Server-rendered Qute templates with HTMX for partial updates, and one small scri
 
 `McpTools` exposes email search, details and actions over Streamable HTTP at `/mail/mcp`, sharing `EmailService` with the UI. See [mcp.md](mcp.md).
 
+## Status
+
+`HealthController` serves `/mail/health` and `/mail/status`. `HealthService` checks the database, Dovecot, SMTP and the LLM in parallel (5 seconds each) and reports the overall status: `OK`, `DEGRADED` (the LLM or SMTP is down) or `DOWN` (the database or Dovecot is down, HTTP 503). It also reports the version and build time (`BuildInfo`, from the `build-info.properties` that Gradle writes), the uptime and what processing is doing. See [running.md](running.md#status) and CLARIFICATIONS.md R7.
+
 ## Logging
 
 Everything is logged to stdout in every profile, so Docker collects it (CLARIFICATIONS.md R3). The format is set by `quarkus.log.console.format` and ends each line's prefix with the MDC (`%X`). `util.Mdc.with(key to value, …) { … }` sets keys for a block of code and restores what was there before, so each key is removed when that piece of work ends.

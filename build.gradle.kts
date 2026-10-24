@@ -1,3 +1,6 @@
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 plugins {
   kotlin("jvm")
   kotlin("plugin.allopen")
@@ -7,7 +10,12 @@ plugins {
 }
 
 group = "sh.hutch"
-version = "0.1.0-SNAPSHOT"
+
+// The version is a build number from version.properties (v1, v2, …): each production build gets
+// the next one (CLARIFICATIONS.md R7)
+val versionFile = layout.projectDirectory.file("version.properties").asFile
+val buildNumber = versionFile.readLines().first { it.trim().startsWith("version=") }.substringAfter("=").trim().toInt()
+version = buildNumber.toString()
 
 // The tester agent builds into its own directory (POSTMASTER_BUILD_DIR=build-tests)
 // so concurrent builds in this working tree don't overwrite each other
@@ -137,6 +145,36 @@ val openapiSpec = tasks.register<Copy>("openapiSpec") {
 
 tasks.named("quarkusBuild") {
   finalizedBy(openapiSpec)
+  // Once a build has succeeded, the next one gets the next version
+  doLast {
+    if (!project.hasProperty("keepVersion")) {
+      versionFile.writeText(versionFile.readText().replace(Regex("(?m)^version=\\d+"), "version=${buildNumber + 1}"))
+      logger.lifecycle("Built v$buildNumber; the next build will be v${buildNumber + 1}")
+    }
+  }
+}
+
+// build-info.properties, which the status endpoint reads: the version, and when a production
+// build was made (empty for dev mode and tests, so their builds stay up to date)
+val buildInfoDir = layout.buildDirectory.dir("generated/build-info")
+var releaseBuild = false
+gradle.taskGraph.whenReady { releaseBuild = hasTask(":quarkusBuild") }
+val buildInfo = tasks.register("buildInfo") {
+  description = "Writes build-info.properties with the version and build time"
+  inputs.property("version", buildNumber)
+  // Switching between production and other builds rewrites it
+  inputs.property("release", provider { releaseBuild })
+  outputs.dir(buildInfoDir)
+  outputs.upToDateWhen { !releaseBuild }
+  doLast {
+    val builtAt = if (releaseBuild) Instant.now().truncatedTo(ChronoUnit.SECONDS).toString() else ""
+    val file = buildInfoDir.get().file("build-info.properties").asFile
+    file.parentFile.mkdirs()
+    file.writeText("version=$buildNumber\nbuilt-at=$builtAt\n")
+  }
+}
+sourceSets.main {
+  resources.srcDir(buildInfo)
 }
 
 tasks.withType<Test> {

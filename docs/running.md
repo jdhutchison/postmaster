@@ -45,6 +45,44 @@ The database must exist; Flyway creates and updates the tables at startup. Then 
 
 The container image is described in [deployment.md](deployment.md).
 
+## Status
+
+`GET /mail/health` (or `/mail/status`) says, as JSON, whether Postmaster and what it depends on are up. It also gives the version, build time, uptime and what processing is doing:
+
+```json
+{
+  "status": "DEGRADED",
+  "time": "2026-10-25T03:15:02.114Z",
+  "application": {
+    "name": "postmaster", "version": "v12", "builtAt": "2026-10-25T01:02:03Z",
+    "startedAt": "2026-10-25T01:10:00Z", "uptime": "PT2H5M2S", "uptimeSeconds": 7502
+  },
+  "processing": {
+    "inProgress": false, "currentRun": null,
+    "lastRun": { "id": 41, "trigger": "schedule", "status": "succeeded", "startedAt": "…", "finishedAt": "…",
+                 "emailsFound": 3, "emailsProcessed": 3, "emailsFailed": 0, "error": null },
+    "lastSuccessAt": "2026-10-25T03:00:00Z", "scheduled": true, "nextRunAt": "2026-10-25T04:00:00Z",
+    "pendingEmails": 1, "failedEmailsLastDay": 0
+  },
+  "checks": {
+    "database": { "status": "UP", "critical": true, "componentType": "datastore", "target": "jdbc:mariadb://mariadb:3306/postmaster", "responseTimeMs": 2, "output": null },
+    "dovecot": { "status": "UP", "critical": true, "componentType": "mail", "target": "mail-dovecot:143", "responseTimeMs": 41, "output": null },
+    "llm": { "status": "DOWN", "critical": false, "componentType": "http", "target": "http://kodiakbear:9931/v1", "responseTimeMs": 5003, "output": "No answer from http://kodiakbear:9931/v1/models within PT5S" },
+    "smtp": { "status": "UP", "critical": false, "componentType": "mail", "target": "mail-opensmtp:25", "responseTimeMs": 12, "output": null }
+  }
+}
+```
+
+| `status` | Meaning | HTTP |
+|---|---|---|
+| `OK` | Everything is up. | 200 |
+| `DEGRADED` | The LLM or SMTP is down. Email waits for the LLM; forwarding fails. | 200 |
+| `DOWN` | The database or Dovecot is down: running, but it can't do its job. | 503 |
+
+Each check gets 5 seconds, and they run at the same time. The Docker image's `HEALTHCHECK` calls the endpoint every minute.
+
+The version is a build number (`v1`, `v2`, …) from `version.properties`. Each production build (`./gradlew quarkusBuild` or `bin/build-image`) raises the number for the next build, so commit `version.properties` with each release. Add `-PkeepVersion` to build without raising it.
+
 ## Logs
 
 Everything is logged to stdout, in every profile, so Docker collects it. Each line shows the MDC: the processing run, email, phase, rule and action it concerns. For example:

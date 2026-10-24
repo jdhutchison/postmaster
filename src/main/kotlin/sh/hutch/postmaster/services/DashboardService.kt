@@ -41,6 +41,16 @@ class DashboardService(
     )
   }
 
+  /** When the next scheduled run is due; null if scheduling is off. */
+  @Transactional
+  fun nextRunAt(): Instant? {
+    if (!config.schedulerEnabled()) {
+      return null
+    }
+    val frequency = runCatching { settings.getDuration(SettingKeys.PROCESSING_FREQUENCY) }.getOrDefault(Duration.ofHours(1))
+    return nextRun(runs.findLatest()?.startedAt, frequency)
+  }
+
   /** The latest runs, newest first. */
   @Transactional
   fun recentRuns(limit: Int): List<RunView> =

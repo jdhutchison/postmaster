@@ -6,8 +6,10 @@
 #   native  (default) a GraalVM native executable; the builder needs about 6 GB of memory
 #   jvm     the JVM build: quicker, and fine for trying the image out
 #
-# The image is tagged postmaster:<target>. Set POSTMASTER_UID and CALENDARS_GID to match the
-# host's attachments owner and calendars group (both default to 1000).
+# The image is tagged postmaster:<target> and postmaster:v<version>, the version in
+# version.properties, which is then raised for the next build (commit the change). Set
+# POSTMASTER_UID and CALENDARS_GID to match the host's attachments owner and calendars group
+# (both default to 1000).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -23,10 +25,22 @@ case "$TARGET" in
     ;;
 esac
 
-exec docker build \
+VERSION_FILE="$ROOT/version.properties"
+VERSION="$(sed -n 's/^version=\([0-9][0-9]*\)$/\1/p' "$VERSION_FILE")"
+if [ -z "$VERSION" ]; then
+  echo "No version=<number> line in $VERSION_FILE" >&2
+  exit 2
+fi
+
+docker build \
     --target "$TARGET" \
     --tag "postmaster:$TARGET" \
+    --tag "postmaster:v$VERSION" \
     --build-arg "POSTMASTER_UID=${POSTMASTER_UID:-1000}" \
     --build-arg "CALENDARS_GID=${CALENDARS_GID:-1000}" \
     "$@" \
     "$ROOT"
+
+# Built: the next build gets the next version
+sed -i.bak "s/^version=$VERSION\$/version=$((VERSION + 1))/" "$VERSION_FILE" && rm -f "$VERSION_FILE.bak"
+echo "Built postmaster:v$VERSION; the next build will be v$((VERSION + 1))"

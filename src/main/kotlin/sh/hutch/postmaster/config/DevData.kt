@@ -86,6 +86,8 @@ class DevData(
     writeKhalConfig(khalConfig, root.resolve("calendars"))
     settings.update(SettingKeys.ATTACHMENTS_PATH, attachments.toString())
     settings.update(SettingKeys.ATTACHMENTS_EXTENSIONS, "pdf, png, txt")
+    // Dev mode never contacts the real LLM (or anything else on kodiakbear or tigerbear)
+    settings.update(SettingKeys.LLM_URL, "http://127.0.0.1:9931/v1")
     val todo = root.resolve("todo")
     settings.update(SettingKeys.TODO_PATH, todo.toString())
     settings.update(SettingKeys.TODO_POSTMASTER_URL, "http://localhost:8080/mail")

@@ -352,20 +352,55 @@ class MailboxClient(private val settings: SettingsService) {
       }
     }
 
+  /**
+   * Logs in to Dovecot and out again, giving up after [timeout] without retrying: whether the
+   * mailbox can be used, for the status endpoint (CLARIFICATIONS.md R7).
+   *
+   * @throws MailboxException if it can't
+   */
+  fun checkImap(timeout: Duration): Unit = withMailClassLoader {
+    val store = imapStore(timeout.toMillis().toString())
+    try {
+      connect(store, required(SettingKeys.IMAP_HOST), required(SettingKeys.IMAP_USERNAME), attempts = 1)
+    } finally {
+      runCatching { store.close() }
+    }
+  }
+
+  /**
+   * Connects to the SMTP server (logging in if smtp.username is set) and disconnects, giving up
+   * after [timeout]: whether email can be forwarded, for the status endpoint (R7).
+   *
+   * @throws MailboxException if it can't
+   */
+  fun checkSmtp(timeout: Duration): Unit = withMailClassLoader {
+    val transport = smtpSession(timeout.toMillis().toString()).transport
+    try {
+      val username = settings.getString(SettingKeys.SMTP_USERNAME)?.takeIf { it.isNotBlank() }
+      transport.connect(null, username, if (username == null) null else settings.getString(SettingKeys.SMTP_PASSWORD).orEmpty())
+    } catch (e: AuthenticationFailedException) {
+      throw MailboxException("The SMTP server rejected the username or password", e)
+    } catch (e: MessagingException) {
+      throw MailboxException("The SMTP server could not be reached: ${e.message}", e)
+    } finally {
+      runCatching { transport.close() }
+    }
+  }
+
   private fun <T> withStore(action: String, block: (Store) -> T): T = withMailClassLoader { openStore(action, block) }
 
-  private fun <T> openStore(action: String, block: (Store) -> T): T {
+  /** A Dovecot store, not yet connected; [timeout] (milliseconds) replaces the usual connect and read timeouts. */
+  private fun imapStore(timeout: String? = null): Store {
     val host = required(SettingKeys.IMAP_HOST)
-    val username = required(SettingKeys.IMAP_USERNAME)
     val security = settings.getString(SettingKeys.IMAP_SECURITY) ?: "none"
     val protocol = if (security == "tls") "imaps" else "imap"
     val properties = Properties().apply {
       put("mail.store.protocol", protocol)
       put("mail.$protocol.host", host)
       put("mail.$protocol.port", settings.getInt(SettingKeys.IMAP_PORT).toString())
-      put("mail.$protocol.connectiontimeout", CONNECT_TIMEOUT)
-      put("mail.$protocol.timeout", READ_TIMEOUT)
-      put("mail.$protocol.writetimeout", READ_TIMEOUT)
+      put("mail.$protocol.connectiontimeout", timeout ?: CONNECT_TIMEOUT)
+      put("mail.$protocol.timeout", timeout ?: READ_TIMEOUT)
+      put("mail.$protocol.writetimeout", timeout ?: READ_TIMEOUT)
       // BODY.PEEK: reading a message doesn't set \Seen
       put("mail.$protocol.peek", "true")
       if (security == "starttls") {
@@ -373,8 +408,12 @@ class MailboxClient(private val settings: SettingsService) {
         put("mail.imap.starttls.required", "true")
       }
     }
-    val store = Session.getInstance(properties).getStore(protocol)
-    connect(store, host, username)
+    return Session.getInstance(properties).getStore(protocol)
+  }
+
+  private fun <T> openStore(action: String, block: (Store) -> T): T {
+    val store = imapStore()
+    connect(store, required(SettingKeys.IMAP_HOST), required(SettingKeys.IMAP_USERNAME))
     try {
       return block(store)
     } catch (e: MailboxException) {
@@ -389,16 +428,16 @@ class MailboxClient(private val settings: SettingsService) {
   }
 
   /** Connects [store], trying once more after a pause if Dovecot can't be reached (CLARIFICATIONS.md R6). */
-  private fun connect(store: Store, host: String, username: String) {
+  private fun connect(store: Store, host: String, username: String, attempts: Int = CONNECT_ATTEMPTS) {
     val password = settings.getString(SettingKeys.IMAP_PASSWORD).orEmpty()
-    for (attempt in 1..CONNECT_ATTEMPTS) {
+    for (attempt in 1..attempts) {
       try {
         store.connect(host, username, password)
         return
       } catch (e: AuthenticationFailedException) {
         throw MailboxException("Dovecot rejected the username or password", e)
       } catch (e: MessagingException) {
-        if (attempt == CONNECT_ATTEMPTS) {
+        if (attempt == attempts) {
           throw MailboxException("Dovecot ($host) could not be reached: ${e.message}", e)
         }
         LOG.warnf("Dovecot (%s) could not be reached (%s); trying again", host, e.message)
@@ -423,7 +462,8 @@ class MailboxClient(private val settings: SettingsService) {
     }
   }
 
-  private fun smtpSession(): Session {
+  /** The SMTP session; [timeout] (milliseconds) replaces the usual connect and read timeouts. */
+  private fun smtpSession(timeout: String? = null): Session {
     val host = settings.getString(SettingKeys.SMTP_HOST)?.takeIf { it.isNotBlank() }
         ?: throw MailboxException("The SMTP server address setting isn't set")
     val security = settings.getString(SettingKeys.SMTP_SECURITY) ?: "none"
@@ -432,9 +472,9 @@ class MailboxClient(private val settings: SettingsService) {
       put("mail.transport.protocol", protocol)
       put("mail.$protocol.host", host)
       put("mail.$protocol.port", settings.getInt(SettingKeys.SMTP_PORT).toString())
-      put("mail.$protocol.connectiontimeout", CONNECT_TIMEOUT)
-      put("mail.$protocol.timeout", READ_TIMEOUT)
-      put("mail.$protocol.writetimeout", READ_TIMEOUT)
+      put("mail.$protocol.connectiontimeout", timeout ?: CONNECT_TIMEOUT)
+      put("mail.$protocol.timeout", timeout ?: READ_TIMEOUT)
+      put("mail.$protocol.writetimeout", timeout ?: READ_TIMEOUT)
       put("mail.$protocol.auth", (!settings.getString(SettingKeys.SMTP_USERNAME).isNullOrBlank()).toString())
       if (security == "starttls") {
         put("mail.smtp.starttls.enable", "true")
