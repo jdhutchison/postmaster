@@ -471,7 +471,7 @@ Structure rendered by the layout:
   <main id="pm-main" class="pm-main" data-testid="main">
     <header class="pm-masthead">
       <p class="pm-masthead__kicker">{kicker}</p>
-      <h1 class="pm-page-title" data-testid="page-title"><img class="pm-page-title__icon" src="/mail/assets/favicon.svg" alt=""><span class="pm-page-title__text">{title}</span></h1>
+      <h1 class="pm-page-title" data-testid="page-title">{title}</h1>
       <div class="pm-masthead__lede">{lede}</div>
       <div class="pm-masthead__actions" data-testid="page-actions">{actions}</div>
     </header>
@@ -493,7 +493,7 @@ Structure rendered by the layout:
 An editorial grid with hairline rules instead of boxes. Only the menu floats, and nothing else has a shadow.
 - **Masthead:**
   - the kicker is level with the floating menu button, in small capitals
-  - the title is flush with the grid's left edge, after the favicon. Its font size is the menu button's size (`--pm-menu-button-size`, 2.75rem) with a line height of 1, so the icon and each line of the title are exactly as tall as the button.
+  - the title is flush with the grid's left edge
   - an optional lede follows
   - the actions sit on the title's baseline, at the right
   - a heavy rule (`--pm-rule-heavy`) closes it
