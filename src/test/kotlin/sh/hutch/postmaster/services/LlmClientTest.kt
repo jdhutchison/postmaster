@@ -59,8 +59,10 @@ class LlmClientTest {
 
   private fun answer(content: String?, status: Int = 200) {
     val body = if (content == null) """{"choices":[{"message":{"role":"assistant"}}]}"""
-    else mapper.writeValueAsString(mapOf("choices" to listOf(mapOf("message" to mapOf("role" to "assistant", "content" to content)))))
-    wireMock.stubFor(post(urlEqualTo("/v1/chat/completions")).willReturn(aResponse().withStatus(status).withHeader("Content-Type", "application/json").withBody(body)))
+    else mapper.writeValueAsString(mapOf("choices" to listOf(mapOf("message" to mapOf("role" to "assistant",
+        "content" to content)))))
+    wireMock.stubFor(post(urlEqualTo("/v1/chat/completions")).willReturn(aResponse().withStatus(status)
+        .withHeader("Content-Type", "application/json").withBody(body)))
   }
 
   private fun lastRequest() = mapper.readTree(wireMock.allServeEvents.first().request.bodyAsString)
@@ -110,7 +112,8 @@ class LlmClientTest {
     settings.update("llm.api_key", "secret-key")
     wireMock.resetRequests()
     llm.chat("With key")
-    wireMock.verify(postRequestedFor(urlEqualTo("/v1/chat/completions")).withHeader("Authorization", equalTo("Bearer secret-key")))
+    wireMock.verify(postRequestedFor(urlEqualTo("/v1/chat/completions")).withHeader("Authorization",
+        equalTo("Bearer secret-key")))
   }
 
   @Test

@@ -122,7 +122,8 @@ class MailboxClientTest {
 
   @Test
   fun `a plain text message is parsed`() {
-    inbox(message("<plain@mail.example>", "Plain", from = "Brunswick South PS <office@brunswicksouth.example>", text = "Hello there"))
+    inbox(message("<plain@mail.example>", "Plain", from = "Brunswick South PS <office@brunswicksouth.example>",
+        text = "Hello there"))
 
     val parsed = mailbox.fetch("INBOX", uidOf("Plain"))
 
@@ -137,7 +138,8 @@ class MailboxClientTest {
 
   @Test
   fun `an HTML-only message gets its text from the HTML`() {
-    inbox(message("<html@mail.example>", "Html", text = null, html = "<html><body><h1>Title</h1><p>Body text</p></body></html>"))
+    inbox(message("<html@mail.example>", "Html", text = null,
+        html = "<html><body><h1>Title</h1><p>Body text</p></body></html>"))
 
     val parsed = mailbox.fetch("INBOX", uidOf("Html"))
 
@@ -276,7 +278,9 @@ class MailboxClientTest {
     mailbox.forward("INBOX", uidOf("Payslip for October"), "accountant@example.test")
 
     assertTrue(greenMail.waitForIncomingEmail(5000, 1))
-    val sent = greenMail.receivedMessages.single { it.allRecipients.any { r -> r.toString() == "accountant@example.test" } }
+    val sent = greenMail.receivedMessages.single { message ->
+      message.allRecipients.any { it.toString() == "accountant@example.test" }
+    }
     assertEquals("Fwd: Payslip for October", sent.subject)
     assertEquals("postmaster@fulcrum.test", sent.from.single().toString())
     val parts = flatten(sent)

@@ -53,7 +53,8 @@ class RealKhalTest {
     val ics = dir.resolve("allday.ics")
     ics.writeText(
         IcsWriter.event(
-            CalendarEvent("real-khal-2", "Interviews", LocalDateTime.parse("2026-11-12T00:00"), null, true, null, null, emptyList()),
+            CalendarEvent("real-khal-2", "Interviews", LocalDateTime.parse("2026-11-12T00:00"), null, true, null,
+                null, emptyList()),
             melbourne
         )
     )

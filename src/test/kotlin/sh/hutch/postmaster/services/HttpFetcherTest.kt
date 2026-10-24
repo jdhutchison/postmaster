@@ -61,7 +61,8 @@ class HttpFetcherTest {
 
   @Test
   fun `a page is fetched with headless Chromium using the Chrome-on-Windows user agent`() {
-    wireMock.stubFor(get(urlEqualTo("/newsletter")).willReturn(aResponse().withBody("<html><body>Newsletter 42</body></html>")))
+    wireMock.stubFor(get(urlEqualTo("/newsletter")).willReturn(aResponse()
+        .withBody("<html><body>Newsletter 42</body></html>")))
     val agent = settings.getString("fetch.user_agent")!!
 
     val page = fetcher.fetchPage(wireMock.baseUrl() + "/newsletter")
@@ -106,7 +107,8 @@ class HttpFetcherTest {
   @Test
   fun `a file is downloaded with curl, keeping its bytes and content type`() {
     wireMock.stubFor(
-        get(urlEqualTo("/bill.pdf")).willReturn(aResponse().withHeader("Content-Type", "application/pdf").withBody(TestMessages.PDF))
+        get(urlEqualTo("/bill.pdf")).willReturn(aResponse().withHeader("Content-Type", "application/pdf")
+            .withBody(TestMessages.PDF))
     )
     val agent = settings.getString("fetch.user_agent")!!
     val target = dir.resolve("2026/10/bill.pdf")

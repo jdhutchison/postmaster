@@ -96,7 +96,8 @@ class PromptRendererTest {
 
     val rendered = renderer.render("summarise", context.copy(text = "x".repeat(50)))
 
-    assertTrue(rendered.contains("Contents: xxxxxxxxxx\n") || rendered.endsWith("Contents: xxxxxxxxxx"), rendered.takeLast(80))
+    assertTrue(rendered.contains("Contents: xxxxxxxxxx\n") || rendered.endsWith("Contents: xxxxxxxxxx"),
+        rendered.takeLast(80))
     assertFalse(rendered.contains("x".repeat(11)))
   }
 

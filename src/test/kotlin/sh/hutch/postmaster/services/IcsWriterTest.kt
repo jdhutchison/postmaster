@@ -21,7 +21,8 @@ class IcsWriterTest {
       allDay: Boolean = false,
       notes: String? = null,
       alarms: List<Duration> = emptyList()
-  ) = CalendarEvent("uid-123", title, LocalDateTime.parse(starts), ends?.let { LocalDateTime.parse(it) }, allDay, "Melbourne Zoo", notes, alarms)
+  ) = CalendarEvent("uid-123", title, LocalDateTime.parse(starts), ends?.let { LocalDateTime.parse(it) }, allDay,
+      "Melbourne Zoo", notes, alarms)
 
   private fun unfolded(ics: String) = ics.replace("\r\n ", "")
 
@@ -65,7 +66,8 @@ class IcsWriterTest {
 
   @Test
   fun `the file is a valid calendar with CRLF lines, escaped text and folded long lines`() {
-    val ics = IcsWriter.event(event(title = "Swim; then lunch, maybe", notes = "Line one\nLine two ".repeat(10)), melbourne)
+    val ics = IcsWriter.event(event(title = "Swim; then lunch, maybe", notes = "Line one\nLine two ".repeat(10)),
+        melbourne)
 
     assertTrue(ics.startsWith("BEGIN:VCALENDAR\r\n"))
     assertTrue(ics.trimEnd().endsWith("END:VCALENDAR"))

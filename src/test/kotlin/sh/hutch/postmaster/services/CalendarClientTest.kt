@@ -57,7 +57,8 @@ class CalendarClientTest {
     assertEquals("test-uid-1", uid)
     val call = FakeTools.khalCalls().single()
     val args = call.args
-    assertEquals(listOf("-c", FakeTools.khalConfig().toString(), "import", "--batch", "-a", "Kids medical"), args.dropLast(1))
+    assertEquals(listOf("-c", FakeTools.khalConfig().toString(), "import", "--batch", "-a", "Kids medical"),
+        args.dropLast(1))
     assertTrue(call.importedIcs!!.contains("UID:test-uid-1"))
     assertEquals(1, FakeTools.eventFiles("Kids medical").size)
   }

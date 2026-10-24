@@ -60,14 +60,16 @@ object TestMessages {
     if (attachments.isEmpty()) {
       when (body) {
         is MimeMultipart -> message.setContent(body)
-        else -> if (html != null && text == null) message.setContent(html, "text/html; charset=UTF-8") else message.setText(text.orEmpty(), "UTF-8")
+        else -> if (html != null && text == null) message.setContent(html,
+            "text/html; charset=UTF-8") else message.setText(text.orEmpty(), "UTF-8")
       }
     } else {
       val mixed = MimeMultipart("mixed")
       mixed.addBodyPart(MimeBodyPart().apply {
         when (body) {
           is MimeMultipart -> setContent(body)
-          else -> if (html != null && text == null) setContent(html, "text/html; charset=UTF-8") else setText(text.orEmpty(), "UTF-8")
+          else -> if (html != null && text == null) setContent(html,
+              "text/html; charset=UTF-8") else setText(text.orEmpty(), "UTF-8")
         }
       })
       for (attachment in attachments) {
