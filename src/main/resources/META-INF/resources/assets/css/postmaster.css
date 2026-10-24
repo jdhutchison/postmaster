@@ -274,18 +274,34 @@ code {
 .pm-masthead__kicker {
   grid-area: kicker;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0 var(--pm-space-2);
+  gap: var(--pm-space-3);
   min-height: var(--pm-menu-button-size);
   margin: 0;
   /* Clears the floating menu button */
   padding-left: calc(var(--pm-menu-button-size) + var(--pm-space-4));
   color: var(--pm-comment);
-  font-size: 0.75rem;
+  font-size: 1.25rem;
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.pm-masthead__kicker-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--pm-space-2);
+  min-width: 0;
+}
+
+/* The logo follows the kicker, as tall as the menu button and level with it when the kicker wraps */
+.pm-masthead__logo {
+  flex: none;
+  align-self: flex-start;
+  width: var(--pm-menu-button-size);
+  height: var(--pm-menu-button-size);
 }
 
 .pm-masthead__kicker a {
@@ -298,7 +314,7 @@ code {
 
 /* Names, addresses and times in a kicker keep their own case */
 .pm-kicker__plain {
-  font-size: 0.85rem;
+  font-size: 0.9em;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -2012,6 +2028,10 @@ textarea.pm-prompt-text {
         "kicker"
         "title"
         "lede";
+  }
+
+  .pm-masthead__kicker {
+    font-size: 1rem;
   }
 
   .pm-page-title {

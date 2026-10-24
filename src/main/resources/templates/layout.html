@@ -38,7 +38,7 @@
     {! The masthead: a kicker line beside the menu button, the title flush left, an optional lede,
        and the page's primary actions on the title's baseline (a sticky bar at the foot on phones) !}
     <header class="pm-masthead">
-      <p class="pm-masthead__kicker">{#insert kicker}Postmaster{/}</p>
+      <p class="pm-masthead__kicker"><span class="pm-masthead__kicker-text">{#insert kicker}Postmaster{/}</span><img class="pm-masthead__logo" src="{base}/assets/favicon.svg" alt="" width="44" height="44" data-testid="masthead-logo"></p>
       <h1 class="pm-page-title" data-testid="page-title">{#insert title}Postmaster{/}</h1>
       <div class="pm-masthead__lede">{#insert lede}{/}</div>
       <div class="pm-masthead__actions" data-testid="page-actions">{#insert actions}{/}</div>

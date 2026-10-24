@@ -470,7 +470,7 @@ Structure rendered by the layout:
   <nav id="pm-menu" class="pm-menu" data-testid="menu" hidden>…</nav>
   <main id="pm-main" class="pm-main" data-testid="main">
     <header class="pm-masthead">
-      <p class="pm-masthead__kicker">{kicker}</p>
+      <p class="pm-masthead__kicker"><span class="pm-masthead__kicker-text">{kicker}</span><img class="pm-masthead__logo" data-testid="masthead-logo" …></p>
       <h1 class="pm-page-title" data-testid="page-title">{title}</h1>
       <div class="pm-masthead__lede">{lede}</div>
       <div class="pm-masthead__actions" data-testid="page-actions">{actions}</div>
@@ -492,7 +492,7 @@ Structure rendered by the layout:
 
 An editorial grid with hairline rules instead of boxes. Only the menu floats, and nothing else has a shadow.
 - **Masthead:**
-  - the kicker is level with the floating menu button, in small capitals
+  - the kicker is level with the floating menu button, in capitals (1.25rem; 1rem on phones), followed by the logo (the favicon) at the menu button's height; when the kicker wraps the logo stays beside it, level with the button
   - the title is flush with the grid's left edge
   - an optional lede follows
   - the actions sit on the title's baseline, at the right
