@@ -3,6 +3,7 @@ package sh.hutch.postmaster.services
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
+import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.entities.CalendarEntity
 import sh.hutch.postmaster.entities.ConditionEntity
 import sh.hutch.postmaster.entities.RuleActionEntity
@@ -31,7 +32,8 @@ import java.util.regex.PatternSyntaxException
 class RuleService(
     private val rules: RuleRepository,
     private val types: TypeRepository,
-    private val calendars: CalendarRepository
+    private val calendars: CalendarRepository,
+    private val registry: ActionRegistry
 ) {
 
   fun list(ruleType: RuleType): List<RuleEntity> = rules.listActive(ruleType)
@@ -213,7 +215,7 @@ class RuleService(
       return null
     }
     val actionType = input.actionType?.trim()
-    if (actionType.isNullOrEmpty() || actionType !in ActionTypes.BUILT_IN) {
+    if (actionType.isNullOrEmpty() || actionType !in registry.types()) {
       errors.add("$key.actionType", "Choose an action")
       return null
     }

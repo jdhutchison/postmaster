@@ -17,6 +17,7 @@ import sh.hutch.postmaster.testsupport.FakeTools
 import sh.hutch.postmaster.testsupport.TestMessages
 import sh.hutch.postmaster.testsupport.TestMessages.Attachment
 import sh.hutch.postmaster.testsupport.TestMessages.message
+import sh.hutch.postmaster.testsupport.rows
 import java.nio.file.Files
 import java.time.Instant
 
@@ -56,8 +57,9 @@ class ActionHandlersTest : PipelineTest() {
     assertEquals(true, email("h-read@mail.example")["is_read"])
 
     greenMail.purgeEmailFromAllMailboxes()
-    actionRule("unreader", action("mark_unread"))
-    val seen = message("<h-unread@mail.example>", "unreader").apply { setFlag(Flags.Flag.SEEN, true) }
+    // Not a name containing "reader", or the older reader rule would match too and win the conflict
+    actionRule("unseen", action("mark_unread"))
+    val seen = message("<h-unread@mail.example>", "unseen").apply { setFlag(Flags.Flag.SEEN, true) }
     inbox(seen)
     run()
     assertFalse(TestMessages.folderContents(greenMail, "INBOX").single().second.contains(Flags.Flag.SEEN))

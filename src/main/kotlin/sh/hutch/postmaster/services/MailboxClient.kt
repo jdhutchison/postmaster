@@ -22,6 +22,7 @@ import jakarta.mail.internet.MimeMultipart
 import jakarta.mail.internet.MimePart
 import jakarta.mail.internet.MimeUtility
 import jakarta.mail.search.ComparisonTerm
+import jakarta.mail.search.MessageIDTerm
 import jakarta.mail.search.ReceivedDateTerm
 import jakarta.mail.util.ByteArrayDataSource
 import org.eclipse.angus.mail.imap.IMAPFolder
@@ -124,6 +125,20 @@ class MailboxClient(private val settings: SettingsService) {
     }
   }
 
+  /**
+   * The UID of the message with [messageId] in [folder], or null if it isn't there or the id was
+   * generated (the message has no Message-ID header).
+   */
+  fun findUid(folder: String, messageId: String): Long? {
+    if (messageId.startsWith(MessageIds.GENERATED_PREFIX)) {
+      return null
+    }
+    return withFolder(folder, Folder.READ_ONLY, "find message $messageId") { imap ->
+      imap.search(MessageIDTerm("<$messageId>")).firstOrNull()?.let { imap.getUID(it) }
+          ?: imap.search(MessageIDTerm(messageId)).firstOrNull()?.let { imap.getUID(it) }
+    }
+  }
+
   /** The full names of the folders that hold messages, sorted. */
   fun listFolders(): List<String> =
     withStore("list the folders") { store ->
@@ -131,7 +146,9 @@ class MailboxClient(private val settings: SettingsService) {
     }
 
   /** Forwards the message to [to] as an inline forward with its attachments (CLARIFICATIONS.md Q7). */
-  fun forward(folder: String, uid: Long, to: String) {
+  fun forward(folder: String, uid: Long, to: String) = withMailClassLoader { sendForward(folder, uid, to) }
+
+  private fun sendForward(folder: String, uid: Long, to: String) {
     val recipient = try {
       InternetAddress(to.trim(), true)
     } catch (e: AddressException) {
@@ -322,7 +339,9 @@ class MailboxClient(private val settings: SettingsService) {
       }
     }
 
-  private fun <T> withStore(action: String, block: (Store) -> T): T {
+  private fun <T> withStore(action: String, block: (Store) -> T): T = withMailClassLoader { openStore(action, block) }
+
+  private fun <T> openStore(action: String, block: (Store) -> T): T {
     val host = required(SettingKeys.IMAP_HOST)
     val username = required(SettingKeys.IMAP_USERNAME)
     val security = settings.getString(SettingKeys.IMAP_SECURITY) ?: "none"
@@ -359,6 +378,22 @@ class MailboxClient(private val settings: SettingsService) {
       throw MailboxException("Could not $action: ${e.message}", e)
     } finally {
       runCatching { store.close() }
+    }
+  }
+
+  /**
+   * Runs [block] with the application's class loader as the thread's context class loader. Jakarta
+   * Mail finds its providers through it, and some threads (e.g. the common fork-join pool) have
+   * another one.
+   */
+  private inline fun <T> withMailClassLoader(block: () -> T): T {
+    val thread = Thread.currentThread()
+    val previous = thread.contextClassLoader
+    thread.contextClassLoader = MailboxClient::class.java.classLoader
+    try {
+      return block()
+    } finally {
+      thread.contextClassLoader = previous
     }
   }
 

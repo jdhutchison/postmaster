@@ -14,6 +14,7 @@ import sh.hutch.postmaster.services.MailboxException
 import sh.hutch.postmaster.testsupport.TestMessages
 import sh.hutch.postmaster.testsupport.TestMessages.message
 import sh.hutch.postmaster.testsupport.row
+import sh.hutch.postmaster.testsupport.rows
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit

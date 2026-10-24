@@ -158,3 +158,20 @@ To avoid another deadlock, the tester owns full-suite runs and runs the suite as
 - **Stopping:** the builder still stops for your decisions and for anything touching tigerbear or kodiakbear.
 
 PLAN.md has a new "single agent" section explaining this.
+
+---
+
+**You:** *(new session, on a macOS arm64 machine)* Take over development. Install any tools needed, such as Gradle or Graal. Ignore deploying and Ansible for now and focus on a working codebase.
+
+**Claude:** I've taken over as the only agent, working in `~/code/postmaster`.
+- **Tools:**
+  - GraalVM CE 25 (25.4.4.1.1, with `native-image`) is in SDKMAN as `25.4.4.1+1-graalce`. SDKMAN's own download was corrupt twice, so I installed the GitHub release after checking its SHA-256. Your default Java is unchanged, and `.sdkmanrc` selects GraalVM for this project (`sdk env`).
+  - Gradle comes from the wrapper (9.8.2).
+  - khal 0.14.1 is installed with pipx (`~/.local/bin`).
+- **Phase 5:** finished and verified. The full suite passes: 570 tests, 0 failures, with the tester's staged Phase 5 tests now in the tree. Fixes:
+  - a compile error in the action queue
+  - **a real defect:** a run started from a thread Quarkus doesn't manage failed on Jakarta Mail and transaction setup. Both now set the context class loader.
+  - the fake khal used a bash 4 feature, and macOS has bash 3.2
+  - one staged test had overlapping rule names
+  - `RealKhalTest` now finds khal on the PATH
+- **Phase 9** (deployment) is on hold.

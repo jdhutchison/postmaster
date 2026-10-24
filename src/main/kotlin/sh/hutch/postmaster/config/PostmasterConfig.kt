@@ -24,4 +24,8 @@ interface PostmasterConfig {
   /** Command used to run curl. */
   @WithDefault("curl")
   fun curlCommand(): String
+
+  /** Whether email is processed on a schedule (set false in tests). */
+  @WithDefault("true")
+  fun schedulerEnabled(): Boolean
 }

@@ -67,9 +67,14 @@ class RealKhalTest {
     assertTrue(!next.contains("Interviews"), "one day only: $next")
   }
 
+  /** khal on the PATH (e.g. installed with pipx) or in the usual places */
+  private val khalPath: String? =
+      (System.getenv("PATH").orEmpty().split(java.io.File.pathSeparator).filter { it.isNotEmpty() }.map { "$it/khal" } +
+          listOf("/usr/bin/khal", "/usr/local/bin/khal"))
+          .firstOrNull { Files.isExecutable(Path.of(it)) }
+
   private fun khalConfig(): Path {
-    val khal = listOf("/usr/bin/khal", "/usr/local/bin/khal").firstOrNull { Files.isExecutable(Path.of(it)) }
-    assumeTrue(khal != null, "khal is not installed")
+    assumeTrue(khalPath != null, "khal is not installed")
     Files.createDirectories(dir.resolve("family"))
     val config = dir.resolve("khal.ini")
     config.writeText(
@@ -95,7 +100,7 @@ class RealKhalTest {
   }
 
   private fun khal(config: Path, vararg args: String): Pair<Int, String> {
-    val process = ProcessBuilder(listOf("khal", "-c", config.toString()) + args)
+    val process = ProcessBuilder(listOf(khalPath!!, "-c", config.toString()) + args)
         .redirectErrorStream(true)
         .apply { environment()["HOME"] = dir.toString() }
         .start()

@@ -55,7 +55,11 @@ case "$command" in
     calendars | cut -f1
     ;;
   import)
-    file="${positional[-1]:-}"
+    # The last argument (no negative indexes: macOS has bash 3.2)
+    file=""
+    if [[ ${#positional[@]} -gt 0 ]]; then
+      file="${positional[$((${#positional[@]} - 1))]}"
+    fi
     if [[ -z "$file" || ! -f "$file" ]]; then
       echo "fake khal: import needs an existing file" >&2
       exit 2

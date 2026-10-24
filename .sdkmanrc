@@ -1,0 +1,2 @@
+# GraalVM CE for JDK 25. Run `sdk env` in this directory to use it.
+java=25.4.4.1+1-graalce

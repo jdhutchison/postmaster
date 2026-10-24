@@ -1105,7 +1105,7 @@ It records results through the orchestrator.
 **When actions run (Q12):**
 - **Classification rule:** its `RECORD` actions run at once. `fetch_link_contents` and `check_for_events` run in the LLM phase, after Summarise. Every other action is queued for the action phase.
 - **Action rules:** all their actions are queued.
-- **The queue** runs in stage order, then handler order, then rule order (priority).
+- **The queue** runs in stage order, then handler order, then rule order (priority). In the `MOVE` and `READ_STATE` stages, rule order comes **before** handler order, so the highest-priority rule's action is the one that runs.
 - **Conflicts:**
   - Only the first `MOVE`-stage action runs (the highest-priority rule, then first in the rule). Every other is recorded as `skipped` with detail `Conflicts with <type> from rule <name>`, plus an `action` error.
   - `READ_STATE` actions conflict the same way.
@@ -1156,6 +1156,7 @@ It records results through the orchestrator.
   - Title: `Pay <biller> $<amount>`, or `Pay <biller>` with no amount.
   - Notes: `Biller: …`, `Amount: $…`, `Due: yyyy-MM-dd`, `Pay: <link>`.
   - It's stored as an `Email_events` row with `is_added = true`.
+  - If the email already has that reminder, e.g. when it's reprocessed, no new one is added.
   - With no due date, there's no reminder and an `action` error is added.
 - **Bill download:** a PDF attachment is saved as for `download_attachments`. Otherwise the bill link is downloaded with curl to the same directory, and the file is stored as an `Email_attachments` row (filename from the URL, or `bill.pdf`).
 - **Outcome:** `done` with a summary of what was found. `failed` only if nothing at all was found.
@@ -1194,6 +1195,8 @@ It records results through the orchestrator.
 - It reruns steps 2–6 on the same record. A message that can't be found raises `MailboxException`.
 
 **Startup:** runs left `running`, e.g. after a crash, are marked `failed` (`error = Interrupted by a restart`).
+
+**Threads:** `runNow` works from any thread, including ones Quarkus doesn't manage (e.g. the common fork-join pool). A run sets the thread's context class loader to the application's for its duration, and `MailboxClient` does the same around Jakarta Mail, which finds its providers through it.
 
 ### 5.6 Scheduler (`services.ProcessingScheduler`)
 

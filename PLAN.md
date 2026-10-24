@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–4 are complete. Phase 5 is in progress with the builder as the only agent; testing is deferred until everything is built (2026-10-24).
+**Status:** Phases 0–5 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
 
 Standing rules:
 - Commit after each completed task.
@@ -150,23 +150,23 @@ These are reusable, so the action handlers can share them.
 
 ## Phase 5: Processing pipeline
 
-- [ ] **5.1** `build: todo` `tests: todo` Rule engine: condition evaluation following the matrix, priority ordering, and case-insensitive matching.
-- [ ] **5.2** `build: todo` `tests: todo` Action framework:
+- [x] **5.1** `build: done` `tests: done` Rule engine: condition evaluation following the matrix, priority ordering, and case-insensitive matching.
+- [x] **5.2** `build: done` `tests: done` Action framework:
   - an `ActionHandler` interface and a registry
   - a processing context
   - the fixed execution order, with move/delete last and conflict handling
   - recording each action's result
-- [ ] **5.3** `build: todo` `tests: todo` Action handlers:
+- [x] **5.3** `build: done` `tests: done` Action handlers:
   - `set_type`, `set_reply_needed`, `skip_processing`
   - `mark_read`, `mark_unread`, `move`, `delete`, `forward_email`
   - `download_attachments`, `fetch_link_contents`, `check_for_events`, `create_events`
-- [ ] **5.4** `build: todo` `tests: todo` `process_bill`:
+- [x] **5.4** `build: done` `tests: done` `process_bill`:
   - extract the amount and due date with regexes
   - find the pay and bill links in the HTML
   - fall back to the LLM when details are missing
   - add a reminder event to the action's calendar
   - download the bill
-- [ ] **5.5** `build: todo` `tests: todo` Pipeline orchestrator. Steps:
+- [x] **5.5** `build: done` `tests: done` Pipeline orchestrator. Steps:
   1. fetch unprocessed email within the lookback window
   2. classify
   3. LLM phase
@@ -176,7 +176,7 @@ These are reusable, so the action handlers can share them.
   `action_required` and `action_description` come from the Summarise result and are always false/empty for `Bill` emails (Q13 revision).
 
   Also supports reprocessing an email.
-- [ ] **5.6** `build: todo` `tests: todo` Scheduler: the interval comes from the settings, only one run at a time, each run is recorded in `Processing_runs`, and there is a "Run now" trigger. End-to-end tests with GreenMail, WireMock and the fake khal.
+- [x] **5.6** `build: done` `tests: todo` Scheduler: the interval comes from the settings, only one run at a time, each run is recorded in `Processing_runs`, and there is a "Run now" trigger. End-to-end tests with GreenMail, WireMock and the fake khal.
 
 ## Phase 6: Email UI and dashboard
 

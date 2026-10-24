@@ -18,6 +18,7 @@ import sh.hutch.postmaster.testsupport.FakeTools
 import sh.hutch.postmaster.testsupport.TestMessages
 import sh.hutch.postmaster.testsupport.TestMessages.Attachment
 import sh.hutch.postmaster.testsupport.TestMessages.message
+import sh.hutch.postmaster.testsupport.rows
 import java.math.BigDecimal
 import java.nio.file.Files
 import java.time.LocalDate

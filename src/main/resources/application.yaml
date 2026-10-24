@@ -37,3 +37,8 @@ quarkus:
   smallrye-openapi:
     info-title: Postmaster
     info-description: Email processing, classification and actions
+
+# Tests run without scheduled processing; they start runs themselves
+"%test":
+  postmaster:
+    scheduler-enabled: false
