@@ -1319,3 +1319,31 @@ It records results through the orchestrator.
   - `processing-status`, with `run-state` (`Running now…`, `Last run <status>` or `No runs yet`), `run-error`, `next-run` (`Every 1h; next …` or `Scheduled processing is off`) and the button `run-now` (disabled while running)
   - links to the filtered list: `count-total`, `count-response`, `count-action`, `count-unclassified` and `count-errors`
 - **Recent runs:** `{#table id="runs-table"}`, rows `run-row-<id>`. Failed runs have `pm-row--error`.
+
+---
+
+## Phase 7: MCP server
+
+- **Transport:** Streamable HTTP at **`/mail/mcp`**, the extension's default `/mcp` under the HTTP root path. A client sends `initialize`, keeps the `Mcp-Session-Id` response header, and sends it with `notifications/initialized` and every later request.
+- **Tools:** `controllers.McpTools`. Each tool answers with one text content item holding JSON, or a plain message for actions. Times are ISO 8601 (`2026-10-21T00:00:00Z`).
+- **Errors:** bad arguments, unknown ids and failed actions are tool errors (`isError: true`) with the reason as text. Failed actions are also recorded against the email, as for the UI.
+- **Recording:** actions use `EmailService` with `source = mcp`.
+
+| Tool | Arguments | Result |
+|---|---|---|
+| `search_emails` | optional `from`, `to` (`yyyy-MM-dd`), `status`, `type` (name or `none`), `sender`, `response_required`, `action_required`, `with_errors`, `page` | `{total, page, pageCount, emails: [EmailRow]}`. No filters means the 30 most recent; otherwise pages of 50. |
+| `get_email` | `id` | `EmailDetail` |
+| `set_email_type` | `id`, `type` (name; empty clears it) | message |
+| `move_email` | `id`, `folder` | message |
+| `mark_email_read` | `id`, `read` (default true) | message |
+| `delete_email` | `id` | message |
+| `forward_email` | `id`, `to` | message |
+| `set_response_required` | `id`, `required` | message |
+| `set_action_required` | `id`, `required`, optional `description` (refused for bills) | message |
+| `set_event_calendar` | `email_id`, `event_id`, `calendar` (enabled calendar name) | message |
+| `reprocess_email` | `id` | message |
+| `list_types` | | `{types: [{id, name, description}]}` |
+| `list_folders` | | `{folders: [name]}` |
+| `list_calendars` | | `{calendars: [{id, name, colour}]}` |
+
+Type and calendar names are matched ignoring case.

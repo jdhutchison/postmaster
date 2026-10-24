@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–6 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
+**Status:** Phases 0–7 are complete. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
 
 Standing rules:
 - Commit after each completed task.
@@ -196,7 +196,7 @@ These are reusable, so the action handlers can share them.
 
 ## Phase 7: MCP server
 
-- [ ] **7.1** `build: todo` `tests: todo` MCP tools over Streamable HTTP at `/mcp`:
+- [x] **7.1** `build: done` `tests: done` MCP tools over Streamable HTTP at `/mcp`:
   - search and get emails, set type, move, mark read/unread, delete, forward
   - list types, folders and calendars
   - change an event's calendar
