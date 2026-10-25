@@ -16,8 +16,13 @@
     {#if row.error('matchType')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].matchType">{row.error('matchType')}</p>{/if}
   </div>
   <div class="pm-field pm-field--grow" data-pm-test>
-    <label for="condition-{row.index}-test">Value</label>
-    <input id="condition-{row.index}-test" name="conditions[{row.index}].test" class="pm-input" value="{row.test}" maxlength="1000" autocomplete="off"{#if row.invalid('test')} aria-invalid="true"{/if}>
+    <label for="condition-{row.index}-test{#if row.pickType}-type{/if}" data-pm-test-label>Value</label>
+    <input id="condition-{row.index}-test" name="conditions[{row.index}].test" class="pm-input" value="{row.test}" maxlength="1000" autocomplete="off" data-pm-test-text{#if row.pickType} hidden disabled{/if}{#if row.invalid('test')} aria-invalid="true"{/if}>
+    {! A type that must match exactly is chosen from the types; the script swaps the two !}
+    <select id="condition-{row.index}-test-type" name="conditions[{row.index}].test" class="pm-input" data-pm-test-type{#if !row.pickType} hidden disabled{/if}{#if row.invalid('test')} aria-invalid="true"{/if}>
+      <option value="">Choose a type</option>
+      {#for n in form.typeNames(row.test)}<option value="{n}"{#if n == row.test} selected{/if}>{n}</option>{/for}
+    </select>
     {#if row.error('test')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].test">{row.error('test')}</p>{/if}
   </div>
   {#if row.error('id')}<p class="pm-field-error" data-testid="error-conditions[{row.index}].id">{row.error('id')}</p>{/if}

@@ -21,8 +21,8 @@
     {#fieldError field="notificationPeriods" message=form.error('notificationPeriods') /}
   </div>
   <div class="pm-field pm-field--inline">
-    <input type="checkbox" id="calendar-enabled" name="enabled" value="true"{#if form.enabled} checked{/if}>
-    <label for="calendar-enabled">Use this calendar when processing email</label>
+    <input type="checkbox" role="switch" class="pm-switch" id="calendar-enabled" name="enabled" value="true"{#if form.enabled} checked{/if}>
+    <label for="calendar-enabled">Calendar enabled</label>
   </div>
   <div class="pm-dialog__actions">
     <button type="button" class="pm-button" data-pm-close>Cancel</button>

@@ -80,6 +80,13 @@ data class ConditionRow(
   fun error(field: String): String? = errors["conditions[$index].$field"]
 
   fun invalid(field: String): Boolean = errors.containsKey("conditions[$index].$field")
+
+  /**
+   * Whether the value is chosen from the types: a type that must match exactly. Contains, starts
+   * with and regex take text, e.g. `school$|^Ebay$`.
+   */
+  val pickType: Boolean
+    get() = attribute == ConditionAttribute.TYPE.code && matchType == MatchType.IS.code
 }
 
 @TemplateData
@@ -130,6 +137,12 @@ data class RuleForm(
 
   val matchTypes: List<MatchOption>
     get() = RuleOptions.MATCH_TYPES
+
+  /** The type names a type condition can be set to, plus [current] if it isn't one (e.g. deleted). */
+  fun typeNames(current: String): List<String> {
+    val names = types.map { it.label }
+    return if (current.isBlank() || current in names) names else names + current
+  }
 
   /** Empty rows for the "add" buttons' templates; the index is replaced in the browser. */
   val conditionTemplate: ConditionRow

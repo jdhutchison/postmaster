@@ -89,4 +89,14 @@ class CalendarsPageTest {
       assertTrue(form.select("[data-testid=error-$field]").text().isNotBlank(), "$field error shown")
     }
   }
+
+  @Test
+  fun `the form's enabled field is a switch`() {
+    val form = parseHtml(htmx().get("/calendars/new").asString())
+
+    val enabled = form.select("#calendar-enabled").first()!!
+    assertEquals("switch", enabled.attr("role"))
+    assertTrue(enabled.hasClass("pm-switch"))
+    assertEquals("Calendar enabled", form.select("label[for=calendar-enabled]").text())
+  }
 }

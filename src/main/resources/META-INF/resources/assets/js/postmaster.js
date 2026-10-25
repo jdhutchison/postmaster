@@ -705,6 +705,32 @@
     });
   }
 
+  // A type that must match exactly is chosen from the types; other values are typed. Only the
+  // control in use is enabled, so it's the one submitted, and a typed type name is kept.
+  function updateTestControl(test, pickType) {
+    var text = test.querySelector("[data-pm-test-text]");
+    var type = test.querySelector("[data-pm-test-type]");
+    var label = test.querySelector("[data-pm-test-label]");
+    if (!text || !type) {
+      return;
+    }
+    if (pickType && type.hidden) {
+      var typed = text.value.trim();
+      if (Array.prototype.some.call(type.options, function (option) { return option.value === typed; })) {
+        type.value = typed;
+      }
+    } else if (!pickType && text.hidden && type.value) {
+      text.value = type.value;
+    }
+    [[text, !pickType], [type, pickType]].forEach(function (pair) {
+      pair[0].hidden = !pair[1];
+      pair[0].disabled = !pair[1];
+    });
+    if (label) {
+      label.htmlFor = pickType ? type.id : text.id;
+    }
+  }
+
   // Shows only the match types that apply to the attribute (Q9), the value only for match types
   // that take one (Q10), and only the fields the chosen action uses
   function updateRuleRow(row) {
@@ -728,7 +754,11 @@
       var test = row.querySelector("[data-pm-test]");
       var selected = match.selectedOptions[0];
       if (test) {
-        setVisible(test, !selected || selected.getAttribute("data-needs-test") === "true");
+        var needsTest = !selected || selected.getAttribute("data-needs-test") === "true";
+        setVisible(test, needsTest);
+        if (needsTest) {
+          updateTestControl(test, attribute.value === "type" && match.value === "is");
+        }
       }
     }
     var actionType = row.querySelector("[data-pm-action-type]");

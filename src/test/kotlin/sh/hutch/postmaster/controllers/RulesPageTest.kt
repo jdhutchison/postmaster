@@ -153,6 +153,36 @@ class RulesPageTest {
   }
 
   @Test
+  fun `a type that must match exactly is chosen from the types, and other type matches are typed`() {
+    val bill = types.findBill()!!
+    val refused = form()
+        .formParam("name", "").formParam("description", "x")
+        .formParam("conditions[0].attribute", "type").formParam("conditions[0].matchType", "is")
+        .formParam("conditions[0].test", bill.name)
+        .formParam("conditions[1].attribute", "type").formParam("conditions[1].matchType", "regex")
+        .formParam("conditions[1].test", "school$")
+        .formParam("conditions[2].attribute", "type").formParam("conditions[2].matchType", "is")
+        .formParam("conditions[2].test", "Retired type")
+        .formParam("actions[0].actionType", "mark_read").formParam("actions[0].enabled", "true")
+        .post("/rules/classification")
+
+    assertEquals(422, refused.statusCode)
+    val page = parseHtml(refused.asString())
+    val exact = page.select("#condition-0-test-type").first()!!
+    assertFalse(exact.hasAttr("disabled"))
+    assertEquals(bill.name, exact.select("option[selected]").`val`())
+    assertTrue(exact.select("option").map { it.`val`() }.containsAll(types.listActive().map { it.name }))
+    assertTrue(page.select("#condition-0-test").first()!!.hasAttr("disabled"), "only the dropdown is submitted")
+    assertEquals("condition-0-test-type", page.select("label[for^=condition-0-test]").attr("for"))
+
+    assertFalse(page.select("#condition-1-test").first()!!.hasAttr("disabled"))
+    assertEquals("school$", page.select("#condition-1-test").`val`())
+    assertTrue(page.select("#condition-1-test-type").first()!!.hasAttr("disabled"))
+
+    assertEquals("Retired type", page.select("#condition-2-test-type option[selected]").`val`(), "a value that isn't a type is kept")
+  }
+
+  @Test
   fun `a duplicate name ignoring case is refused within the rule type`() {
     // CLAR D20
     val refused = form()

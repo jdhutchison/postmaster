@@ -226,6 +226,26 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
   }
 
   @Test
+  fun `a type that must match exactly is chosen from the types, and is kept when the match changes`() {
+    val page = open("rules/classification/new")
+    val row = page.testId("condition-row").first()
+    val text = row.locator("input[name$=test]")
+    val types = row.locator("select[name$=test]")
+
+    assertThat(text).isVisible()
+    assertThat(types).isHidden()
+    row.locator("select[name$=attribute]").selectOption("type")
+    row.locator("select[name$=matchType]").selectOption("is")
+    assertThat(types).isVisible()
+    assertThat(text).isHidden()
+    types.selectOption("Bill")
+    row.locator("select[name$=matchType]").selectOption("regex")
+    assertThat(text).isVisible()
+    assertThat(text).hasValue("Bill")
+    assertThat(types).isHidden()
+  }
+
+  @Test
   fun `conditions and actions can be added and removed, keeping at least one of each`() {
     // REQ Creating a new rule 4, 8
     val page = open("rules/classification/new")
