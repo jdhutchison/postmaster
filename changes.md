@@ -20,8 +20,9 @@ Status values:
 | T7 | Register Postmaster's MCP server (`http://postmaster:8080/mail/mcp`) under `mcp_servers` in the Hermes `postmaster` profile `config.yaml` and restart Hermes; the email-triage job is left alone | `plays/other/postmaster.yml` | Applied 2026-10-25 |
 | T8 | Sync Trash between Dovecot and Proton by removing `!"Trash"` from the mbsync `Pattern`, then restart the `mail-mbsync` container (it bind-mounts the file) | `config/mail/config/mbsyncrc`, `plays/other/postmaster.yml` | Applied 2026-10-25 |
 | T9 | Mount the knowledgebase (`/drive/sys/data/knowledgebase`) at `/data/knowledgebase` in the container, which joins the host's `sync` group (`group_add`) to write to it; the `postmaster` user is added to `sync` | `config/postmaster/docker-compose.yml.j2`, play | Applied 2026-10-25 |
+| T10 | Move the hand-started `dvtest` Dovecot 2.4 trial into the mail compose project as `dovecot-test` (container `mail-dovecot-test`, on the `mail` network), with its config in `/drive/services/mail/config/dvtest` and mailboxes in `/drive/system/data/mail/dvtest` instead of `/tmp/dvtest` (the old copy is left there). Started with `docker compose up -d --no-deps`, so the rest of the mail stack wasn't restarted; the previous compose file is `docker-compose.yml.bak-20261025` | `config/mail/docker-compose.yml`, `config/mail/config/dvtest/`, `plays/sync/mail.yml` | Applied 2026-10-25 |
 
-Found while deploying (not caused by Postmaster): Proton Bridge has rejected every login with "no such user" since its container started on 2026-10-11, so mbsync hasn't synced Proton and Dovecot since then. The Bridge account has to be logged in again by hand.
+Found while deploying (not caused by Postmaster): Proton Bridge rejected every login with "no such user" from 2026-10-11, so mbsync didn't sync Proton and Dovecot. The account was logged in again on 2026-10-25 (04:04 UTC), but at 04:11 Bridge's IMAP server stopped with "consecutive exists must be non-decreasing, but had 6266 and new 6265" during an mbsync run. The container stays up (its health check only tests the port forwarder), so mbsync gets an EOF every minute.
 
 ## kodiakbear
 
