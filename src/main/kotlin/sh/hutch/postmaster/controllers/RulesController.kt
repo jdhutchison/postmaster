@@ -25,6 +25,7 @@ import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.models.ActionInput
 import sh.hutch.postmaster.models.ActionRow
 import sh.hutch.postmaster.models.ConditionInput
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.ConditionRow
 import sh.hutch.postmaster.models.Option
 import sh.hutch.postmaster.models.RuleForm
@@ -79,6 +80,9 @@ class RulesController(
 
     @Schema(description = "true to enable the rule (edit only)")
     var enabled: String? = null
+
+    @Schema(description = "all (every condition must match, AND) or any (one is enough, OR); blank means all")
+    var conditionJoin: String? = null
 
     @Schema(name = "conditions[i].id", description = "Id of an existing condition")
     var conditionId: String? = null
@@ -222,6 +226,7 @@ class RulesController(
         description = input.description.orEmpty(),
         priority = input.priority.orEmpty(),
         enabled = input.enabled ?: true,
+        conditionJoin = input.conditionJoin?.trim().orEmpty().ifEmpty { ConditionJoin.ALL.code },
         conditions = input.conditions.map {
           ConditionRow(it.index.toString(), it.id?.toString().orEmpty(), it.attribute.orEmpty(), it.matchType.orEmpty(), it.test.orEmpty(), errors)
         },
@@ -258,6 +263,7 @@ class RulesController(
           name = fields.getFirst("name"),
           description = fields.getFirst("description"),
           priority = fields.getFirst("priority"),
+          conditionJoin = fields.getFirst("conditionJoin"),
           conditions = rows.map { (index, row) ->
             ConditionInput(index, row["id"]?.toLongOrNull(), row["attribute"], row["matchType"], row["test"])
           },

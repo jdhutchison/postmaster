@@ -14,7 +14,7 @@
       {#td col="name" priority=1}{r.name}{/td}
       {#td col="description" priority=3}{r.description}{/td}
       {#td col="priority" priority=2}{r.priority}{/td}
-      {#td col="conditions" priority=4}{r.conditionCount}{/td}
+      {#td col="conditions" priority=4}{r.conditionCount}{#if r.conditionCount > 1} <span class="pm-muted" data-testid="condition-join-{r.id}">({r.conditionJoin})</span>{/if}{/td}
       {#td col="actions" priority=4}{r.actionCount}{/td}
       {#td col="enabled" priority=1 truncate=false}<input type="checkbox" role="switch" class="pm-switch" name="enabled" value="true" aria-label="Enabled" data-testid="enabled-rule-{r.id}"{#if r.enabled} checked{/if} hx-post="{base}/rules/{ruleType}/{r.id}/enabled" hx-target="#rules-table-container">{/td}
       {#td col="controls" priority=1 truncate=false}<span class="pm-row-actions">

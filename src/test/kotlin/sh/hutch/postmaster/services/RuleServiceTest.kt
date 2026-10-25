@@ -14,6 +14,7 @@ import org.junit.jupiter.api.assertThrows
 import sh.hutch.postmaster.models.ActionInput
 import sh.hutch.postmaster.models.CalendarInput
 import sh.hutch.postmaster.models.ConditionInput
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.RuleInput
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.repositories.RuleActionRepository
@@ -86,6 +87,20 @@ class RuleServiceTest {
     // REQ Creating a new rule 3
     assertTrue(setOf("name", "description").all { it in errors(input = rule(name = " ", description = "")) })
     assertEquals(0, service.create(RuleType.ACTION, rule(name = "No priority", priority = " ")).priority)
+  }
+
+  @Test
+  @TestTransaction
+  fun `conditions are joined with AND unless the rule says OR`() {
+    // CLAR R8
+    assertEquals(ConditionJoin.ALL, service.create(RuleType.CLASSIFICATION, rule(name = "Blank join")).conditionJoin)
+    val any = service.create(RuleType.ACTION, rule(name = "Either").copy(conditionJoin = "any"))
+    assertEquals(ConditionJoin.ANY, any.conditionJoin)
+    assertEquals("any", service.input(RuleType.ACTION, any.id!!).conditionJoin)
+
+    val updated = service.update(RuleType.ACTION, any.id!!, service.input(RuleType.ACTION, any.id!!).copy(conditionJoin = "all"))
+    assertEquals(ConditionJoin.ALL, updated.conditionJoin)
+    assertTrue("conditionJoin" in errors(input = rule().copy(conditionJoin = "either")))
   }
 
   @Test

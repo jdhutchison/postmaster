@@ -134,7 +134,7 @@ This is my reconstruction of the table:
 **Q21. How do several conditions on one rule combine?** *(Raised by the tester agent, 2026-10-22.)*
 A rule has "one or more" conditions, but the requirements don't say how they combine.
 *Proposed:* all conditions must match (AND). For "either X or Y", create two rules.
-*Answer (2026-10-22):* All must match (AND).
+*Answer (2026-10-22):* All must match (AND). *(Revised in R8: each rule can be set to AND or OR.)*
 
 **Q22. Where do enums and other shared vocabulary live?** *(Raised by you, 2026-10-23.)*
 The builder had created a `domain` package, which the requirements don't define. It held the enums stored as codes (`RuleType`, `ConditionAttribute`, the match types, the email statuses), the `ActionTypes` names and the JPA enum converter.
@@ -437,6 +437,13 @@ Before this, each email was processed in one transaction while its side effects 
   A check's `status` is now `UP`, `WARN` (usable, but needs attention) or `DOWN`. The two thresholds are settings, under "Status checks" on the Configuration page.
 - **Commit:** `application.commit` is the git commit the build is from, with `-dirty` if it had uncommitted changes. The Docker build has no `.git`, so `bin/build-image` passes it in (`-PgitCommit`).
 - **The IETF draft's own format:** a client sending `Accept: application/health+json` gets the draft's format, as `application/health+json`: `status` is `pass`, `warn` or `fail`; `version`, `releaseId` (the commit), `serviceId`, `description`, and `output` saying what's wrong; `checks` has `uptime` and `<check>:responseTime` for each check, each a list with `componentId` (the target), `componentType`, `observedValue`, `observedUnit`, `status`, `time` and `output`. Fields without a value are left out, as the draft asks. Without that `Accept` header the response stays as above, with `OK`, `DEGRADED` and `DOWN`. HTTP codes are the same in both.
+
+**R8 (2026-10-25). Rules can match any of their conditions (your request; revises Q21).**
+Each classification and action rule says how its conditions combine, for the whole rule:
+- **All** (AND, the default): every condition must match, as before. Existing rules keep it.
+- **Any** (OR): one matching condition is enough.
+- It's the "Match" field above the conditions on the rule form, and the rules list shows "(all)" or "(any)" next to the condition count for rules with more than one. It's stored in `Rules.condition_join` (`all` or `any`, migration V8).
+- A rule with no conditions still never matches.
 
 ---
 

@@ -10,6 +10,16 @@ enum class RuleType(override val code: String) : CodedEnum {
   }
 }
 
+/** How a rule's conditions combine: all must match (AND) or any one may (OR) (CLARIFICATIONS.md R8). */
+enum class ConditionJoin(override val code: String) : CodedEnum {
+  ALL("all"),
+  ANY("any");
+
+  companion object {
+    fun fromCode(code: String): ConditionJoin = codedEnumOf(code)
+  }
+}
+
 /** The attribute of an email that a condition tests. */
 enum class ConditionAttribute(override val code: String) : CodedEnum {
   SUBJECT("subject"),

@@ -5,19 +5,24 @@ import sh.hutch.postmaster.entities.ConditionEntity
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.RuleEntity
 import sh.hutch.postmaster.models.ConditionAttribute
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.EmailFacts
 import sh.hutch.postmaster.models.MatchType
 import java.util.regex.PatternSyntaxException
 
 /**
- * Decides whether rules match an email. A rule matches when every one of its conditions does
- * (CLARIFICATIONS.md Q21); match types work as agreed in Q9 and Q10, ignoring case (D5).
+ * Decides whether rules match an email. A rule matches when every one of its conditions does, or
+ * any one of them for a rule whose conditions are joined with OR (CLARIFICATIONS.md Q21, R8); match
+ * types work as agreed in Q9 and Q10, ignoring case (D5).
  */
 @ApplicationScoped
 class RuleEngine {
 
   fun matches(rule: RuleEntity, facts: EmailFacts): Boolean =
-    rule.conditions.isNotEmpty() && rule.conditions.all { conditionMatches(it, facts) }
+    rule.conditions.isNotEmpty() && when (rule.conditionJoin) {
+      ConditionJoin.ALL -> rule.conditions.all { conditionMatches(it, facts) }
+      ConditionJoin.ANY -> rule.conditions.any { conditionMatches(it, facts) }
+    }
 
   fun conditionMatches(condition: ConditionEntity, facts: EmailFacts): Boolean {
     val test = condition.test.orEmpty()

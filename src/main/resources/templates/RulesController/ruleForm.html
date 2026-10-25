@@ -39,8 +39,15 @@
       <div class="pm-pane">
         <section class="pm-section" aria-labelledby="conditions-heading">
           <div class="pm-section__head">
-            <h2 id="conditions-heading" class="pm-label">Conditions <span class="pm-label__note">all must match</span></h2>
+            <h2 id="conditions-heading" class="pm-label">Conditions</h2>
             <button type="button" class="pm-button pm-button--small" data-testid="add-condition" data-pm-add-row="condition-template" data-pm-rows="conditions">Add condition</button>
+          </div>
+          <div class="pm-field pm-field--narrow">
+            <label for="rule-condition-join">Match</label>
+            <select id="rule-condition-join" name="conditionJoin" class="pm-input" data-testid="condition-join"{#if form.invalid('conditionJoin')} aria-invalid="true"{/if}>
+              {#for o in form.conditionJoins}<option value="{o.value}"{#if o.value == form.conditionJoin} selected{/if}>{o.label}</option>{/for}
+            </select>
+            {#fieldError field="conditionJoin" message=form.error('conditionJoin') /}
           </div>
           {#fieldError field="conditions" message=form.error('conditions') /}
           <div id="conditions" class="pm-rows" data-testid="conditions">

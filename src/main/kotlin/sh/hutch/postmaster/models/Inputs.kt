@@ -24,7 +24,9 @@ data class RuleInput(
     val priority: String?,
     val conditions: List<ConditionInput>,
     val actions: List<ActionInput>,
-    val enabled: Boolean? = null
+    val enabled: Boolean? = null,
+    /** `all` (AND) or `any` (OR); blank means `all`. */
+    val conditionJoin: String? = null
 )
 
 /** A condition row; [index] is the row's index in the form, used in error keys. */
@@ -60,5 +62,7 @@ data class RuleSummary(
     val priority: Int,
     val enabled: Boolean,
     val conditionCount: Int,
-    val actionCount: Int
+    val actionCount: Int,
+    /** `all` (AND) or `any` (OR) */
+    val conditionJoin: String = ConditionJoin.ALL.code
 )

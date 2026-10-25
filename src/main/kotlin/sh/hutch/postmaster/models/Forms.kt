@@ -114,6 +114,8 @@ data class RuleForm(
     val description: String,
     val priority: String,
     val enabled: Boolean,
+    /** `all` (AND) or `any` (OR) */
+    val conditionJoin: String,
     val conditions: List<ConditionRow>,
     val actions: List<ActionRow>,
     val types: List<Option>,
@@ -137,6 +139,9 @@ data class RuleForm(
 
   val matchTypes: List<MatchOption>
     get() = RuleOptions.MATCH_TYPES
+
+  val conditionJoins: List<Option>
+    get() = RuleOptions.CONDITION_JOINS
 
   /** The type names a type condition can be set to, plus [current] if it isn't one (e.g. deleted). */
   fun typeNames(current: String): List<String> {
@@ -169,6 +174,11 @@ data class RuleForm(
 
 /** Labels for the options in the rule form. */
 object RuleOptions {
+  val CONDITION_JOINS: List<Option> = listOf(
+      Option(ConditionJoin.ALL.code, "All of these conditions (AND)"),
+      Option(ConditionJoin.ANY.code, "Any of these conditions (OR)")
+  )
+
   val ATTRIBUTES: List<Option> = listOf(
       ConditionAttribute.SUBJECT to "Subject",
       ConditionAttribute.SENDER to "Sender",

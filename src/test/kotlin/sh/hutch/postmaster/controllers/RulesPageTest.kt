@@ -183,6 +183,27 @@ class RulesPageTest {
   }
 
   @Test
+  fun `a rule can match any of its conditions, shown on its form and in the list`() {
+    // CLAR R8
+    val created = form()
+        .formParam("name", "Either school").formParam("description", "x").formParam("conditionJoin", "any")
+        .formParam("conditions[0].attribute", "sender").formParam("conditions[0].matchType", "contains")
+        .formParam("conditions[0].test", "primary")
+        .formParam("conditions[1].attribute", "sender").formParam("conditions[1].matchType", "contains")
+        .formParam("conditions[1].test", "high")
+        .formParam("actions[0].actionType", "mark_read").formParam("actions[0].enabled", "true")
+        .post("/rules/action")
+
+    assertEquals(303, created.statusCode, created.asString())
+    val rule = rules.findActiveByName(RuleType.ACTION, "Either school")!!
+    assertEquals("any", rule.conditionJoin.code)
+    val edit = getHtml("/rules/action/${rule.id}/edit")
+    assertEquals("any", edit.testId("condition-join").select("option[selected]").`val`())
+    assertEquals("(any)", getHtml("/rules/action").testId("condition-join-${rule.id}").text())
+    assertEquals("all", getHtml("/rules/action/new").testId("condition-join").select("option[selected]").`val`())
+  }
+
+  @Test
   fun `a duplicate name ignoring case is refused within the rule type`() {
     // CLAR D20
     val refused = form()

@@ -85,6 +85,7 @@ Portability decisions (D20):
 | `Email_action_results.source` | `rule`, `ui`, `mcp` |
 | `Email_action_results.status` | `done`, `skipped`, `failed` |
 | `Rules.rule_type` and `Email_rule_matches.rule_type` | `classification`, `action` |
+| `Rules.condition_join` | `all` (AND), `any` (OR) |
 | `Rule_actions.action_type` | the requirement strings exactly: `set_type`, `move`, `check_for_events`, `download_attachments`, `set_reply_needed`, `fetch_link_contents`, `create_events`, `skip_processing`, `mark_read`, `mark_unread`, `process_bill`, `forward_email`, `delete`, and `update_todo_list` (R5) |
 | `Conditions.attribute` | `subject`, `sender`, `message`, `events`, `attachments`, `bill_url`, `type`, `link` |
 | `Conditions.match_type` | `is`, `contains`, `starts_with`, `regex`, `has`, `is_present` |
@@ -206,7 +207,7 @@ Each enum implements `CodedEnum`, with `code: String` (the stored value) and `co
 
 - Action types are stored as plain strings, so new action types can be registered without a migration. The built-in names are constants in `sh.hutch.postmaster.models.ActionTypes`, listed in `ActionTypes.BUILT_IN`.
 - The condition compatibility matrix (Q9) is `MatchType.appliesTo(attribute)`, with `MatchType.needsTest` (false for HAS and IS_PRESENT).
-- **A rule matches only when ALL its conditions match (AND, CLARIFICATIONS.md Q21).** The rule engine arrives in Phase 5.1.
+- **A rule matches when ALL its conditions match (AND, CLARIFICATIONS.md Q21), or ANY one of them when its `conditionJoin` is `ANY` (OR, R8).** `ConditionJoin` (`all`, `any`) is stored in `Rules.condition_join`, default `all`.
 
 ### Entities (`sh.hutch.postmaster.entities`)
 
@@ -218,7 +219,7 @@ Property names are the camelCase form of the columns.
 | `TypeEntity` | Types |
 | `CalendarEntity` | Calendars |
 | `PromptEntity` | Prompts |
-| `RuleEntity` | Rules. `conditions: MutableList<ConditionEntity>` and `actions: MutableList<RuleActionEntity>` are ordered by `position` and cascade. |
+| `RuleEntity` | Rules. `conditionJoin: ConditionJoin` (default `ALL`). `conditions: MutableList<ConditionEntity>` and `actions: MutableList<RuleActionEntity>` are ordered by `position` and cascade. |
 | `ConditionEntity` | Conditions |
 | `RuleActionEntity` | Rule_actions. `type: TypeEntity?` and `calendar: CalendarEntity?`. |
 | `EmailEntity` | Emails. `type: TypeEntity?`, plus collections `events`, `attachments`, `ruleMatches`, `actionResults`, `errors`. |
@@ -1088,7 +1089,7 @@ The value types are in `sh.hutch.postmaster.models` (`Integrations.kt`).
 - `type` is the type's name.
 
 **Methods:**
-- `matches(rule: RuleEntity, facts): Boolean` is true when **every** condition matches (Q21). A rule with no conditions never matches.
+- `matches(rule: RuleEntity, facts): Boolean` is true when **every** condition matches (Q21), or **any** of them for a rule with `conditionJoin = ANY` (R8). A rule with no conditions never matches.
 - `conditionMatches(condition, facts): Boolean`
 
 **Matching by match type:**

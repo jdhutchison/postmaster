@@ -11,13 +11,15 @@ import org.junit.jupiter.params.provider.CsvSource
 import sh.hutch.postmaster.entities.ConditionEntity
 import sh.hutch.postmaster.entities.RuleEntity
 import sh.hutch.postmaster.models.ConditionAttribute
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.EmailFacts
 import sh.hutch.postmaster.models.MatchType
 import sh.hutch.postmaster.services.RuleEngine
 
 /**
  * Testing a rule's conditions against an email (REQ Classifying emails 2;
- * CLAR Q9, Q10, Q21: all conditions must match; D5: is, contains and
+ * CLAR Q9, Q10, Q21 and R8: all conditions must match, or any one for a rule
+ * joined with OR; D5: is, contains and
  * starts_with ignore case, regex is case-sensitive unless it uses (?i)).
  */
 @QuarkusTest
@@ -60,6 +62,20 @@ class RuleEngineTest {
     assertTrue(engine.matches(rule(subject, sender), facts))
     assertFalse(engine.matches(rule(subject, other), facts))
     assertFalse(engine.matches(rule(), facts), "a rule with no conditions never matches")
+  }
+
+  @Test
+  fun `a rule joined with OR matches when any condition does`() {
+    // CLAR R8
+    val subject = condition("subject", "contains", "bill")
+    val gas = condition("sender", "contains", "gas")
+    val water = condition("sender", "contains", "water")
+    fun any(vararg conditions: ConditionEntity) = rule(*conditions).apply { conditionJoin = ConditionJoin.ANY }
+
+    assertTrue(engine.matches(any(gas, subject), facts))
+    assertFalse(engine.matches(any(gas, water), facts))
+    assertFalse(engine.matches(any(), facts), "a rule with no conditions never matches")
+    assertEquals(ConditionJoin.ALL, RuleEntity().conditionJoin, "rules are AND unless set otherwise")
   }
 
   @ParameterizedTest(name = "{0} {1} \"{2}\" -> {3}")

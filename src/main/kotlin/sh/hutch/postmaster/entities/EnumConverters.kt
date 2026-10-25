@@ -6,6 +6,7 @@ import sh.hutch.postmaster.models.ActionResultStatus
 import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.CodedEnum
 import sh.hutch.postmaster.models.ConditionAttribute
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.MatchType
@@ -30,6 +31,9 @@ abstract class CodedEnumConverter<E>(private val type: Class<E>) : AttributeConv
 
 @Converter
 class RuleTypeConverter : CodedEnumConverter<RuleType>(RuleType::class.java)
+
+@Converter
+class ConditionJoinConverter : CodedEnumConverter<ConditionJoin>(ConditionJoin::class.java)
 
 @Converter
 class ConditionAttributeConverter : CodedEnumConverter<ConditionAttribute>(ConditionAttribute::class.java)

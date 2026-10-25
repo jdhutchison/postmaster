@@ -11,11 +11,15 @@ import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.util.Names
 import java.time.Instant
 
-/** A classification or action rule. It matches an email when all its conditions match (Q21). */
+/**
+ * A classification or action rule. It matches an email when all its conditions match, or any of
+ * them with [conditionJoin] `any` (Q21, R8).
+ */
 @Entity
 @Table(name = "Rules")
 class RuleEntity : AuditedEntity(), SoftDeletable {
@@ -39,6 +43,11 @@ class RuleEntity : AuditedEntity(), SoftDeletable {
 
   @Column(name = "enabled", nullable = false)
   var enabled: Boolean = true
+
+  /** Whether all the conditions must match (AND) or any one of them (OR). */
+  @Convert(converter = ConditionJoinConverter::class)
+  @Column(name = "condition_join", nullable = false, length = 3)
+  var conditionJoin: ConditionJoin = ConditionJoin.ALL
 
   @Column(name = "deleted", nullable = false)
   override var deleted: Boolean = false

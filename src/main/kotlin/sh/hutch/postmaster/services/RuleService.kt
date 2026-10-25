@@ -13,6 +13,7 @@ import sh.hutch.postmaster.models.ActionInput
 import sh.hutch.postmaster.models.ActionTypes
 import sh.hutch.postmaster.models.ConditionAttribute
 import sh.hutch.postmaster.models.ConditionInput
+import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.MatchType
 import sh.hutch.postmaster.models.RuleInput
 import sh.hutch.postmaster.models.RuleSummary
@@ -24,7 +25,7 @@ import sh.hutch.postmaster.util.IsoDurations
 import java.util.regex.PatternSyntaxException
 
 /**
- * Manages classification and action rules: their conditions (all of which must match, Q21) and the
+ * Manages classification and action rules: their conditions (all or any of which must match, Q21, R8) and the
  * actions they trigger.
  */
 @ApplicationScoped
@@ -48,7 +49,8 @@ class RuleService(
           priority = it.priority,
           enabled = it.enabled,
           conditionCount = it.conditions.size,
-          actionCount = it.actions.count { action -> !action.deleted }
+          actionCount = it.actions.count { action -> !action.deleted },
+          conditionJoin = it.conditionJoin.code
       )
     }
 
@@ -82,7 +84,8 @@ class RuleService(
               enabled = action.enabled
           )
         },
-        enabled = rule.enabled
+        enabled = rule.enabled,
+        conditionJoin = rule.conditionJoin.code
     )
   }
 
@@ -150,6 +153,7 @@ class RuleService(
   private class ValidRule(
       val description: String,
       val priority: Int,
+      val conditionJoin: ConditionJoin,
       val conditions: List<ValidCondition>,
       val actions: List<ValidAction>
   )
@@ -161,6 +165,11 @@ class RuleService(
     if (priority == null) {
       errors.add("priority", "Priority must be a whole number of 0 or more")
     }
+    val joinText = input.conditionJoin?.trim().orEmpty()
+    val conditionJoin = if (joinText.isEmpty()) ConditionJoin.ALL else ConditionJoin.entries.firstOrNull { it.code == joinText }
+    if (conditionJoin == null) {
+      errors.add("conditionJoin", "Choose whether all or any of the conditions must match")
+    }
     if (input.conditions.isEmpty()) {
       errors.add("conditions", "A rule needs at least one condition")
     }
@@ -171,7 +180,7 @@ class RuleService(
     val actionIds = existing?.actions?.filter { !it.deleted }?.mapNotNull { it.id }?.toSet() ?: emptySet()
     val conditions = input.conditions.mapNotNull { validateCondition(it, errors, conditionIds) }
     val actions = input.actions.mapNotNull { validateAction(it, errors, actionIds) }
-    return ValidRule(description.orEmpty(), priority ?: 0, conditions, actions)
+    return ValidRule(description.orEmpty(), priority ?: 0, conditionJoin ?: ConditionJoin.ALL, conditions, actions)
   }
 
   private fun validateCondition(input: ConditionInput, errors: Errors, existingIds: Set<Long>): ValidCondition? {
@@ -278,6 +287,7 @@ class RuleService(
   private fun applyRule(rule: RuleEntity, valid: ValidRule) {
     rule.description = valid.description
     rule.priority = valid.priority
+    rule.conditionJoin = valid.conditionJoin
 
     val existingConditions = rule.conditions.associateBy { it.id }
     val keptConditions = valid.conditions.mapIndexed { position, item ->
