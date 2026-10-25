@@ -13,11 +13,14 @@ import io.quarkus.runtime.annotations.RegisterForReflection
     classNames = [
       // META-INF/services/jakarta.mail.util.StreamProvider
       "org.eclipse.angus.mail.util.MailStreamProvider",
-      // META-INF/services/jakarta.mail.Provider
+      // META-INF/services/jakarta.mail.Provider. ServiceLoader fails on any provider it can't
+      // create, so POP3 is needed too although Postmaster doesn't use it.
       "org.eclipse.angus.mail.imap.IMAPProvider",
       "org.eclipse.angus.mail.imap.IMAPSSLProvider",
       "org.eclipse.angus.mail.smtp.SMTPProvider",
       "org.eclipse.angus.mail.smtp.SMTPSSLProvider",
+      "org.eclipse.angus.mail.pop3.POP3Provider",
+      "org.eclipse.angus.mail.pop3.POP3SSLProvider",
       // META-INF/services/jakarta.activation.spi.*
       "org.eclipse.angus.activation.MailcapRegistryProviderImpl",
       "org.eclipse.angus.activation.MimeTypeRegistryProviderImpl"
