@@ -9,7 +9,7 @@ Legend:
   - `tests:` is updated by the tester agent
 - Marker values are `todo`, `doing`, `done` or `n/a`. A task's checkbox is ticked `[x]` only when both markers are done or n/a and the coordinator has assessed the tester's full-suite results (from 2026-10-24, the coordinator runs the suite itself only when there's a stated need). From Phase 5 on, see the single-agent arrangement: tasks are ticked when the build side is done and verified, and `tests: todo` means deferred.
 
-**Status:** Phases 0–7 are complete, with 8.1, 8.3, 10.1 and the additions A.1–A.2 done; 8.2 (the image) is being verified. Development moved to a macOS (arm64) machine on 2026-10-24, and Claude took over as the single agent. Deployment (Phase 9) is on hold at your request; the focus is a working codebase.
+**Status:** Every phase is complete. Development moved to a macOS (arm64) machine on 2026-10-24 and back to Linux on 2026-10-25, when Postmaster was deployed to tigerbear (Phase 9) at your request.
 
 Standing rules:
 - Commit after each completed task.
@@ -207,13 +207,13 @@ These are reusable, so the action handlers can share them.
 ## Phase 8: Packaging
 
 - [x] **8.1** `build: done` `tests: n/a` Generate `docs/openapi.yml` at build time from the annotations.
-- [~] **8.2** `build: doing` `tests: n/a` A multi-stage `Dockerfile`:
+- [x] **8.2** `build: done` `tests: n/a` A multi-stage `Dockerfile`:
   - a GraalVM native build stage
   - a Debian slim runtime with khal, curl and Chromium
   - a non-root user in the `calendars` group
   - mounts for the khal config, calendar data, attachments and the YAML config
 
-  Verify a JVM build and an x86 native build locally.
+  Verify a JVM build and an x86 native build locally. Verified instead by the arm64 native build on tigerbear (2026-10-25); Docker isn't usable on either dev machine. That build found and fixed: `version.properties` copied too late, `GIT_COMMIT` not reaching the build stages, and Jakarta Mail's service files missing from the native image.
 - [x] **8.3** `build: done` `tests: n/a` A sample `config/postmaster.yml` and the `bin/` build and deploy scripts.
 
 ## Additions (2026-10-24)
@@ -225,20 +225,22 @@ These are reusable, so the action handlers can share them.
 - [x] **A.5** `build: done` `tests: done` Status endpoint at `/mail/health` and `/mail/status`, and build-number versions (CLARIFICATIONS.md R7).
 - [x] **A.6** `build: done` `tests: done` More status checks (settings, processing, khal, Chromium, curl, folders, disk space), the build's commit, and the IETF draft's `application/health+json` format (CLARIFICATIONS.md R7).
 
-## Phase 9: Deployment (in `/data/code/ansible`), on hold
+## Phase 9: Deployment (in `/data/code/ansible`)
 
-- [ ] **9.1** `build: todo` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:
+- [x] **9.1** `build: done` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:
   - `docker-compose.yml` on the `services` and `mariadb` networks
   - `postmaster.service`
   - `nginx-include.conf` for `/mail`, with basic auth from `/var/www/.htpasswd`
   - the app config template
-- [ ] **9.2** `build: todo` `tests: n/a` `plays/other/postmaster.yml`:
+
+  The khal configuration is tigerbear's own `/drive/sys/config/khal.ini`, mounted read only, with the calendars at `~/.calendars`.
+- [x] **9.2** `build: done` `tests: n/a` `plays/other/postmaster.yml`:
   - the service user and groups
   - the database (with `create-mysql-db.yml`) and directories
   - build the image on tigerbear, then the systemd unit and nginx include
   - register the MCP server in the Hermes `postmaster` profile (the triage job is left alone)
-- [ ] **9.3** `build: todo` `tests: n/a` In the mail stack's `mbsyncrc`, sync Trash by removing `!"Trash"` from the `Pattern`.
-- [ ] **9.4** `build: todo` `tests: n/a` Log every change in `changes.md`. **I'll ask before running anything against tigerbear.**
+- [x] **9.3** `build: done` `tests: n/a` In the mail stack's `mbsyncrc`, sync Trash by removing `!"Trash"` from the `Pattern`.
+- [x] **9.4** `build: done` `tests: n/a` Log every change in `changes.md`. Deployed on 2026-10-25 at your request, with `ansible-playbook -i tigerbear, -e @group_vars/all.yaml plays/other/postmaster.yml` (`tmpinv.yml`'s key path is the Mac's).
 
 ## Phase 10: Documentation and final checks
 

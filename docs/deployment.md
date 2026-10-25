@@ -1,6 +1,17 @@
 # Deployment
 
-Postmaster runs as a container on tigerbear, on the `services` and `mariadb` Docker networks (CLARIFICATIONS.md S1). The Ansible play that sets this up (PLAN.md Phase 9) is on hold; this page covers the image and how to run it.
+Postmaster runs as a container on tigerbear, on the `services` and `mariadb` Docker networks (CLARIFICATIONS.md S1). This page covers the image, how to run it, and the Ansible play that deploys it.
+
+## Deploying to tigerbear
+
+`plays/other/postmaster.yml` in `/data/code/ansible` does everything: the `postmaster` user (UID 925, in `calendars`), the database, `/drive/services/postmaster`, the image, the systemd unit, the nginx include, the MCP server in the Hermes `postmaster` profile, and the mbsync Trash change. It builds the committed HEAD of this repository, so commit first. Every step is safe to re-run; the database password and encryption key are generated once and kept in `/drive/services/postmaster/postmaster.yml`.
+
+```sh
+cd /data/code/ansible
+ansible-playbook -i tigerbear, -e @group_vars/all.yaml plays/other/postmaster.yml
+```
+
+The native build takes about half an hour on tigerbear. The play ends by showing the status (`/mail/health`).
 
 ## The image
 
@@ -25,7 +36,7 @@ The image's argument is the startup file, `/config/postmaster.yml` by default.
 |---|---|
 | `/config/postmaster.yml` | the startup configuration (read only) |
 | `/config/khal` | the khal configuration; set `postmaster.khal-config: /config/khal/khal.ini` |
-| the calendars directory | the vdirs that `khal.ini`'s `path`s name, mounted at those same paths (read-write, for the `calendars` group) |
+| the calendars directory | the vdirs that `khal.ini`'s `path`s name, mounted at those same paths (read-write, for the `calendars` group). tigerbear's `khal.ini` uses `~/.calendars/...`, so `/drive/sys/data/calendars` goes at `/home/postmaster/.calendars`. Each calendar needs its own `[[name]]` section: `type = discover` isn't supported |
 | `/data/attachments` | downloaded attachments and bills; set the `attachments.path` setting to it |
 | `/data/todo` | the markdown to-do list (`todo.path`) |
 
