@@ -19,6 +19,7 @@ Status values:
 | T6 | Add an nginx include for `https://hutch.sh/mail` (with `/mail/mcp` blocked) using basic auth from `/var/www/.htpasswd`, add it to the `hutch.sh` site, and restart nginx. nginx's `/var/www` is `/drive/services/nginx/www`, so the play copies the host's `/var/www/.htpasswd` there | `config/postmaster/nginx-include.conf`, play | Applied 2026-10-25 |
 | T7 | Register Postmaster's MCP server (`http://postmaster:8080/mail/mcp`) under `mcp_servers` in the Hermes `postmaster` profile `config.yaml` and restart Hermes; the email-triage job is left alone | `plays/other/postmaster.yml` | Applied 2026-10-25 |
 | T8 | Sync Trash between Dovecot and Proton by removing `!"Trash"` from the mbsync `Pattern`, then restart the `mail-mbsync` container (it bind-mounts the file) | `config/mail/config/mbsyncrc`, `plays/other/postmaster.yml` | Applied 2026-10-25 |
+| T9 | Mount the knowledgebase (`/drive/sys/data/knowledgebase`) at `/data/knowledgebase` in the container, which joins the host's `sync` group (`group_add`) to write to it; the `postmaster` user is added to `sync` | `config/postmaster/docker-compose.yml.j2`, play | Applied 2026-10-25 |
 
 Found while deploying (not caused by Postmaster): Proton Bridge has rejected every login with "no such user" since its container started on 2026-10-11, so mbsync hasn't synced Proton and Dovecot since then. The Bridge account has to be logged in again by hand.
 

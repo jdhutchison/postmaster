@@ -39,6 +39,7 @@ The image's argument is the startup file, `/config/postmaster.yml` by default.
 | the calendars directory | the vdirs that `khal.ini`'s `path`s name, mounted at those same paths (read-write, for the `calendars` group). tigerbear's `khal.ini` uses `~/.calendars/...`, so `/drive/sys/data/calendars` goes at `/home/postmaster/.calendars`. Each calendar needs its own `[[name]]` section: `type = discover` isn't supported |
 | `/data/attachments` | downloaded attachments and bills; set the `attachments.path` setting to it |
 | `/data/todo` | the markdown to-do list (`todo.path`) |
+| `/data/knowledgebase` | on tigerbear, the Obsidian knowledgebase (`/drive/sys/data/knowledgebase`, group `sync`, added with `group_add`). Its to-do list is `/data/knowledgebase/Todo Lists/Action items`, which `todo.path` can point to |
 
 For example:
 
