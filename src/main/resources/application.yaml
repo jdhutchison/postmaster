@@ -12,9 +12,10 @@ quarkus:
   locales: en
   default-locale: en
   native:
-    # The version and build time, for the status endpoint
+    # The version and build time, for the status endpoint, and Jakarta Mail's service files
+    # (see MailNativeImage)
     resources:
-      includes: build-info.properties
+      includes: build-info.properties,META-INF/services/jakarta.mail.*,META-INF/services/jakarta.activation.spi.*
   http:
     root-path: /mail
     port: 8080

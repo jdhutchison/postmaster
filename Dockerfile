@@ -34,13 +34,16 @@ COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties version.prop
 COPY gradle gradle
 RUN ./gradlew --no-daemon --console=plain dependencies > /dev/null
 COPY src src
-# The commit it's built from, for the status endpoint (there's no .git here)
-ARG GIT_COMMIT=
+
+# GIT_COMMIT is the commit it's built from, for the status endpoint (there's no .git here). A
+# build argument only reaches the stage that declares it, so each build stage does.
 
 FROM build AS build-jvm
+ARG GIT_COMMIT=
 RUN ./gradlew --no-daemon --console=plain quarkusBuild -PkeepVersion "-PgitCommit=${GIT_COMMIT}"
 
 FROM build AS build-native
+ARG GIT_COMMIT=
 RUN ./gradlew --no-daemon --console=plain quarkusBuild -PkeepVersion "-PgitCommit=${GIT_COMMIT}" \
         -Dquarkus.native.enabled=true \
         -Dquarkus.package.jar.enabled=false \
@@ -59,7 +62,9 @@ RUN apt-get update \
     && groupadd --gid "${CALENDARS_GID}" calendars \
     && useradd --uid "${POSTMASTER_UID}" --gid calendars --create-home --shell /usr/sbin/nologin postmaster \
     && mkdir -p /config/khal /data/attachments /data/calendars /data/todo /app \
-    && chown postmaster:calendars /data/attachments /data/calendars /data/todo
+        /home/postmaster/.config/khal /home/postmaster/.cache/khal \
+    && chown postmaster:calendars /data/attachments /data/calendars /data/todo \
+        /home/postmaster/.config /home/postmaster/.config/khal /home/postmaster/.cache /home/postmaster/.cache/khal
 ENV HOME=/home/postmaster \
     TZ=Australia/Melbourne
 # So the deployment can prune superseded images
