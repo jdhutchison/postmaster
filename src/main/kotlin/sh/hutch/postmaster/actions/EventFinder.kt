@@ -88,6 +88,32 @@ class EventFinder(
     return added
   }
 
+  /**
+   * Adds an all-day event for something to be done on or by [day] (CLARIFICATIONS.md R9), unless the
+   * email already has an event that day with the same title, or one containing the other; returns
+   * whether it was added.
+   */
+  fun addDated(context: ProcessingContext, title: String, day: LocalDate, notes: String?): Boolean {
+    val text = title.trim().take(500)
+    val same = context.email.events.any { event ->
+      event.startsAt?.toLocalDate() == day &&
+          (event.title.contains(text, ignoreCase = true) || text.contains(event.title, ignoreCase = true))
+    }
+    if (text.isEmpty() || same) {
+      return false
+    }
+    val event = EmailEventEntity()
+    event.email = context.email
+    event.title = text
+    event.startsAt = day.atStartOfDay()
+    event.allDay = true
+    event.notes = notes?.trim()?.ifEmpty { null }
+    context.email.events.add(event)
+    events.persist(event)
+    context.eventsFound = true
+    return true
+  }
+
   /** Suggests a calendar for each event without one (select_calendar); the map's names must be enabled calendars. */
   fun suggestCalendars(context: ProcessingContext, targets: List<EmailEventEntity>) {
     val enabled = calendars.listEnabled()

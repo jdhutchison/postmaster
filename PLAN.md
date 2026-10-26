@@ -225,6 +225,10 @@ These are reusable, so the action handlers can share them.
 - [x] **A.5** `build: done` `tests: done` Status endpoint at `/mail/health` and `/mail/status`, and build-number versions (CLARIFICATIONS.md R7).
 - [x] **A.6** `build: done` `tests: done` More status checks (settings, processing, khal, Chromium, curl, folders, disk space), the build's commit, and the IETF draft's `application/health+json` format (CLARIFICATIONS.md R7).
 
+## Additions (2026-10-26)
+
+- [x] **A.7** `build: done` `tests: done` Folder scanning, email tracking, marking emails done, events or action items, to-do status sync, a `todo_list` status check, absolute reminders and case-insensitive regex conditions (CLARIFICATIONS.md R9). Verified 2026-10-26: 715 tests pass, and dev mode shows the new pages and dialogs.
+
 ## Phase 9: Deployment (in `/data/code/ansible`)
 
 - [x] **9.1** `build: done` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:

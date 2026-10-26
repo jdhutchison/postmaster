@@ -1,19 +1,24 @@
 {#include layout page="emails"}
   {#kicker}<a href="{base}/emails" data-testid="back-to-emails">Emails</a> · <span class="pm-kicker__plain" data-testid="email-from">{detail.from}</span> · <span class="pm-kicker__plain">{#time value=detail.receivedAt /}</span>{/kicker}
   {#title}{detail.subject ?: '(no subject)'}{/title}
-  {#lede}<p class="pm-lede pm-lede--meta" data-testid="email-byline">{#typeBadge name=detail.type colour=detail.typeColour /}{#if !detail.type}<span class="pm-muted">Unclassified</span>{/if} <span class="pm-muted">· {detail.status.code}{#if !detail.isRead} · unread{/if}</span></p>{/lede}
+  {#lede}<p class="pm-lede pm-lede--meta" data-testid="email-byline">{#typeBadge name=detail.type colour=detail.typeColour /}{#if !detail.type}<span class="pm-muted">Unclassified</span>{/if} <span class="pm-muted">· {detail.status.code}{#if !detail.isRead} · unread{/if}</span>{#if !detail.isTracked} <span class="pm-badge pm-badge--{detail.tracking.code}" data-testid="email-tracking">{detail.tracking.label}</span>{/if}</p>{/lede}
   {#actions}
-    {#if detail.isRead}
-    <button type="button" class="pm-button" data-testid="mark-unread" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "false"}'>Mark unread</button>
-    {#else}
-    <button type="button" class="pm-button" data-testid="mark-read" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "true"}'>Mark read</button>
+    {#if detail.isTracked}
+    <button type="button" class="pm-button pm-button--primary" data-testid="mark-done" hx-post="{base}/emails/{detail.id}/done">Mark done</button>
+    {#else if detail.isDone}
+    <button type="button" class="pm-button pm-button--primary" data-testid="reopen-email" hx-post="{base}/emails/{detail.id}/reopen">Reopen</button>
     {/if}
-    <button type="button" class="pm-button" data-testid="move-email" hx-get="{base}/emails/{detail.id}/move" hx-target="#move-dialog-body">Move</button>
-    <button type="button" class="pm-button" data-testid="reprocess-email" hx-post="{base}/emails/{detail.id}/reprocess" hx-confirm="Process this email again? Its rule matches, results and errors are replaced." data-pm-confirm-label="Reprocess">Reprocess</button>
-    <button type="button" class="pm-button pm-button--danger pm-actions__apart" data-testid="delete-email" hx-delete="{base}/emails/{detail.id}" hx-confirm="Delete this email? It's moved to the trash folder." data-pm-confirm-label="Delete">Delete</button>
+    {#if detail.isRead}
+    <button type="button" class="pm-button" data-testid="mark-unread" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "false"}'{#if !detail.isTracked} disabled{/if}>Mark unread</button>
+    {#else}
+    <button type="button" class="pm-button" data-testid="mark-read" hx-post="{base}/emails/{detail.id}/read" hx-vals='{"read": "true"}'{#if !detail.isTracked} disabled{/if}>Mark read</button>
+    {/if}
+    <button type="button" class="pm-button" data-testid="move-email" hx-get="{base}/emails/{detail.id}/move" hx-target="#move-dialog-body"{#if !detail.isTracked} disabled{/if}>Move</button>
+    <button type="button" class="pm-button" data-testid="reprocess-email" hx-post="{base}/emails/{detail.id}/reprocess" hx-confirm="Process this email again? Its rule matches, results and errors are replaced." data-pm-confirm-label="Reprocess"{#if !detail.isTracked} disabled{/if}>Reprocess</button>
+    <button type="button" class="pm-button pm-button--danger pm-actions__apart" data-testid="delete-email" hx-delete="{base}/emails/{detail.id}" hx-confirm="Delete this email? It's moved to the trash folder." data-pm-confirm-label="Delete"{#if !detail.isTracked} disabled{/if}>Delete</button>
   {/actions}
   {#content}
-    <div class="pm-page pm-page--inspector">
+    <div class="pm-page pm-page--inspector{#if !detail.isTracked} pm-page--untracked{/if}"{#if !detail.isTracked} data-untracked="{detail.tracking.code}"{/if}>
       <aside class="pm-rail pm-inspector" aria-label="Details">
         <section aria-labelledby="email-details-heading">
           <h2 id="email-details-heading" class="pm-label">Details</h2>
@@ -22,7 +27,7 @@
             <dd>
               <form class="pm-inline-form" hx-post="{base}/emails/{detail.id}/type" hx-trigger="change" data-testid="type-form">
                 <label class="pm-visually-hidden" for="email-type">Type</label>
-                <select id="email-type" name="typeId" class="pm-input" data-testid="email-type">
+                <select id="email-type" name="typeId" class="pm-input" data-testid="email-type"{#if !detail.isTracked} disabled{/if}>
                   <option value="">Unclassified</option>
                   {#for t in types}<option value="{t.id}"{#if detail.typeId == t.id} selected{/if}>{t.name}</option>{/for}
                 </select>
@@ -52,18 +57,29 @@
       </aside>
 
       <div class="pm-pane">
+        {#if !detail.isTracked}
+        <p class="pm-untracked" data-testid="untracked-notice">
+          {#if detail.isDone}Done: nothing more needs doing. Reopen it to act on it again.{#if detail.trackingChangedAt} <span class="pm-muted">Marked done {#time value=detail.trackingChangedAt /}</span>{/if}
+          {#else if detail.tracking.code == 'deleted'}Deleted: it's in the trash folder, so it's no longer tracked and nothing more can be done with it.{#if detail.trackingChangedAt} <span class="pm-muted">Noticed {#time value=detail.trackingChangedAt /}</span>{/if}
+          {#else}No longer in {detail.folder ?: 'its folder'}: it was moved or deleted outside Postmaster, so it's no longer tracked and nothing more can be done with it.{#if detail.trackingChangedAt} <span class="pm-muted">Noticed {#time value=detail.trackingChangedAt /}</span>{/if}
+          {/if}
+        </p>
+        {/if}
         {#if detail.responseRequired || !detail.actionItems.isEmpty}
         <div class="pm-flags" data-testid="email-flags">
           {#for item in detail.actionItems}
-          <div class="pm-flag pm-flag--action{#if item.completed} pm-flag--done{/if}" data-testid="action-item-{item.id}"{#if item.completed} data-completed="true"{/if}>
-            <span class="pm-label">{#if item.completed}Done{#else}Action needed{/if}</span>
+          <div class="pm-flag pm-flag--action{#if item.completed} pm-flag--done{/if}{#if item.inProgress} pm-flag--progress{/if}" data-testid="action-item-{item.id}"{#if item.completed} data-completed="true"{/if}{#if item.inProgress} data-in-progress="true"{/if}>
+            <span class="pm-label">{#if item.completed}Done{#else if item.inProgress}In progress{#else}Action needed{/if}</span>
             <span class="pm-flag__text">
               <span class="pm-flag__description" data-testid="action-item-description">{item.description}</span>
               {#if item.dueDate || item.todoName}<span class="pm-flag__meta">{#if item.dueDate}<span data-testid="action-item-due">Due {item.dueDate}</span>{/if}{#if item.dueDate && item.todoName} · {/if}{#if item.todoName}<span data-testid="action-item-todo">In the to-do list</span>{/if}</span>{/if}
               {#if item.notes}<span class="pm-flag__notes" data-testid="action-item-notes">{item.notes}</span>{/if}
             </span>
-            {#if !item.completed}
-            <button type="button" class="pm-button pm-button--small" data-testid="complete-action-item-{item.id}" hx-post="{base}/emails/{detail.id}/action-items/{item.id}/done" aria-label="Done: {item.description}">Done</button>
+            {#if !item.completed && detail.isTracked}
+            <span class="pm-flag__buttons">
+              <button type="button" class="pm-button pm-button--small pm-button--quiet" data-testid="action-item-to-event-{item.id}" hx-get="{base}/emails/{detail.id}/action-items/{item.id}/event" hx-target="#action-item-event-dialog-body" aria-label="Make an event: {item.description}">Make event</button>
+              <button type="button" class="pm-button pm-button--small" data-testid="complete-action-item-{item.id}" hx-post="{base}/emails/{detail.id}/action-items/{item.id}/done" aria-label="Done: {item.description}">Done</button>
+            </span>
             {/if}
           </div>
           {/for}
@@ -71,7 +87,7 @@
           <div class="pm-flag pm-flag--reply" data-testid="email-response-required">
             <span class="pm-label">Reply needed</span>
             <span class="pm-flag__text">The sender is expecting a response.</span>
-            <button type="button" class="pm-button pm-button--small" data-testid="clear-response-required" hx-post="{base}/emails/{detail.id}/response-required" hx-vals='{"required": "false"}'>Replied</button>
+            {#if detail.isTracked}<button type="button" class="pm-button pm-button--small" data-testid="clear-response-required" hx-post="{base}/emails/{detail.id}/response-required" hx-vals='{"required": "false"}'>Replied</button>{/if}
           </div>
           {/if}
         </div>
@@ -102,7 +118,7 @@
           <ul class="pm-events" data-testid="events">
             {#for e in detail.events}
             <li>
-              <button type="button" class="pm-event{#if !e.isAdded} pm-event--pending{/if}" data-testid="event-{e.id}"{#if e.calendarColour} style="--pm-event-colour: {e.calendarColour}"{/if}
+              <button type="button" class="pm-event{#if !e.isAdded} pm-event--pending{/if}" data-testid="event-{e.id}"{#if e.calendarColour} style="--pm-event-colour: {e.calendarColour}"{/if}{#if !detail.isTracked} disabled{/if}
                   hx-get="{base}/emails/{detail.id}/events/{e.id}/calendar" hx-target="#event-calendar-dialog-body"
                   aria-label="{e.title}: {#if e.isAdded}change its calendar{#else}add it to a calendar{/if}">
                 <span class="pm-event__time">{e.time}</span>
@@ -185,5 +201,6 @@
     {#modal id="move-dialog" title="Move email"}<p class="pm-muted">Loading…</p>{/modal}
     {#modal id="event-calendar-dialog" title="Calendar"}<p class="pm-muted">Loading…</p>{/modal}
     {#modal id="attachment-dialog" title="Preview"}<p class="pm-muted">Loading…</p>{/modal}
+    {#modal id="action-item-event-dialog" title="Make it an event"}<p class="pm-muted">Loading…</p>{/modal}
   {/content}
 {/include}

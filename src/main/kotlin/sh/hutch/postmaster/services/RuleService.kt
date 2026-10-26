@@ -21,7 +21,7 @@ import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.RuleRepository
 import sh.hutch.postmaster.repositories.TypeRepository
-import sh.hutch.postmaster.util.IsoDurations
+import sh.hutch.postmaster.util.Reminders
 import java.util.regex.PatternSyntaxException
 
 /**
@@ -273,10 +273,10 @@ class RuleService(
           }
         }
         notifications = input.notifications?.trim()?.ifEmpty { null }
-        if (notifications != null && !IsoDurations.isValidList(notifications)) {
+        if (notifications != null && !Reminders.isValidList(notifications)) {
           invalid(
               "notifications",
-              "Notifications must be a list of ISO 8601 durations separated by a comma and a space, such as 4h, 1d"
+              "Notifications must be ISO 8601 durations or times like d-1@20:00, separated by a comma and a space, such as 4h, d-1@20:00"
           )
         }
       }

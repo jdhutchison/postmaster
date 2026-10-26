@@ -1,6 +1,7 @@
 package sh.hutch.postmaster.processing
 
 import io.quarkus.test.junit.QuarkusTest
+import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.models.RunTrigger
+import sh.hutch.postmaster.services.TodoListService
 import sh.hutch.postmaster.testsupport.TestMessages.message
 import sh.hutch.postmaster.testsupport.getHtml
 import sh.hutch.postmaster.testsupport.htmx
@@ -25,8 +27,8 @@ import java.util.UUID
 /**
  * Action items and the update_todo_list action (CLAR R5): the LLM lists what
  * an email asks for, the action writes each item to the markdown to-do list,
- * Done ticks it off there, and each processing run marks done here what was
- * ticked off there.
+ * Done ticks it off there, and the to-do list check brings in what was ticked
+ * off or started there (CLAR R9).
  */
 @QuarkusTest
 class TodoListFlowTest : PipelineTest() {
@@ -34,6 +36,9 @@ class TodoListFlowTest : PipelineTest() {
 
   /** The Message-ID of this test's sold email; the tests share a database, so each has its own */
   private lateinit var sold: String
+
+  @Inject
+  lateinit var todos: TodoListService
 
   private fun run() = processing.runNow(RunTrigger.MANUAL)!!
 
@@ -55,6 +60,8 @@ class TodoListFlowTest : PipelineTest() {
     sold = "todo-sold-${UUID.randomUUID()}@mail.example"
     Files.writeString(todo.resolve("index.md"), "# To-do\n\n<!-- todo-items:end -->\n")
     settings.update("todo.path", todo.toString())
+    // Each test has a to-do list of its own, so earlier tests' items, with the same names, aren't in it
+    dataSource.update("UPDATE Email_action_items SET todo_name = NULL")
     settings.update("todo.postmaster_url", "http://tigerbear:8080/mail/")
   }
 
@@ -62,7 +69,7 @@ class TodoListFlowTest : PipelineTest() {
     llm(
         SUMMARISE,
         """{"summary": "The turntable sold", "action_items": [
-             {"action": "Post turntable in three days", "due": "2026-10-28", "notes": "Sold for ${'$'}240; use the prepaid label"},
+             {"action": "Post turntable in three days", "notes": "Sold for ${'$'}240; use the prepaid label"},
              {"action": "Leave feedback for the buyer", "due": null}
            ]}"""
     )
@@ -72,12 +79,12 @@ class TodoListFlowTest : PipelineTest() {
   }
 
   @Test
-  fun `the LLM's action items are stored with their due dates and notes`() {
+  fun `the LLM's action items are stored with their notes`() {
     processTurntable()
 
     val items = items(sold)
     assertEquals(listOf("Post turntable in three days", "Leave feedback for the buyer"), items.map { it["description"] })
-    assertEquals(listOf("2026-10-28", null), items.map { it["due_date"]?.toString() })
+    assertEquals(listOf(null, null), items.map { it["due_date"]?.toString() })
     assertEquals("Sold for \$240; use the prepaid label", items[0]["notes"])
     val email = email(sold)
     assertEquals(true, email["action_required"])
@@ -102,7 +109,7 @@ class TodoListFlowTest : PipelineTest() {
     val lines = text.lines()
     assertEquals(listOf("---", "todo-item: true", "tags:", "  - todo-item"), lines.take(4))
     assertTrue(Regex("created: \\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d").matches(lines[4]), lines[4])
-    assertEquals(listOf("completed: false", "due: 2026-10-28", "---"), lines.subList(5, 8), "due is the second last line")
+    assertEquals(listOf("completed: false", "status: todo", "---"), lines.subList(5, 8))
     assertTrue(text.contains("Sold for \$240; use the prepaid label"), text)
     assertTrue(text.contains("Email: Item sold from eBay"), text)
     assertTrue(text.contains("[Open the email in Postmaster](http://tigerbear:8080/mail/emails/$id)"), text)
@@ -215,16 +222,98 @@ class TodoListFlowTest : PipelineTest() {
   }
 
   @Test
-  fun `processing marks done what was ticked off in the to-do list`() {
+  fun `the to-do list check marks done what was ticked off there, and keeps the other place in step`() {
     processTurntable()
     Files.writeString(todo.resolve("index.md"), index().replace("- [ ] [[Post turntable", "- [x] [[Post turntable"))
     val feedback = file("Leave feedback for the buyer")
     Files.writeString(todo.resolve("Leave feedback for the buyer.md"), feedback.replace("completed: false", "completed: true"))
 
-    run()
+    assertEquals(2, todos.sync())
 
     assertEquals(listOf(true, true), items(sold).map { it["completed"] })
     assertEquals(false, email(sold)["action_required"])
+    assertTrue(file("Post turntable in three days").contains("completed: true\nstatus: done\n"))
+    assertTrue(index().contains("- [x] [[Leave feedback for the buyer]]"), index())
+    assertEquals(0, todos.sync(), "nothing more has changed")
+  }
+
+  @Test
+  fun `processing runs no longer read the to-do list`() {
+    // CLAR R9: the to-do list check runs on its own, every todo.sync_frequency
+    processTurntable()
+    Files.writeString(todo.resolve("index.md"), index().replace("- [ ] [[Post turntable", "- [x] [[Post turntable"))
+
+    run()
+
+    assertEquals(listOf(false, false), items(sold).map { it["completed"] })
+  }
+
+  @Test
+  fun `an item started in the to-do list is in progress here, and can be reopened there`() {
+    processTurntable()
+    val id = id(sold)
+    val itemId = (items(sold)[0]["id"] as Number).toLong()
+    Files.writeString(todo.resolve("index.md"), index().replace("- [ ] [[Post turntable", "- [/] [[Post turntable"))
+
+    todos.sync()
+
+    assertEquals(listOf(true, false), items(sold).map { it["in_progress"] })
+    assertEquals(true, email(sold)["action_required"], "an item in progress still needs doing")
+    assertTrue(file("Post turntable in three days").contains("status: in-progress"))
+    val row = getHtml("/emails/$id").testId("action-item-$itemId")
+    assertEquals("true", row.attr("data-in-progress"))
+    assertEquals("In progress", row.selectFirst(".pm-label")!!.text())
+
+    // Started in the file instead, then done in the index, then reopened there
+    val feedback = file("Leave feedback for the buyer")
+    Files.writeString(todo.resolve("Leave feedback for the buyer.md"), feedback.replace("status: todo", "status: in-progress"))
+    todos.sync()
+    assertTrue(index().contains("- [/] [[Leave feedback for the buyer]]"), index())
+    Files.writeString(todo.resolve("index.md"), index().replace("- [/] [[Post turntable", "- [x] [[Post turntable"))
+    todos.sync()
+    assertEquals(true, items(sold)[0]["completed"])
+    Files.writeString(todo.resolve("index.md"), index().replace("- [x] [[Post turntable", "- [ ] [[Post turntable"))
+    todos.sync()
+    assertEquals(listOf(false, false), items(sold).map { it["completed"] }, "reopened")
+    assertEquals(listOf(false, true), items(sold).map { it["in_progress"] })
+    assertTrue(file("Post turntable in three days").contains("completed: false\nstatus: todo\n"))
+  }
+
+  @Test
+  fun `an item the LLM gives a date is an event instead`() {
+    // CLAR R9: something is an event or an action item, never both
+    llm(
+        SUMMARISE,
+        """{"summary": "Excursion", "events": [{"title": "Zoo excursion", "when": "2026-11-05T09:00"}],
+           "action_items": [
+             {"action": "Pay for the excursion", "due": "2026-11-03", "notes": "Through the app"},
+             {"action": "Zoo excursion", "due": "2026-11-05"},
+             {"action": "Sign the form"}
+           ]}"""
+    )
+    inbox(message("<dated-$sold>", "Zoo excursion"))
+
+    run()
+
+    assertEquals(listOf("Sign the form"), items("dated-$sold").map { it["description"] })
+    val events = dataSource.rows(
+        "SELECT v.title, v.starts_at, v.all_day, v.notes FROM Email_events v JOIN Emails e ON e.id = v.email_id " +
+            "WHERE e.message_id = ? ORDER BY v.starts_at",
+        "dated-$sold"
+    )
+    assertEquals(listOf("Pay for the excursion", "Zoo excursion"), events.map { it["title"] }, "the same event isn't added twice")
+    assertEquals(true, events[0]["all_day"])
+    assertEquals("Through the app", events[0]["notes"])
+    assertTrue(events[0]["starts_at"].toString().startsWith("2026-11-03"), events[0]["starts_at"].toString())
+  }
+
+  @Test
+  fun `the summarise prompt says something with a date is an event`() {
+    processTurntable()
+
+    val request = wireMock.allServeEvents.map { it.request.bodyAsString }.single { it.contains(SUMMARISE) }
+    assertTrue(request.contains("Something is either an event or an action item, never both"), request)
+    assertFalse(request.contains("\\\"due\\\""), "action items have no due date")
   }
 
   @Test

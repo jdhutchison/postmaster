@@ -98,7 +98,8 @@ class SeedDataTest {
   fun `the Summarise prompt is the revised prompt in R1`() {
     // CLAR Q13 revision and R1: the Summarise prompt also identifies required
     // action, and D19 adds the email placeholders and fixes the JSON. R5 asks
-    // for a list of action items and adds the received date.
+    // for a list of action items and adds the received date. R9 makes anything
+    // with a date an event, so action items have no due date.
     val expected = SeedDataTest::class.java.getResource("/expected/prompts/summarise.txt")!!.readText().trimEnd()
 
     assertEquals(expected, prompt("summarise").trimEnd())
@@ -275,6 +276,11 @@ class SeedDataTest {
     // CLAR R5: the to-do list
     assertSetting("todo.path", "path")
     assertSetting("todo.postmaster_url", "text")
+    // CLAR R9: folder scanning, tracking and the to-do list check
+    assertSetting("imap.folder_scan_frequency", "duration")
+    assertSetting("todo.sync_frequency", "duration")
+    assertSetting("tracking.frequency", "duration")
+    assertSetting("tracking.window", "duration")
   }
 
   @Test
@@ -287,6 +293,10 @@ class SeedDataTest {
     assertEquals("mail-opensmtp", value("smtp.host"), "CLAR Q7: SMTP defaults to mail-opensmtp")
     assertEquals("25", value("smtp.port"), "CLAR Q7: SMTP port 25")
     assertEquals("http://kodiakbear:9931/v1", value("llm.url"), "CLAR Q4: llama.cpp on kodiakbear")
+    assertEquals("12h", value("imap.folder_scan_frequency"), "CLAR R9: folders are scanned every 12h")
+    assertEquals("1h", value("todo.sync_frequency"), "CLAR R9: the to-do list is read every hour")
+    assertEquals("1h", value("tracking.frequency"), "CLAR R9: tracking is checked every hour")
+    assertEquals("7d", value("tracking.window"), "CLAR R9: emails from the last seven days are tracked")
   }
 
   @Test

@@ -31,7 +31,8 @@ data class SettingGroup(val key: String, val label: String, val settings: List<S
         "fetch" to "Fetching pages",
         "bills" to "Bills",
         "todo" to "To-do list",
-        "health" to "Status checks"
+        "health" to "Status checks",
+        "tracking" to "Tracking"
     )
 
     /** [settings] grouped by key prefix, keeping their order. */

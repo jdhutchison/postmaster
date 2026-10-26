@@ -33,6 +33,7 @@ import sh.hutch.postmaster.models.RuleInput
 import sh.hutch.postmaster.models.RuleSummary
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.services.CalendarService
+import sh.hutch.postmaster.services.FolderService
 import sh.hutch.postmaster.services.RuleService
 import sh.hutch.postmaster.services.TypeService
 import sh.hutch.postmaster.services.ValidationException
@@ -48,7 +49,8 @@ class RulesController(
     private val types: TypeService,
     private val calendars: CalendarService,
     private val pageToasts: PageToasts,
-    private val registry: ActionRegistry
+    private val registry: ActionRegistry,
+    private val folders: FolderService
 ) {
 
   @CheckedTemplate
@@ -102,7 +104,7 @@ class RulesController(
     @Schema(name = "actions[i].actionType", description = "One of the action types, e.g. move or set_type")
     var actionType: String? = null
 
-    @Schema(name = "actions[i].destination", description = "Folder for move, address for forward_email")
+    @Schema(name = "actions[i].destination", description = "Folder for move (chosen from the scanned folders), address for forward_email")
     var actionDestination: String? = null
 
     @Schema(name = "actions[i].typeId", description = "Type id for set_type")
@@ -111,7 +113,7 @@ class RulesController(
     @Schema(name = "actions[i].calendarId", description = "Calendar id for create_events (optional) and process_bill")
     var actionCalendarId: String? = null
 
-    @Schema(name = "actions[i].notifications", description = "Notification durations for create_events, e.g. 4h, 1d")
+    @Schema(name = "actions[i].notifications", description = "Notifications for create_events: durations before the event or times of day before its day, e.g. 4h, d-1@20:00")
     var actionNotifications: String? = null
 
     @Schema(name = "actions[i].enabled", description = "true when the action is enabled")
@@ -239,7 +241,8 @@ class RulesController(
         types = types.list().map { Option(it.id.toString(), it.name) },
         calendars = calendars.list().map { Option(it.id.toString(), it.name) },
         errors = errors,
-        actionTypes = registry.options()
+        actionTypes = registry.options(),
+        folders = runCatching { folders.names() }.getOrElse { folders.saved() }
     )
 
   private fun blankAction() = ActionInput(0, null, "move", "", "", "", "", true)

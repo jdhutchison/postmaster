@@ -445,6 +445,34 @@ Each classification and action rule says how its conditions combine, for the who
 - It's the "Match" field above the conditions on the rule form, and the rules list shows "(all)" or "(any)" next to the condition count for rules with more than one. It's stored in `Rules.condition_join` (`all` or `any`, migration V8).
 - A rule with no conditions still never matches.
 
+**R9 (2026-10-26). Folders, tracking, done emails, events or action items, to-do status, absolute reminders (your requests).**
+- **Folders.** The mailbox's folders are kept in a new `Folders` table. They're scanned every `imap.folder_scan_frequency` (12h) and once at startup, and the email's Move dialog has a "Refresh" button that scans them again. The rule form's `move` "to:" field and the Move dialog both choose from this list. A rule whose folder is no longer listed keeps it, shown as "(not found)". MCP `list_folders` answers from the list too.
+- **Tracking.** Each email has a `tracking` state (migration V9):
+  - `tracked`, the default;
+  - `moved`, when it's no longer in the folder Postmaster expects it in;
+  - `deleted`, when it's in the trash folder, or was deleted by Postmaster (the Delete button, MCP or a `delete` or `move`-to-trash action);
+  - `done`, when you mark it done (below).
+
+  Emails in any state but `tracked` are **untracked**.
+  - Every `tracking.frequency` (1h), tracked emails received within `tracking.window` (7d) are looked for in their folder by Message-ID. One that isn't there is looked for in the trash folder: there it's `deleted`, otherwise `moved`. Other folders aren't searched. If Dovecot can't be reached, nothing changes. Emails still being processed (`pending`) are left alone.
+  - Untracked emails can still be opened, but they're greyed out and nothing can be done to them: every action (by hand or MCP) is refused, except reopening a done email.
+  - The emails list leaves them out unless "Include deleted, moved and done" is ticked (MCP `search_emails`: `include_untracked`). They show greyed out with their state. The dashboard's counts leave them out.
+  - Deleting no longer soft-deletes an email; it becomes `deleted` and can still be opened. Emails soft-deleted before V9 become `deleted` too.
+- **Done.** "Mark done" on the email page (MCP `mark_email_done`) completes every open action item, ticking them off in the to-do list, clears Reply needed and makes the email `done`. "Reopen" makes it `tracked` again; its items stay done.
+- **Events or action items.** Something is a calendar event or an action item, never both. Anything with a date (and perhaps a time) is an event; something to do with no date is an action item.
+  - The summarise prompt says so, and no longer asks for a due date on action items (migration V9 changes the seeded prompt only where its text still matches).
+  - An action item the LLM still gives a date becomes an all-day event on that date, unless the email already has an event on that day with the same title (or one containing the other).
+  - **Event to action item:** an event that hasn't been added to a calendar can be made an action item from its dialog. The item's due date is the event's day. It's written to the to-do list if `update_todo_list` has run on the email.
+  - **Action item to event:** an open action item can be made an event, choosing its date (the due date at first), an optional time, and optionally a calendar to add it to straight away. An item in the to-do list is removed from it: its file and its line in `index.md`.
+- **To-do status.** Items can be open, in progress or done. In the to-do list they're marked both ways, kept in step:
+  - in `index.md`: `- [ ]` open, `- [/]` in progress, `- [x]` done;
+  - in the item's front matter: `status: todo`, `in-progress` or `done`, with `completed: true` only when done. New items get `status: todo`.
+
+  Every `todo.sync_frequency` (1h), instead of at the start of each processing run, Postmaster reads both for each item it wrote. Where one has changed since Postmaster last saw it, the item takes that status here (also back to open), and the other is updated to match. If both have changed, the index wins. In-progress items show "In progress" on the email page; they still need action.
+- **Status check.** A new `todo_list` check reads `index.md` in `todo.path`: it's `DOWN` if it can't be read or written or has no `<!-- todo-items:end -->` line, and warns if it doesn't exist or if files of items Postmaster wrote are missing. Otherwise it reports how many items are open, in progress and done. The `todo` check keeps testing the folder.
+- **Absolute reminders.** Notifications (a `create_events` action's and a calendar's Durations) also take `d-1@20:00`: a reminder at a time of day, a number of days before the event's day (`d@08:00` is on the day). Times are 24-hour ISO 8601 (`20:00`) or 12-hour (`8pm`, `8:30am`), in `processing.timezone`. They mix with durations, e.g. `1h, d-1@20:00`. They're written as absolute iCalendar alarms (`TRIGGER;VALUE=DATE-TIME`).
+- **Case.** `regex` conditions ignore case too, like every other string condition (revises D5). Start a pattern with `(?-i)` to match case.
+
 ---
 
 ## Technical suggestions

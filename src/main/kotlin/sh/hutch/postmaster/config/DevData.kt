@@ -15,6 +15,7 @@ import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailErrorEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
 import sh.hutch.postmaster.entities.EmailRuleMatchEntity
+import sh.hutch.postmaster.entities.FolderEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
 import sh.hutch.postmaster.entities.RuleActionEntity
 import sh.hutch.postmaster.entities.RuleEntity
@@ -24,16 +25,20 @@ import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.ActionTypes
 import sh.hutch.postmaster.models.ConditionAttribute
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.MatchType
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.models.RunTrigger
+import sh.hutch.postmaster.models.TodoStatus
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.EmailRepository
+import sh.hutch.postmaster.repositories.FolderRepository
 import sh.hutch.postmaster.repositories.ProcessingRunRepository
 import sh.hutch.postmaster.repositories.RuleRepository
 import sh.hutch.postmaster.repositories.TypeRepository
+import sh.hutch.postmaster.services.EmailService
 import sh.hutch.postmaster.services.SettingKeys
 import sh.hutch.postmaster.services.SettingsService
 import sh.hutch.postmaster.services.TodoList
@@ -74,7 +79,8 @@ class DevData(
     private val rules: RuleRepository,
     private val emails: EmailRepository,
     private val runs: ProcessingRunRepository,
-    private val todos: TodoListService
+    private val todos: TodoListService,
+    private val folders: FolderRepository
 ) {
   private val random = Random(42)
   private val now = Times.now()
@@ -103,6 +109,13 @@ class DevData(
   // ---------------------------------------------------------------------------------------------
 
   private fun seed(attachments: Path) {
+    // The mailbox's folders, as a scan would find them (CLARIFICATIONS.md R9)
+    for (name in listOf("Archive", "Folders/Bills", "Folders/School", "INBOX", "Spam", "Trash")) {
+      folders.persist(FolderEntity().also {
+        it.name = name
+        it.scannedAt = now.minus(Duration.ofHours(3))
+      })
+    }
     val family = calendar("Family", "Family events, birthdays and outings", "#bd93f9", "1d")
     val school = calendar("Kids school", "School events, excursions and parent meetings", "#50fa7b", "1d, 2h")
     val sport = calendar("Sport", "Dancing, football training and matches", "#ffb86c", "2h")
@@ -258,8 +271,11 @@ class DevData(
     email("Item sold: vintage turntable", "eBay", "ebay@ebay.example", hoursAgo = 8, type = ebay,
         text = "Congratulations, your item sold for \$240. Please post it within 3 business days.",
         summary = "The vintage turntable sold for \$240 and needs posting within 3 business days.") { e ->
-      todo(e, e.addActionItem("Post the turntable", e.receivedAt!!.atZone(ZoneOffset.UTC).toLocalDate().plusDays(3),
-          "It sold for \$240. Post it within 3 business days of the sale."))
+      val item = e.addActionItem("Post the turntable", null, "It sold for \$240. Post it within 3 business days of the sale.")
+      todo(e, item)
+      // Started in the to-do list
+      item?.todoName?.let { TodoList(Path.of(settings.getString(SettingKeys.TODO_PATH)!!)).setStatus(it, TodoStatus.IN_PROGRESS) }
+      item?.let { e.setActionItemStatus(it, TodoStatus.IN_PROGRESS) }
       matched(e, todoRule, 0, ActionTypes.UPDATE_TODO_LIST to "Added to the to-do list: Post the turntable")
     }
 
@@ -295,6 +311,19 @@ class DevData(
           result(e, null, ActionTypes.MOVE, ActionResultStatus.DONE, "Moved to Archive", source = ActionSource.UI)
           e.folder = "Archive"
           e.movedTo = "Archive"
+        }
+        // No longer tracked: deleted, moved elsewhere, and marked done (R9)
+        when (i) {
+          20 -> {
+            result(e, null, ActionTypes.DELETE, ActionResultStatus.DONE, "Moved to Trash", source = ActionSource.UI)
+            e.folder = "Trash"
+            e.changeTracking(EmailTracking.DELETED, e.processedAt!!.plus(Duration.ofHours(1)))
+          }
+          21 -> e.changeTracking(EmailTracking.MOVED, e.processedAt!!.plus(Duration.ofHours(5)))
+          22 -> {
+            result(e, null, EmailService.MARK_DONE, ActionResultStatus.DONE, "Done", source = ActionSource.UI)
+            e.changeTracking(EmailTracking.DONE, e.processedAt!!.plus(Duration.ofHours(2)))
+          }
         }
       }
     }

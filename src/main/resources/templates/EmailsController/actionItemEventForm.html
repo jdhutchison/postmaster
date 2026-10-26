@@ -1,0 +1,23 @@
+<form id="action-item-event-form" class="pm-form" data-testid="action-item-event-form" hx-post="{base}/emails/{detail.id}/action-items/{item.id}/event" data-pm-dialog-title="Make it an event">
+  <p><strong>{item.description}</strong>{#if item.todoName}<br><span class="pm-muted" data-testid="removed-from-todo">It's taken out of the to-do list.</span>{/if}</p>
+  <div class="pm-field">
+    <label for="item-event-date">Date</label>
+    <input type="date" id="item-event-date" name="date" class="pm-input" value="{item.dueDate ?: ''}" required autofocus data-testid="item-event-date">
+  </div>
+  <div class="pm-field">
+    <label for="item-event-time">Time <span class="pm-muted">(optional)</span></label>
+    <input type="time" id="item-event-time" name="time" class="pm-input" data-testid="item-event-time">
+    <p class="pm-hint">Without a time, it's an all-day event.</p>
+  </div>
+  <div class="pm-field">
+    <label for="item-event-calendar">Calendar</label>
+    <select id="item-event-calendar" name="calendarId" class="pm-input" data-testid="item-event-calendar">
+      <option value="">Don't add it to a calendar yet</option>
+      {#for c in detail.calendars}<option value="{c.id}">{c.name}</option>{/for}
+    </select>
+  </div>
+  <div class="pm-dialog__actions">
+    <button type="button" class="pm-button" data-pm-close data-testid="cancel-item-event">Cancel</button>
+    <button type="submit" class="pm-button pm-button--primary" data-testid="save-item-event">Make it an event</button>
+  </div>
+</form>

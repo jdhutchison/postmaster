@@ -16,8 +16,8 @@
   {#colourField value=form.colour error=form.error('colour') /}
   <div class="pm-field">
     <label for="calendar-notifications">Durations <span class="pm-muted">(optional)</span></label>
-    <input id="calendar-notifications" name="notificationPeriods" class="pm-input" value="{form.notificationPeriods}" placeholder="e.g. 4h, 1d" autocomplete="off"{#if form.invalid('notificationPeriods')} aria-invalid="true"{/if}>
-    <p class="pm-hint">When to add notifications before events, separated by a comma and a space.</p>
+    <input id="calendar-notifications" name="notificationPeriods" class="pm-input" value="{form.notificationPeriods}" placeholder="e.g. 4h, d-1@20:00" autocomplete="off"{#if form.invalid('notificationPeriods')} aria-invalid="true"{/if}>
+    <p class="pm-hint">When to add notifications, separated by a comma and a space: a time before the event (4h, 1d), or a time of day a number of days before the event's day (d-1@20:00, d@8am).</p>
     {#fieldError field="notificationPeriods" message=form.error('notificationPeriods') /}
   </div>
   <div class="pm-field pm-field--inline">

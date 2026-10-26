@@ -15,7 +15,9 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.ProcessingProgress
+import sh.hutch.postmaster.models.TodoStatus
 import sh.hutch.postmaster.services.MessageIds
 import sh.hutch.postmaster.util.Times
 import java.math.BigDecimal
@@ -139,6 +141,23 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   @Column(name = "processed_at")
   var processedAt: Instant? = null
 
+  /** Whether Postmaster still keeps track of the email; only a tracked email can be acted on (R9). */
+  @Convert(converter = EmailTrackingConverter::class)
+  @Column(name = "tracking", nullable = false, length = 10)
+  var tracking: EmailTracking = EmailTracking.TRACKED
+    protected set
+
+  /** When [tracking] last changed. */
+  @JdbcTypeCode(SqlTypes.TIMESTAMP)
+  @Column(name = "tracking_changed_at")
+  var trackingChangedAt: Instant? = null
+    protected set
+
+  /** When the email was last looked for in its folder. */
+  @JdbcTypeCode(SqlTypes.TIMESTAMP)
+  @Column(name = "tracking_checked_at")
+  var trackingCheckedAt: Instant? = null
+
   @Column(name = "deleted", nullable = false)
   override var deleted: Boolean = false
 
@@ -206,12 +225,32 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   }
 
   /** Marks [item] done. */
-  fun completeActionItem(item: EmailActionItemEntity) {
-    if (!item.completed) {
-      item.completed = true
+  fun completeActionItem(item: EmailActionItemEntity) = setActionItemStatus(item, TodoStatus.DONE)
+
+  /** Marks [item] open, in progress or done, as it is in the to-do list (CLARIFICATIONS.md R9). */
+  fun setActionItemStatus(item: EmailActionItemEntity, status: TodoStatus) {
+    if (status == TodoStatus.DONE && !item.completed) {
       item.completedAt = Times.now()
+    } else if (status != TodoStatus.DONE) {
+      item.completedAt = null
     }
+    item.completed = status == TodoStatus.DONE
+    item.inProgress = status == TodoStatus.IN_PROGRESS
     syncActionRequired()
+  }
+
+  /** Removes [item], as when it becomes an event (R9). */
+  fun removeActionItem(item: EmailActionItemEntity) {
+    actionItems.remove(item)
+    syncActionRequired()
+  }
+
+  /** Changes whether Postmaster keeps track of the email (R9). */
+  fun changeTracking(state: EmailTracking, now: Instant = Times.now()) {
+    if (state != tracking) {
+      tracking = state
+      trackingChangedAt = now
+    }
   }
 
   /**

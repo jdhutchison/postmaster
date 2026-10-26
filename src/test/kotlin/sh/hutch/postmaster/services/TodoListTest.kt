@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import sh.hutch.postmaster.models.TodoStatus
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
@@ -42,6 +43,7 @@ class TodoListTest {
           - todo-item
         created: 2026-10-25T14:03:12
         completed: false
+        status: todo
         due: 2026-10-28
         ---
 
@@ -61,7 +63,7 @@ class TodoListTest {
     list().add(TodoEntry("Book a time", created, null, null))
 
     assertEquals(
-        "---\ntodo-item: true\ntags:\n  - todo-item\ncreated: 2026-10-25T14:03:12\ncompleted: false\n---\n",
+        "---\ntodo-item: true\ntags:\n  - todo-item\ncreated: 2026-10-25T14:03:12\ncompleted: false\nstatus: todo\n---\n",
         read("Book a time.md")
     )
   }
@@ -142,14 +144,14 @@ class TodoListTest {
   }
 
   @Test
-  fun `completing an item ticks it in the index and sets completed in its front matter`() {
+  fun `completing an item ticks it in the index and sets completed and status in its front matter`() {
     index("- [ ] [[Pay]] #todo-item\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n")
     Files.writeString(root.resolve("Pay.md"), "---\ntodo-item: true\ncompleted: false\ndue: 2026-10-28\n---\n\nNotes\ncompleted: false\n")
 
     list().complete("Pay")
 
     assertEquals("- [x] [[Pay]] #todo-item\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n", read("index.md"))
-    assertEquals("---\ntodo-item: true\ncompleted: true\ndue: 2026-10-28\n---\n\nNotes\ncompleted: false\n", read("Pay.md"))
+    assertEquals("---\ntodo-item: true\ncompleted: true\ndue: 2026-10-28\nstatus: done\n---\n\nNotes\ncompleted: false\n", read("Pay.md"))
   }
 
   @Test
@@ -176,5 +178,75 @@ class TodoListTest {
   @Test
   fun `nothing is done when there's no list yet`() {
     assertEquals(emptySet<String>(), TodoList(root.resolve("none")).doneNames(listOf("Pay")))
+  }
+
+  // CLAR R9: open, in progress or done, in the index and the front matter, kept in step
+
+  @Test
+  fun `an item can be marked in progress and open again, in the index and its file`() {
+    index("- [ ] [[Pay]] #todo-item\n<!-- todo-items:end -->\n")
+    list().add(TodoEntry("Sign", created, null, null))
+
+    list().setStatus("Pay", TodoStatus.IN_PROGRESS)
+    list().setStatus("Sign", TodoStatus.IN_PROGRESS)
+
+    assertEquals("- [/] [[Pay]] #todo-item\n- [/] [[Sign]] #todo-item\n<!-- todo-items:end -->\n", read("index.md"))
+    assertTrue(read("Sign.md").contains("completed: false\nstatus: in-progress\n"), read("Sign.md"))
+
+    list().setStatus("Sign", TodoStatus.OPEN)
+
+    assertTrue(read("index.md").contains("- [ ] [[Sign]]"))
+    assertTrue(read("Sign.md").contains("completed: false\nstatus: todo\n"), read("Sign.md"))
+  }
+
+  @Test
+  fun `statuses come from the index's boxes and the front matter's status and completed fields`() {
+    index("- [/] [[Started]]\n- [x] [[Ticked]]\n- [-] [[Cancelled]]\n- [ ] [[Open]]\n- [?] [[Odd]]\n<!-- todo-items:end -->\n")
+    Files.writeString(root.resolve("Open.md"), "---\nstatus: In Progress\ncompleted: false\n---\n")
+    Files.writeString(root.resolve("Ticked.md"), "---\ncompleted: true\n---\n")
+
+    val seen = list().statuses(listOf("Started", "Ticked", "Cancelled", "Open", "Odd", "Missing"))
+
+    assertEquals(TodoObserved(TodoStatus.IN_PROGRESS, null, null), seen["Started"])
+    assertEquals(TodoObserved(TodoStatus.DONE, null, true), seen["Ticked"])
+    assertEquals(TodoStatus.DONE, seen["Cancelled"]!!.index)
+    assertEquals(TodoObserved(TodoStatus.OPEN, TodoStatus.IN_PROGRESS, false), seen["Open"])
+    assertEquals(TodoObserved(null, null, null), seen["Odd"])
+    assertEquals(TodoObserved(null, null, null), seen["Missing"])
+  }
+
+  @Test
+  fun `removing an item deletes its file and its task, and the rest stays`() {
+    index("# To-do\n- [ ] [[Pay]] #todo-item\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n")
+    Files.writeString(root.resolve("Pay.md"), "---\ncompleted: false\n---\n")
+
+    list().remove("Pay")
+    list().remove("Gone")
+
+    assertEquals("# To-do\n- [ ] [[Pay twice]] #todo-item\n<!-- todo-items:end -->\n", read("index.md"))
+    assertFalse(Files.exists(root.resolve("Pay.md")))
+  }
+
+  @Test
+  fun `a change in either place wins, the index first, and the other is brought into step`() {
+    fun seen(index: TodoStatus?, status: TodoStatus?, completed: Boolean?) = TodoObserved(index, status, completed)
+
+    // Nothing has changed
+    assertEquals(TodoStatus.OPEN, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.OPEN, TodoStatus.OPEN, false)))
+    assertEquals(TodoStatus.IN_PROGRESS, TodoListService.reconcile(TodoStatus.IN_PROGRESS, seen(null, null, false)))
+    // Ticked or started in the index
+    assertEquals(TodoStatus.DONE, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.DONE, TodoStatus.OPEN, false)))
+    assertEquals(TodoStatus.IN_PROGRESS, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.IN_PROGRESS, null, null)))
+    // Changed in the file only: status, or completed as before R9
+    assertEquals(TodoStatus.IN_PROGRESS, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.OPEN, TodoStatus.IN_PROGRESS, false)))
+    assertEquals(TodoStatus.DONE, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.OPEN, null, true)))
+    // Reopened
+    assertEquals(TodoStatus.OPEN, TodoListService.reconcile(TodoStatus.DONE, seen(TodoStatus.OPEN, TodoStatus.DONE, true)))
+    // Both changed: the index wins
+    assertEquals(TodoStatus.DONE, TodoListService.reconcile(TodoStatus.OPEN, seen(TodoStatus.DONE, TodoStatus.IN_PROGRESS, false)))
+
+    assertTrue(TodoListService.agrees(seen(TodoStatus.IN_PROGRESS, TodoStatus.IN_PROGRESS, false), TodoStatus.IN_PROGRESS))
+    assertFalse(TodoListService.agrees(seen(TodoStatus.DONE, TodoStatus.OPEN, false), TodoStatus.DONE))
+    assertTrue(TodoListService.agrees(seen(null, null, null), TodoStatus.DONE))
   }
 }

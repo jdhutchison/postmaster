@@ -1,4 +1,4 @@
-Analyse the text of this email to identify if there are any events (there may be zero, one or multiple) that can be added to a calendar, and if there is a link to a page then extract the link. Summarise the contents of the email message. Attempt to identify if a response is required. Also attempt to identify if the email asks or implies that the recipient needs to do something other than reply, such as complete or sign a form, make a booking or payment, provide information, or do something by a deadline. List each separate thing to be done as its own action item. Return the details as JSON with this structure:
+Analyse the text of this email to identify if there are any events (there may be zero, one or multiple) that can be added to a calendar, and if there is a link to a page then extract the link. Summarise the contents of the email message. Attempt to identify if a response is required. Also attempt to identify if the email asks or implies that the recipient needs to do something other than reply, such as complete or sign a form, make a booking or payment, provide information, or do something by a deadline. List each separate thing to be done as its own action item. Something is either an event or an action item, never both: anything that happens or has to be done on or by a particular date (and perhaps a time), deadlines included, is an event, with that date as its time. An action item is something to be done that has no particular date. Return the details as JSON with this structure:
 
 {
   "summary": "<summary of email>",
@@ -7,14 +7,13 @@ Analyse the text of this email to identify if there are any events (there may be
   "action_items": [
     {
       "action": "<short description of one thing that needs to be done, phrased as a task>",
-      "due": "<the deadline as a date, yyyy-mm-dd, if one is given or can be worked out from when the email was received, leave null otherwise>",
       "notes": "<string> details from the email needed to do it"
     }
   ],
   "events": [
     {
       "title": "<title of your event>",
-      "when": "<string - ISO 8601 datetime without zone>",
+      "when": "<string - ISO 8601 date, or datetime without zone, worked out from when the email was received if need be>",
       "location": "<where the event is, if it can be determined, leave null otherwise>",
       "notes": "<string> any other details worth noting"
     }

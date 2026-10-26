@@ -208,14 +208,19 @@ class AdminPagesBrowserTest : AdminBrowserTest() {
 
   @Test
   fun `each action type shows the fields it needs`() {
-    // REQ Creating a new rule 10, 11; CLAR Q16
+    // REQ Creating a new rule 10, 11; CLAR Q16; R9 (move chooses from the folders)
     val page = open("rules/action/new")
     val row = page.testId("action-row").first()
     val type = row.locator("select[name$=actionType]")
 
     type.selectOption("move")
-    assertThat(row.locator("input[name$=destination]")).isVisible()
+    assertThat(row.locator("select[name$=destination]")).isVisible()
+    assertThat(row.locator("select[name$=destination]")).isEnabled()
+    assertThat(row.locator("input[name$=destination]")).isDisabled()
     assertThat(row.locator("select[name$=typeId]")).isHidden()
+    type.selectOption("forward_email")
+    assertThat(row.locator("input[name$=destination]")).isVisible()
+    assertThat(row.locator("select[name$=destination]")).isHidden()
     type.selectOption("set_type")
     assertThat(row.locator("select[name$=typeId]")).isVisible()
     assertThat(row.locator("input[name$=destination]")).isHidden()

@@ -5,6 +5,8 @@
       {#for f in folders}<option value="{f}">{f}</option>{/for}
     </select>
     <p class="pm-hint">It's in {detail.folder ?: 'an unknown folder'} now.</p>
+    <p class="pm-hint" data-testid="folders-scanned">{#if scannedAt}Folders as found {#time value=scannedAt /}.{#else}The folders haven't been read yet.{/if}
+      <button type="button" class="pm-button pm-button--quiet pm-button--small" data-testid="refresh-folders" hx-post="{base}/emails/{detail.id}/move/folders" hx-target="#move-dialog-body">Refresh</button></p>
   </div>
   <div class="pm-dialog__actions">
     <button type="button" class="pm-button" data-pm-close data-testid="cancel-move">Cancel</button>

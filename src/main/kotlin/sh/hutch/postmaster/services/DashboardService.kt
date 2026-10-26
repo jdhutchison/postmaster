@@ -7,6 +7,7 @@ import sh.hutch.postmaster.config.PostmasterConfig
 import sh.hutch.postmaster.entities.ProcessingRunEntity
 import sh.hutch.postmaster.models.Dashboard
 import sh.hutch.postmaster.models.EmailCounts
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.RunView
 import sh.hutch.postmaster.repositories.EmailRepository
 import sh.hutch.postmaster.repositories.ProcessingRunRepository
@@ -59,13 +60,18 @@ class DashboardService(
   @Transactional
   fun counts(): EmailCounts {
     fun count(where: String, vararg params: Any) = emails.count("deleted = false$where", *params)
+    // What needs attention counts tracked emails only (CLARIFICATIONS.md R9)
+    val tracked = EmailTracking.TRACKED
     return EmailCounts(
         total = count(""),
         lastDay = count(" and receivedAt >= ?1", Times.now().minus(Duration.ofDays(1))),
-        withErrors = emails.count("from EmailEntity e where e.deleted = false and exists (select 1 from EmailErrorEntity x where x.email = e)"),
-        responseRequired = count(" and responseRequired = true"),
-        actionRequired = count(" and actionRequired = true"),
-        unclassified = count(" and type is null")
+        withErrors = emails.count(
+            "from EmailEntity e where e.deleted = false and e.tracking = ?1 and exists (select 1 from EmailErrorEntity x where x.email = e)",
+            tracked
+        ),
+        responseRequired = count(" and tracking = ?1 and responseRequired = true", tracked),
+        actionRequired = count(" and tracking = ?1 and actionRequired = true", tracked),
+        unclassified = count(" and tracking = ?1 and type is null", tracked)
     )
   }
 

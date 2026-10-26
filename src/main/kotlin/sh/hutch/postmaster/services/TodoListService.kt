@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.jboss.logging.Logger
 import sh.hutch.postmaster.entities.EmailActionItemEntity
 import sh.hutch.postmaster.entities.EmailEntity
+import sh.hutch.postmaster.models.TodoStatus
 import sh.hutch.postmaster.repositories.EmailActionItemRepository
 import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
@@ -16,8 +17,9 @@ import kotlin.concurrent.withLock
 
 /**
  * Keeps action items and the markdown to-do list in the `todo.path` folder in step
- * (CLARIFICATIONS.md R5): writes items to it, ticks them off when they're done here, and marks
- * them done here when they've been ticked off there. One change to the files at a time.
+ * (CLARIFICATIONS.md R5, R9): writes items to it, ticks them off when they're done here, removes
+ * those that become events, and brings in the status (open, in progress or done) they've been
+ * given there. One change to the files at a time.
  */
 @ApplicationScoped
 class TodoListService(private val settings: SettingsService, private val items: EmailActionItemRepository) {
@@ -65,20 +67,56 @@ class TodoListService(private val settings: SettingsService, private val items: 
     LOG.infof("Ticked '%s' off in the to-do list", name)
   }
 
-  /** Marks done the open action items that have been ticked off in the to-do list; returns how many. */
-  fun syncCompleted(): Int = QuarkusTransaction.requiringNew().call {
-    val open = items.listOpenInTodoList()
-    if (open.isEmpty()) {
+  /** What the to-do list says about the items named [names], for the status check. */
+  fun observe(names: Collection<String>): Map<String, TodoObserved> = lock.withLock { list().statuses(names) }
+
+  /**
+   * Takes [item] out of the to-do list, if it's there: its file and its task (CLARIFICATIONS.md R9).
+   *
+   * @throws TodoListException if the list can't be written
+   */
+  fun remove(item: EmailActionItemEntity) {
+    val name = item.todoName ?: return
+    lock.withLock { list().remove(name) }
+    LOG.infof("Removed '%s' from the to-do list", name)
+  }
+
+  /**
+   * Brings the status of each action item in the to-do list in from there (CLARIFICATIONS.md R9),
+   * and returns how many changed. Where the index's task or the file's front matter has changed
+   * since Postmaster last saw it, the item takes that status (the index's if both have), and the
+   * other is updated to match.
+   */
+  fun sync(): Int = QuarkusTransaction.requiringNew().call {
+    val listed = items.listInTodoList()
+    if (listed.isEmpty()) {
       return@call 0
     }
-    val done = lock.withLock { list().doneNames(open.mapNotNull { it.todoName }) }
-    val completed = open.filter { it.todoName in done }
-    for (item in completed) {
-      val email = item.email!!
-      email.completeActionItem(item)
-      Mdc.with(Mdc.EMAIL to email.id) { LOG.infof("'%s' was ticked off in the to-do list, so it's done", item.todoName) }
+    lock.withLock {
+      val list = list()
+      val observed = list.statuses(listed.mapNotNull { it.todoName })
+      var changed = 0
+      for (item in listed) {
+        val name = item.todoName!!
+        val seen = observed[name] ?: continue
+        val known = item.status
+        val status = reconcile(known, seen)
+        val email = item.email!!
+        if (status != known) {
+          email.setActionItemStatus(item, status)
+          changed++
+          Mdc.with(Mdc.EMAIL to email.id) { LOG.infof("'%s' is %s in the to-do list", name, status.code) }
+        }
+        if (!agrees(seen, status)) {
+          try {
+            list.setStatus(name, status)
+          } catch (e: TodoListException) {
+            LOG.warnf("'%s' couldn't be marked %s in the to-do list: %s", name, status.code, e.message)
+          }
+        }
+      }
+      changed
     }
-    completed.size
   }
 
   private fun list(): TodoList =
@@ -98,5 +136,24 @@ class TodoListService(private val settings: SettingsService, private val items: 
 
   companion object {
     private val LOG = Logger.getLogger(TodoListService::class.java)
+
+    /**
+     * The status an item now has, from [known] (what Postmaster last saw) and what the to-do list
+     * says: the index's task if it has changed, else the front matter's `status:`, else its
+     * `completed:` (where `false` fits open and in progress alike).
+     */
+    fun reconcile(known: TodoStatus, seen: TodoObserved): TodoStatus =
+      when {
+        seen.index != null && seen.index != known -> seen.index
+        seen.status != null && seen.status != known -> seen.status
+        seen.completed != null && seen.completed != (known == TodoStatus.DONE) ->
+          if (seen.completed) TodoStatus.DONE else TodoStatus.OPEN
+        else -> known
+      }
+
+    /** Whether everything the to-do list says about the item fits [status]. */
+    fun agrees(seen: TodoObserved, status: TodoStatus): Boolean =
+      (seen.index == null || seen.index == status) && (seen.status == null || seen.status == status) &&
+          (seen.completed == null || seen.completed == (status == TodoStatus.DONE))
   }
 }

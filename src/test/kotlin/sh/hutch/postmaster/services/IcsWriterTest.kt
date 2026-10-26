@@ -4,8 +4,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import sh.hutch.postmaster.models.CalendarEvent
+import sh.hutch.postmaster.util.Reminder
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 // The .ics files khal imports (REQ create_events: "add notifications if the
@@ -22,7 +24,7 @@ class IcsWriterTest {
       notes: String? = null,
       alarms: List<Duration> = emptyList()
   ) = CalendarEvent("uid-123", title, LocalDateTime.parse(starts), ends?.let { LocalDateTime.parse(it) }, allDay,
-      "Melbourne Zoo", notes, alarms)
+      "Melbourne Zoo", notes, alarms.map { Reminder.Before(it) })
 
   private fun unfolded(ics: String) = ics.replace("\r\n ", "")
 
@@ -62,6 +64,28 @@ class IcsWriterTest {
     assertTrue(ics.contains("TRIGGER:-P1D\r\n") || ics.contains("TRIGGER:-PT24H\r\n"), ics)
     assertTrue(ics.contains("TRIGGER:-PT2H\r\n"), ics)
     assertTrue(ics.contains("ACTION:DISPLAY\r\n"))
+  }
+
+  @Test
+  fun `a time of day is an absolute alarm in UTC, days before the event's day (CLAR R9)`() {
+    // 8pm in Melbourne on 4 November (AEDT, UTC+11) is 9am UTC; 8am on the 5th is 9pm UTC on the 4th
+    val ics = IcsWriter.event(
+        event().copy(alarms = listOf(Reminder.At(1, LocalTime.of(20, 0)), Reminder.At(0, LocalTime.of(8, 0)), Reminder.Before(Duration.ofHours(1)))),
+        melbourne
+    )
+
+    assertEquals(3, Regex("BEGIN:VALARM").findAll(ics).count())
+    assertTrue(ics.contains("TRIGGER;VALUE=DATE-TIME:20261104T090000Z\r\n"), ics)
+    assertTrue(ics.contains("TRIGGER;VALUE=DATE-TIME:20261104T210000Z\r\n"), ics)
+    assertTrue(ics.contains("TRIGGER:-PT1H\r\n"), ics)
+  }
+
+  @Test
+  fun `an all-day event's time-of-day alarm is on its date`() {
+    val ics = IcsWriter.event(event(starts = "2026-11-12T00:00", allDay = true).copy(alarms = listOf(Reminder.At(0, LocalTime.of(9, 0)))), melbourne)
+
+    // 9am in Melbourne on 12 November is 10pm UTC on the 11th
+    assertTrue(ics.contains("TRIGGER;VALUE=DATE-TIME:20261111T220000Z\r\n"), ics)
   }
 
   @Test

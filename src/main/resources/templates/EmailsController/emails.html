@@ -43,6 +43,10 @@
             <label class="pm-field--inline"><input type="checkbox" name="action" value="true"{#if result.filter.actionRequired} checked{/if} data-testid="filter-action"> Action required</label>
             <label class="pm-field--inline"><input type="checkbox" name="errors" value="true"{#if result.filter.withErrors} checked{/if} data-testid="filter-errors"> With errors</label>
           </fieldset>
+          <fieldset class="pm-filters__checks">
+            <legend class="pm-label">Also</legend>
+            <label class="pm-field--inline"><input type="checkbox" name="untracked" value="true"{#if result.filter.includeUntracked} checked{/if} data-testid="filter-untracked"> Include deleted, moved and done</label>
+          </fieldset>
           <button type="submit" class="pm-button pm-button--primary" data-testid="apply-filters">Apply filters</button>
         </form>
       </aside>
@@ -59,13 +63,13 @@
       </tr></thead>
       <tbody>
         {#for row in result.rows}
-        <tr data-testid="email-row-{row.id}" data-pm-href="{base}/emails/{row.id}" class="{#if !row.isRead}pm-row--unread{/if}{#if row.errors > 0} pm-row--error{/if}"{#if row.errors > 0} data-error="true"{/if}{#if !row.isRead} data-unread="true"{/if}>
+        <tr data-testid="email-row-{row.id}" data-pm-href="{base}/emails/{row.id}" class="{#if !row.isRead}pm-row--unread{/if}{#if row.errors > 0} pm-row--error{/if}{#if !row.isTracked} pm-row--untracked{/if}"{#if row.errors > 0} data-error="true"{/if}{#if !row.isRead} data-unread="true"{/if}{#if !row.isTracked} data-untracked="{row.tracking.code}"{/if}>
           {#td col="received" priority=1}{#time value=row.receivedAt /}{/td}
           {#td col="subject" priority=1}<a href="{base}/emails/{row.id}" data-testid="email-link-{row.id}">{row.subject ?: '(no subject)'}</a>{/td}
           {#td col="sender" priority=2 title=row.sender}{row.from}{/td}
           {#td col="type" priority=3}{#typeBadge name=row.type colour=row.typeColour /}{/td}
           {#td col="needs" priority=2}{#if row.responseRequired}<span class="pm-badge pm-badge--reply" data-testid="needs-response">Reply</span> {/if}{#if row.actionRequired}<span class="pm-badge pm-badge--action" data-testid="needs-action">Action</span>{/if}{/td}
-          {#td col="status" priority=4}{#if row.status.code != 'processed'}<span class="pm-badge pm-badge--{row.status.code}" data-testid="status-badge">{row.status.code}</span>{/if}{/td}
+          {#td col="status" priority=4}{#if row.status.code != 'processed'}<span class="pm-badge pm-badge--{row.status.code}" data-testid="status-badge">{row.status.code}</span> {/if}{#if !row.isTracked}<span class="pm-badge pm-badge--{row.tracking.code}" data-testid="tracking-badge">{row.tracking.label}</span>{/if}{/td}
           {#td col="counts" priority=3 truncate=false}<span class="pm-counts">
             <span class="pm-count{#if row.events == 0} pm-count--none{/if}" title="{row.events} event{#if row.events != 1}s{/if}" data-testid="count-events">{#icon name="calendar" /}{row.events}</span>
             <span class="pm-count{#if row.attachments == 0} pm-count--none{/if}" title="{row.attachments} attachment{#if row.attachments != 1}s{/if}" data-testid="count-attachments">{#icon name="attachment" /}{row.attachments}</span>

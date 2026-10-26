@@ -76,6 +76,7 @@ The container image is described in [deployment.md](deployment.md).
     "curl": { "status": "UP", "critical": false, "componentType": "system", "target": "curl", "responseTimeMs": 8, "output": "curl 8.14.1 (aarch64-unknown-linux-gnu) libcurl/8.14.1 …" },
     "attachments": { "status": "UP", "critical": false, "componentType": "system", "target": "/data/attachments", "responseTimeMs": 1, "output": null },
     "todo": { "status": "UP", "critical": false, "componentType": "system", "target": "/data/todo", "responseTimeMs": 1, "output": null },
+    "todo_list": { "status": "UP", "critical": false, "componentType": "system", "target": "/data/todo/index.md", "responseTimeMs": 2, "output": "12 items from Postmaster: 3 open, 1 in progress, 8 done" },
     "disk": { "status": "UP", "critical": false, "componentType": "system", "target": null, "responseTimeMs": 1, "output": "/data/attachments: 412.7 GiB free" }
   }
 }
@@ -97,7 +98,8 @@ Each check's `status` is `UP`, `WARN` or `DOWN`:
 | `processing` | warns: no scheduled run has succeeded for two processing periods, or more emails are pending than the *Pending email warning* setting (25) |
 | `khal` | `khal printcalendars` fails, or a calendar folder can't be written to |
 | `chromium`, `curl` | `--version` fails |
-| `attachments`, `todo` | the folder can't be written to (or created); the to-do `index.md` has no `<!-- todo-items:end -->` line |
+| `attachments`, `todo` | the folder can't be written to (or created) |
+| `todo_list` | the to-do list's `index.md` can't be read or written, or has no `<!-- todo-items:end -->` line; warns if it doesn't exist, or if files of items Postmaster wrote are missing. Otherwise it says how many of Postmaster's items are open, in progress and done. |
 | `disk` | warns: a disk holding attachments, the to-do list or a calendar has less free space than the *Low disk space warning* setting (1024 MiB) |
 
 Each check gets 5 seconds, and they run at the same time. The Docker image's `HEALTHCHECK` calls the endpoint every minute.

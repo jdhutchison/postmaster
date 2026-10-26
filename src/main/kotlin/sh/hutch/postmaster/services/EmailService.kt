@@ -7,7 +7,9 @@ import jakarta.ws.rs.NotFoundException
 import org.jboss.logging.Logger
 import sh.hutch.postmaster.actions.ActionRegistry
 import sh.hutch.postmaster.actions.AttachmentStore
+import sh.hutch.postmaster.actions.isTrash
 import sh.hutch.postmaster.actions.location
+import sh.hutch.postmaster.actions.markTrashed
 import sh.hutch.postmaster.actions.moveTo
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
@@ -28,6 +30,7 @@ import sh.hutch.postmaster.models.EmailFilter
 import sh.hutch.postmaster.models.EmailPage
 import sh.hutch.postmaster.models.EmailRow
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.ErrorView
 import sh.hutch.postmaster.models.EventView
@@ -35,14 +38,18 @@ import sh.hutch.postmaster.models.ManualResult
 import sh.hutch.postmaster.models.RuleResults
 import sh.hutch.postmaster.models.RuleType
 import sh.hutch.postmaster.repositories.CalendarRepository
+import sh.hutch.postmaster.repositories.EmailEventRepository
 import sh.hutch.postmaster.repositories.EmailRepository
 import sh.hutch.postmaster.repositories.TypeRepository
-import sh.hutch.postmaster.util.IsoDurations
+import sh.hutch.postmaster.util.Reminders
 import sh.hutch.postmaster.util.Mdc
 import sh.hutch.postmaster.util.Times
 import java.net.URLConnection
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.max
@@ -50,7 +57,9 @@ import kotlin.math.max
 /**
  * Finds processed emails and carries out actions on them by hand, from the UI or MCP
  * (REQUIREMENTS.md "Viewing emails" and "MCP server"). Each manual action is recorded against the
- * email; a failure is recorded as a `manual` error and reported in the [ManualResult].
+ * email; a failure is recorded as a `manual` error and reported in the [ManualResult]. Only tracked
+ * emails can be acted on (CLARIFICATIONS.md R9): an action on another fails with an
+ * [OperationNotAllowedException], and nothing is recorded.
  */
 @ApplicationScoped
 class EmailService(
@@ -63,17 +72,23 @@ class EmailService(
     private val store: AttachmentStore,
     private val processing: ProcessingService,
     private val registry: ActionRegistry,
-    private val todos: TodoListService
+    private val todos: TodoListService,
+    private val folders: FolderService,
+    private val eventRepository: EmailEventRepository
 ) {
 
   /**
    * Emails matching [filter], newest first. Unfiltered, the [RECENT] most recent; filtered, pages of
-   * [PAGE_SIZE].
+   * [PAGE_SIZE]. Only tracked emails, unless the filter includes the others (R9).
    */
   @Transactional
   fun search(filter: EmailFilter): EmailPage {
     val where = mutableListOf("e.deleted = false")
     val params = mutableMapOf<String, Any>()
+    if (!filter.includeUntracked) {
+      where += "e.tracking = :tracking"
+      params["tracking"] = EmailTracking.TRACKED
+    }
     val zone = settings.getZoneId(SettingKeys.PROCESSING_TIMEZONE)
     filter.from?.let {
       where += "e.receivedAt >= :from"
@@ -123,9 +138,30 @@ class EmailService(
   /** An active email. Call within a transaction. */
   fun get(id: Long): EmailEntity = emails.findActive(id) ?: throw NotFoundException("Email $id not found")
 
+  /**
+   * An active email that's still tracked, so it can be acted on (R9). Call within a transaction.
+   *
+   * @throws OperationNotAllowedException if it isn't tracked
+   */
+  private fun tracked(id: Long): EmailEntity = get(id).also { requireTracked(it) }
+
+  private fun requireTracked(email: EmailEntity) {
+    when (email.tracking) {
+      EmailTracking.TRACKED -> {}
+      EmailTracking.DONE -> throw OperationNotAllowedException("The email is done; reopen it to do anything more with it")
+      else -> throw OperationNotAllowedException(
+          "The email is no longer tracked (${email.tracking.label.lowercase()}), so nothing more can be done with it"
+      )
+    }
+  }
+
   /** Whether an active email with this id exists. */
   @Transactional
   fun exists(id: Long): Boolean = emails.findActive(id) != null
+
+  /** Refuses an email that isn't tracked (R9). */
+  @Transactional
+  fun requireTracked(id: Long) = requireTracked(get(id))
 
   /** An active email in full: its events, attachments, matching rules and the actions they ran. */
   @Transactional
@@ -165,8 +201,10 @@ class EmailService(
         actionRequired = email.actionRequired,
         actionDescription = email.actionDescription,
         actionItems = email.actionItems.map {
-          ActionItemView(it.id!!, it.description, it.dueDate, it.notes, it.completed, it.completedAt, it.todoName)
+          ActionItemView(it.id!!, it.description, it.dueDate, it.notes, it.completed, it.completedAt, it.todoName, it.inProgress)
         },
+        tracking = email.tracking,
+        trackingChangedAt = email.trackingChangedAt,
         bill = bill,
         events = email.events.map { view(it) },
         attachments = email.attachments.map { view(it) },
@@ -181,7 +219,7 @@ class EmailService(
   /** Sets the email's type, or clears it when [typeId] is null. Setting Bill clears action required (Q13). */
   @Transactional
   fun setType(id: Long, typeId: Long?, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     val type = typeId?.let { types.findActive(it) ?: throw ValidationException(mapOf("typeId" to "Choose a type")) }
     return manual(email, ActionTypes.SET_TYPE, source) {
       email.assignType(type)
@@ -189,13 +227,16 @@ class EmailService(
     }
   }
 
-  /** Moves the message to [folder] in the mailbox. */
+  /** Moves the message to [folder] in the mailbox. Moving it to the trash folder deletes it (R9). */
   @Transactional
   fun move(id: Long, folder: String?, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     val destination = folder?.trim()?.takeIf { it.isNotEmpty() } ?: throw ValidationException(mapOf("folder" to "Choose a folder"))
     return manual(email, ActionTypes.MOVE, source) {
       email.moveTo(destination, mailbox)
+      if (settings.isTrash(destination)) {
+        email.markTrashed()
+      }
       "Moved to $destination"
     }
   }
@@ -203,7 +244,7 @@ class EmailService(
   /** Marks the message read or unread in the mailbox. */
   @Transactional
   fun setRead(id: Long, read: Boolean, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     return manual(email, if (read) ActionTypes.MARK_READ else ActionTypes.MARK_UNREAD, source) {
       val (folder, uid) = email.location(mailbox)
       mailbox.setRead(folder, uid, read)
@@ -213,28 +254,25 @@ class EmailService(
   }
 
   /**
-   * Moves the message to the trash folder and soft-deletes the email, which keeps it from being
-   * processed again (CLARIFICATIONS.md D11).
+   * Moves the message to the trash folder. The email is kept, so it isn't processed again
+   * (CLARIFICATIONS.md D11), and is no longer tracked: it can still be viewed (R9).
    */
   @Transactional
   fun delete(id: Long, source: ActionSource): ManualResult {
-    val email = get(id)
-    val result = manual(email, ActionTypes.DELETE, source) {
+    val email = tracked(id)
+    return manual(email, ActionTypes.DELETE, source) {
       val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER)?.takeIf { it.isNotBlank() }
           ?: throw IllegalStateException("The trash folder (imap.trash_folder) isn't set")
       email.moveTo(trash, mailbox)
+      email.markTrashed()
       "Moved to $trash"
     }
-    if (result.ok) {
-      email.markDeleted()
-    }
-    return result
   }
 
   /** Forwards the message to [to] (CLARIFICATIONS.md Q7). */
   @Transactional
   fun forward(id: Long, to: String?, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     val address = to?.trim()?.takeIf { it.isNotEmpty() } ?: throw ValidationException(mapOf("to" to "Enter an address to forward to"))
     return manual(email, ActionTypes.FORWARD_EMAIL, source) {
       val (folder, uid) = email.location(mailbox)
@@ -245,7 +283,7 @@ class EmailService(
 
   @Transactional
   fun setResponseRequired(id: Long, required: Boolean, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     return manual(email, SET_RESPONSE_REQUIRED, source) {
       email.responseRequired = required
       if (required) "Response required" else "Response no longer required"
@@ -259,7 +297,7 @@ class EmailService(
    */
   @Transactional
   fun setActionRequired(id: Long, required: Boolean, description: String?, source: ActionSource): ManualResult {
-    val email = get(id)
+    val email = tracked(id)
     return manual(email, SET_ACTION_REQUIRED, source) {
       if (required && email.type?.isBill == true) {
         throw IllegalStateException("Bills never need action; they're handled by process_bill")
@@ -283,7 +321,7 @@ class EmailService(
   /** Marks one of the email's action items done, and ticks it off in the to-do list if it's there (R5). */
   @Transactional
   fun completeActionItem(emailId: Long, itemId: Long, source: ActionSource): ManualResult {
-    val email = get(emailId)
+    val email = tracked(emailId)
     val item = email.actionItems.firstOrNull { it.id == itemId } ?: throw NotFoundException("Action item $itemId not found")
     return manual(email, COMPLETE_ACTION_ITEM, source) {
       if (item.completed) {
@@ -296,12 +334,144 @@ class EmailService(
   }
 
   /**
+   * Marks the email done (R9): every open action item is done, and ticked off in the to-do list if
+   * it's there; no reply is needed; and the email is no longer tracked.
+   */
+  @Transactional
+  fun markDone(id: Long, source: ActionSource): ManualResult {
+    val email = tracked(id)
+    return manual(email, MARK_DONE, source) {
+      val open = email.openActionItems()
+      for (item in open) {
+        todos.complete(item)
+        email.completeActionItem(item)
+      }
+      email.responseRequired = false
+      email.changeTracking(EmailTracking.DONE)
+      "Done" + if (open.isEmpty()) "" else ", with ${open.size} action item${if (open.size == 1) "" else "s"} done"
+    }
+  }
+
+  /** Tracks an email marked done again (R9). Its action items stay done. */
+  @Transactional
+  fun reopen(id: Long, source: ActionSource): ManualResult {
+    val email = get(id)
+    if (email.tracking != EmailTracking.DONE) {
+      throw OperationNotAllowedException("Only an email marked done can be reopened")
+    }
+    return manual(email, REOPEN, source) {
+      email.changeTracking(EmailTracking.TRACKED)
+      "Reopened"
+    }
+  }
+
+  /**
+   * Makes an event that isn't in a calendar an action item, due on its day (R9). The item is written
+   * to the to-do list if update_todo_list has run on the email.
+   */
+  @Transactional
+  fun eventToActionItem(emailId: Long, eventId: Long, source: ActionSource): ManualResult {
+    val email = tracked(emailId)
+    val event = event(email, eventId)
+    when {
+      event.isAdded -> throw OperationNotAllowedException("'${event.title}' is already in a calendar")
+      email.type?.isBill == true -> throw OperationNotAllowedException("Bills never have action items; they're handled by process_bill")
+      email.actionItems.any { it.description.equals(event.title.trim(), ignoreCase = true) } ->
+        throw OperationNotAllowedException("The email already has an action item '${event.title}'")
+    }
+    return manual(email, EVENT_TO_ACTION_ITEM, source) {
+      val item = email.addActionItem(event.title, event.startsAt?.toLocalDate(), notes(event))
+          ?: throw IllegalStateException("'${event.title}' can't be an action item")
+      val listed = usesTodoList(email)
+      if (listed) {
+        try {
+          todos.add(email, item)
+        } catch (e: Exception) {
+          email.removeActionItem(item)
+          throw e
+        }
+      }
+      email.events.remove(event)
+      "'${event.title}' is now an action item" + if (listed) ", in the to-do list" else ""
+    }
+  }
+
+  /**
+   * Makes an open action item an event on [date], at [time] or all day (R9), taking it out of the
+   * to-do list if it's there. With a [calendarId], the event is added to that calendar too.
+   */
+  @Transactional
+  fun actionItemToEvent(
+      emailId: Long,
+      itemId: Long,
+      date: LocalDate?,
+      time: LocalTime?,
+      calendarId: Long?,
+      source: ActionSource
+  ): ManualResult {
+    val email = tracked(emailId)
+    val item = email.actionItems.firstOrNull { it.id == itemId } ?: throw NotFoundException("Action item $itemId not found")
+    if (item.completed) {
+      throw OperationNotAllowedException("'${item.description}' is already done")
+    }
+    val day = date ?: throw ValidationException(mapOf("date" to "Choose the event's date"))
+    val target = calendarId?.let { id ->
+      calendars.findActive(id)?.takeIf { it.enabled } ?: throw ValidationException(mapOf("calendarId" to "Choose a calendar"))
+    }
+    return manual(email, ACTION_ITEM_TO_EVENT, source) {
+      // Out of the to-do list first: if that fails, nothing has changed
+      todos.remove(item)
+      val event = EmailEventEntity().also {
+        it.email = email
+        it.title = item.description.take(500)
+        it.startsAt = time?.let { at -> day.atTime(at) } ?: day.atStartOfDay()
+        it.endsAt = time?.let { at -> day.atTime(at).plus(settings.getDuration(SettingKeys.EVENTS_DEFAULT_DURATION)) }
+        it.allDay = time == null
+        it.notes = item.notes
+      }
+      email.events.add(event)
+      eventRepository.persist(event)
+      email.removeActionItem(item)
+      val made = "'${item.description}' is now an event" + if (item.todoName != null) ", and out of the to-do list" else ""
+      if (target == null) {
+        return@manual made
+      }
+      val uid = calendar.addEvent(
+          target.name,
+          CalendarEvent(
+              CalendarClient.eventUid(email.id!!, event.id!!), event.title, event.startsAt!!, event.endsAt, event.allDay, null, event.notes,
+              Reminders.parseListOrEmpty(target.notificationPeriods)
+          )
+      )
+      event.calendar = target
+      event.isAdded = true
+      event.khalUid = uid
+      "$made in ${target.name}"
+    }
+  }
+
+  /** Whether update_todo_list has run on the email, so its action items belong in the to-do list. */
+  private fun usesTodoList(email: EmailEntity): Boolean =
+    email.actionResults.any {
+      it.source == ActionSource.RULE && it.actionType == ActionTypes.UPDATE_TODO_LIST &&
+          (it.status == ActionResultStatus.DONE || it.status == ActionResultStatus.SKIPPED)
+    }
+
+  /** An event's time, place and notes, as an action item's notes. */
+  private fun notes(event: EmailEventEntity): String? =
+    listOfNotNull(
+        event.startsAt?.takeIf { !event.allDay }?.let { "At " + CLOCK.format(it) },
+        event.location?.let { "Where: $it" },
+        event.notes
+    ).joinToString("\n").ifEmpty { null }
+
+  /**
    * Puts an event in another calendar. An event already added is moved in khal; one that isn't is
    * added to the chosen calendar (REQUIREMENTS.md "Viewing an individual email" 3).
    */
   @Transactional
   fun changeEventCalendar(emailId: Long, eventId: Long, calendarId: Long?, source: ActionSource): ManualResult {
-    val email = get(emailId)
+    val email = tracked(emailId)
     val event = event(email, eventId)
     val target = calendarId?.let { calendars.findActive(it) }?.takeIf { it.enabled }
         ?: throw ValidationException(mapOf("calendarId" to "Choose a calendar"))
@@ -315,7 +485,7 @@ class EmailService(
         event.calendar = target
         "Moved ${event.title} from ${current.name} to ${target.name}"
       } else {
-        val alarms = target.notificationPeriods?.let { runCatching { IsoDurations.parseList(it) }.getOrNull() }.orEmpty()
+        val alarms = Reminders.parseListOrEmpty(target.notificationPeriods)
         val uid = calendar.addEvent(
             target.name,
             CalendarEvent(CalendarClient.eventUid(email.id!!, event.id!!), event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
@@ -335,6 +505,7 @@ class EmailService(
     if (!exists(id)) {
       throw NotFoundException("Email $id not found")
     }
+    requireTracked(id)
     return try {
       val email = processing.reprocess(id)
       if (email.status == EmailStatus.PENDING) {
@@ -350,8 +521,14 @@ class EmailService(
     }
   }
 
-  /** The mailbox folders, for moving. */
-  fun folders(): List<String> = mailbox.listFolders()
+  /** The mailbox folders, for moving: as last scanned, or scanned now if they never have been (R9). */
+  fun folders(): List<String> = folders.names()
+
+  /** Scans the mailbox folders again and returns them (R9). */
+  fun refreshFolders(): List<String> = folders.scan()
+
+  /** When the mailbox folders were last scanned. */
+  fun foldersScannedAt(): Instant? = folders.lastScannedAt()
 
   /** A downloaded attachment of an active email and where its file is. */
   @Transactional
@@ -440,7 +617,8 @@ class EmailService(
     return list.map {
       EmailRow(
           it.id!!, it.receivedAt, it.subject, it.sender, it.senderName, it.status, it.type?.name, it.type?.colour,
-          it.responseRequired, it.actionRequired, it.isRead, events[it.id] ?: 0, attachments[it.id] ?: 0, errors[it.id] ?: 0
+          it.responseRequired, it.actionRequired, it.isRead, events[it.id] ?: 0, attachments[it.id] ?: 0, errors[it.id] ?: 0,
+          it.tracking
       )
     }
   }
@@ -471,6 +649,10 @@ class EmailService(
     const val SET_ACTION_REQUIRED = "set_action_required"
     const val COMPLETE_ACTION_ITEM = "complete_action_item"
     const val CHANGE_EVENT_CALENDAR = "change_event_calendar"
+    const val MARK_DONE = "mark_done"
+    const val REOPEN = "reopen"
+    const val EVENT_TO_ACTION_ITEM = "event_to_action_item"
+    const val ACTION_ITEM_TO_EVENT = "action_item_to_event"
 
     private const val MAX_DETAIL = 4000
 

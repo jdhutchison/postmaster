@@ -8,6 +8,7 @@ import sh.hutch.postmaster.models.CodedEnum
 import sh.hutch.postmaster.models.ConditionAttribute
 import sh.hutch.postmaster.models.ConditionJoin
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.ErrorPhase
 import sh.hutch.postmaster.models.MatchType
 import sh.hutch.postmaster.models.ProcessingProgress
@@ -43,6 +44,9 @@ class MatchTypeConverter : CodedEnumConverter<MatchType>(MatchType::class.java)
 
 @Converter
 class EmailStatusConverter : CodedEnumConverter<EmailStatus>(EmailStatus::class.java)
+
+@Converter
+class EmailTrackingConverter : CodedEnumConverter<EmailTracking>(EmailTracking::class.java)
 
 @Converter
 class ProcessingProgressConverter : CodedEnumConverter<ProcessingProgress>(ProcessingProgress::class.java)

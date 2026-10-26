@@ -11,6 +11,7 @@ import org.junit.jupiter.api.assertThrows
 import sh.hutch.postmaster.models.CalendarEvent
 import sh.hutch.postmaster.testsupport.FakeTools
 import sh.hutch.postmaster.testsupport.IntegrationProfile
+import sh.hutch.postmaster.util.Reminder
 import java.time.Duration
 import java.time.LocalDateTime
 import kotlin.io.path.readText
@@ -39,7 +40,7 @@ class CalendarClientTest {
       allDay = allDay,
       location = "Melbourne Zoo",
       notes = "Bring lunch",
-      alarms = alarms
+      alarms = alarms.map { Reminder.Before(it) }
   )
 
   @Test

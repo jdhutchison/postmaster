@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.RuleActionEntity
 import sh.hutch.postmaster.models.ActionTypes
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.services.MailboxClient
 import sh.hutch.postmaster.services.SettingKeys
 import sh.hutch.postmaster.services.SettingsService
@@ -44,6 +45,16 @@ internal fun EmailEntity.moveTo(destination: String, mailbox: MailboxClient) {
   movedTo(destination, mailbox)
 }
 
+/**
+ * Records that the message has been deleted by Postmaster: it's no longer tracked
+ * (CLARIFICATIONS.md R9).
+ */
+internal fun EmailEntity.markTrashed() = changeTracking(EmailTracking.DELETED)
+
+/** Whether [folder] is the trash folder, so moving there deletes the email. */
+internal fun SettingsService.isTrash(folder: String): Boolean =
+  getString(SettingKeys.IMAP_TRASH_FOLDER)?.takeIf { it.isNotBlank() } == folder
+
 /** Records that the message is now in [destination], finding its new UID there. */
 internal fun EmailEntity.movedTo(destination: String, mailbox: MailboxClient) {
   folder = destination
@@ -80,13 +91,16 @@ class MarkUnreadHandler(private val mailbox: MailboxClient) : ActionHandler {
 }
 
 @ApplicationScoped
-class MoveHandler(private val mailbox: MailboxClient) : ActionHandler {
+class MoveHandler(private val mailbox: MailboxClient, private val settings: SettingsService) : ActionHandler {
   override val actionType = ActionTypes.MOVE
   override val stage = ActionStage.MOVE
 
   override fun execute(context: ProcessingContext, action: RuleActionEntity): ActionOutcome {
     val destination = action.destination?.takeIf { it.isNotBlank() } ?: return ActionOutcome.failed("No folder to move to")
     context.email.moveTo(destination, mailbox)
+    if (settings.isTrash(destination)) {
+      context.email.markTrashed()
+    }
     return ActionOutcome.done("Moved to $destination")
   }
 }
@@ -101,6 +115,7 @@ class DeleteHandler(private val mailbox: MailboxClient, private val settings: Se
     val trash = settings.getString(SettingKeys.IMAP_TRASH_FOLDER)?.takeIf { it.isNotBlank() }
         ?: return ActionOutcome.failed("The trash folder (imap.trash_folder) isn't set")
     context.email.moveTo(trash, mailbox)
+    context.email.markTrashed()
     return ActionOutcome.done("Moved to $trash")
   }
 }

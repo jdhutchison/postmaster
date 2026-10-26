@@ -61,7 +61,6 @@ class ProcessingService(
     private val llm: LlmClient,
     private val prompts: PromptRenderer,
     private val events: EventFinder,
-    private val todos: TodoListService,
     private val workers: ManagedExecutor
 ) {
   private val running = AtomicBoolean(false)
@@ -144,14 +143,6 @@ class ProcessingService(
     var failed = 0
     var waiting = 0
     var error: String? = null
-    try {
-      val done = todos.syncCompleted()
-      if (done > 0) {
-        LOG.infof("%d action item(s) were ticked off in the to-do list", done)
-      }
-    } catch (e: Exception) {
-      LOG.warn("Checking the to-do list failed", e)
-    }
     try {
       // Email left part-way, by an interruption or while the LLM was unavailable, carries on first (R6)
       for (id in QuarkusTransaction.requiringNew().call { emails.listPendingIds() }) {
@@ -539,15 +530,15 @@ class ProcessingService(
     if (answer.path("response_required").asBoolean(false)) {
       email.responseRequired = true
     }
-    addActionItems(context, answer)
     events.addEvents(context, answer.path("events"))
+    addActionItems(context, answer)
     answer.path("errors").forEach { context.addError(ErrorPhase.LLM, "summarise: ${it.asText()}") }
   }
 
   /**
-   * The action items in the LLM's answer: `action_items`, each with an `action`, an optional `due`
-   * date and `notes` (R5). An edited prompt may still give the single `action_required` and `action`
-   * instead, which becomes one item.
+   * The action items in the LLM's answer: `action_items`, each with an `action` and `notes` (R5). An
+   * item with a `due` date is an event instead (R9). An edited prompt may still give the single
+   * `action_required` and `action` instead, which becomes one item.
    */
   private fun addActionItems(context: ProcessingContext, answer: JsonNode) {
     val email = context.email
@@ -566,7 +557,13 @@ class ProcessingService(
             null
           }
         }
-        email.addActionItem(description, due, item.path("notes").asText("").trim().takeIf { it != "null" })
+        val notes = item.path("notes").asText("").trim().takeIf { it.isNotEmpty() && it != "null" }
+        if (due == null) {
+          email.addActionItem(description, null, notes)
+        } else if (email.type?.isBill != true) {
+          // Something with a date is an event, not an action item (R9); bills have neither (Q13)
+          events.addDated(context, description, due, notes)
+        }
       }
     } else if (answer.path("action_required").asBoolean(false)) {
       email.addActionItem(answer.path("action").asText("").trim().ifEmpty { DEFAULT_ACTION })

@@ -19,8 +19,8 @@ import sh.hutch.postmaster.services.RuleEngine
 /**
  * Testing a rule's conditions against an email (REQ Classifying emails 2;
  * CLAR Q9, Q10, Q21 and R8: all conditions must match, or any one for a rule
- * joined with OR; D5: is, contains and
- * starts_with ignore case, regex is case-sensitive unless it uses (?i)).
+ * joined with OR; D5 and R9: every match type ignores case, regex too
+ * unless it starts with (?-i)).
  */
 @QuarkusTest
 class RuleEngineTest {
@@ -95,10 +95,11 @@ class RuleEngineTest {
       "subject, starts_with, your electricity, true",
       "subject, starts_with, Electricity, false",
       "link, starts_with, HTTPS://electric, true",
-      // regex: case-sensitive unless (?i)
+      // regex: ignoring case too (R9), unless (?-i)
       "subject, regex, Electricity\\s+Bill, true",
-      "subject, regex, electricity bill, false",
+      "subject, regex, electricity bill, true",
       "subject, regex, (?i)electricity bill, true",
+      "subject, regex, (?-i)electricity bill, false",
       "message, regex, \\$\\d+\\.\\d{2}, true",
       "type, regex, ^B, true",
       // is_present
@@ -116,7 +117,8 @@ class RuleEngineTest {
       "attachments, has, , true",
       "events, is_present, , true",
       "events, regex, ^Zoo, true",
-      "events, regex, ^zoo, false",
+      "events, regex, ^zoo, true",
+      "events, regex, (?-i)^zoo, false",
       "attachments, regex, (?i)\\.PDF$, true",
       "attachments, regex, \\.docx$, false"
   )

@@ -22,6 +22,7 @@ import sh.hutch.postmaster.models.RuleResults
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.services.EmailService
 import sh.hutch.postmaster.services.MailboxException
+import sh.hutch.postmaster.services.OperationNotAllowedException
 import sh.hutch.postmaster.services.TypeService
 import sh.hutch.postmaster.services.ValidationException
 import java.time.LocalDate
@@ -66,7 +67,8 @@ class McpTools(
       name = "search_emails",
       description = "Searches processed emails, newest first. With no filters, returns the 30 most recently received; " +
           "with any filter, matching emails in pages of 50. Each result has the email's id, subject, sender, type, " +
-          "flags and counts of events, attachments and errors; use get_email for everything else."
+          "flags, tracking and counts of events, attachments and errors; use get_email for everything else. Emails " +
+          "that are deleted, moved or done (no longer tracked) are left out unless include_untracked is true."
   )
   fun searchEmails(
       @ToolArg(description = "Received on or after this date, yyyy-MM-dd", required = false) from: String?,
@@ -77,6 +79,10 @@ class McpTools(
       @ToolArg(name = "response_required", description = "Only emails that need a response", required = false) responseRequired: Boolean?,
       @ToolArg(name = "action_required", description = "Only emails that need action", required = false) actionRequired: Boolean?,
       @ToolArg(name = "with_errors", description = "Only emails with processing errors", required = false) withErrors: Boolean?,
+      @ToolArg(
+          name = "include_untracked", description = "Also emails that are deleted, moved or done, which can't be acted on",
+          required = false
+      ) includeUntracked: Boolean?,
       @ToolArg(description = "Page number, from 1", required = false) page: Int?
   ): SearchResult {
     val filter = EmailFilter(
@@ -91,6 +97,7 @@ class McpTools(
         responseRequired = responseRequired == true,
         actionRequired = actionRequired == true,
         withErrors = withErrors == true,
+        includeUntracked = includeUntracked == true,
         page = page?.takeIf { it > 0 } ?: 1
     )
     val result = emails.search(filter)
@@ -100,7 +107,8 @@ class McpTools(
   @Tool(
       name = "get_email",
       description = "Everything about one processed email: its details, summary, message text, linked page, bill details, " +
-          "events, attachments, the rules that matched and the actions they ran, actions done by hand, and errors."
+          "events, attachments, the rules that matched and the actions they ran, actions done by hand, and errors. " +
+          "tracking is tracked, moved, deleted or done; only a tracked email can be acted on."
   )
   fun getEmail(@ToolArg(description = "The email's id") id: Long): EmailDetail = found { emails.detail(id) }
 
@@ -130,7 +138,8 @@ class McpTools(
 
   @Tool(
       name = "delete_email",
-      description = "Deletes an email: the message moves to the trash folder and the email no longer appears in searches."
+      description = "Deletes an email: the message moves to the trash folder, and the email is no longer tracked, so it " +
+          "appears in searches only with include_untracked."
   )
   fun deleteEmail(@ToolArg(description = "The email's id") id: Long): String = done { emails.delete(id, ActionSource.MCP) }
 
@@ -168,6 +177,20 @@ class McpTools(
   ): String = done { emails.completeActionItem(emailId, itemId, ActionSource.MCP) }
 
   @Tool(
+      name = "mark_email_done",
+      description = "Marks an email done: nothing more needs doing. Its open action items are marked done (and ticked off " +
+          "in the to-do list), it no longer needs a reply, and it's no longer tracked, so it appears in searches only with " +
+          "include_untracked. reopen_email undoes it."
+  )
+  fun markEmailDone(@ToolArg(description = "The email's id") id: Long): String = done { emails.markDone(id, ActionSource.MCP) }
+
+  @Tool(
+      name = "reopen_email",
+      description = "Reopens an email marked done, so it's tracked and can be acted on again. Its action items stay done."
+  )
+  fun reopenEmail(@ToolArg(description = "The email's id") id: Long): String = done { emails.reopen(id, ActionSource.MCP) }
+
+  @Tool(
       name = "set_event_calendar",
       description = "Puts one of an email's events in a calendar (see list_calendars). An event already in a calendar " +
           "is moved; one that isn't is added."
@@ -192,7 +215,7 @@ class McpTools(
   @Tool(name = "list_types", description = "The types emails can be classified as.")
   fun listTypes(): Types = Types(types.list().map { TypeInfo(it.id!!, it.name, it.description) })
 
-  @Tool(name = "list_folders", description = "The mailbox folders emails can be moved to.")
+  @Tool(name = "list_folders", description = "The mailbox folders emails can be moved to, as last scanned.")
   fun listFolders(): Folders =
     try {
       Folders(emails.folders())
@@ -232,6 +255,8 @@ class McpTools(
       found(block)
     } catch (e: ValidationException) {
       throw ToolCallException(e.message ?: "Invalid arguments")
+    } catch (e: OperationNotAllowedException) {
+      throw ToolCallException(e.message ?: "That isn't allowed")
     }
     if (!result.ok) {
       throw ToolCallException(result.message)

@@ -122,7 +122,9 @@ data class RuleForm(
     val calendars: List<Option>,
     val errors: Map<String, String> = emptyMap(),
     /** Every registered action type (ActionRegistry.options()) */
-    val actionTypes: List<Option> = RuleOptions.ACTION_TYPES
+    val actionTypes: List<Option> = RuleOptions.ACTION_TYPES,
+    /** The mailbox's folders as last scanned, for move actions (CLARIFICATIONS.md R9) */
+    val folders: List<String> = emptyList()
 ) {
   val ruleTypeCode: String
     get() = ruleType.code
@@ -147,6 +149,12 @@ data class RuleForm(
   fun typeNames(current: String): List<String> {
     val names = types.map { it.label }
     return if (current.isBlank() || current in names) names else names + current
+  }
+
+  /** The folders a move action can choose, plus [current] if the last scan didn't find it. */
+  fun folderOptions(current: String): List<Option> {
+    val options = folders.map { Option(it, it) }
+    return if (current.isBlank() || current in folders) options else listOf(Option(current, "$current (not found)")) + options
   }
 
   /** Empty rows for the "add" buttons' templates; the index is replaced in the browser. */

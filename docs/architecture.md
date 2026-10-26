@@ -44,6 +44,11 @@ Pages and MCP results use view models (`models/EmailViews.kt`, `Dashboard.kt`, t
 
 `ProcessingScheduler` checks every minute whether a run is due (`processing.frequency` after the last run started), so a frequency change applies without a restart. "Run now" on the dashboard starts a run straight away. Only one run happens at a time, and each is recorded in `Processing_runs`.
 
+`BackgroundJobs` runs three other jobs, each soon after startup and then at its own interval, checked every minute (CLARIFICATIONS.md R9):
+- `FolderService.scan()` reads the mailbox's folders into the `Folders` table every `imap.folder_scan_frequency`, for the move dropdowns.
+- `TrackingService.check()` looks for tracked emails received within `tracking.window` in their folder, then in the trash folder, every `tracking.frequency`. Emails that aren't there become `moved` or `deleted`, and `EmailService` refuses to act on any email that isn't tracked.
+- `TodoListService.sync()` reads the to-do list every `todo.sync_frequency` and brings in each item's status (open, in progress or done), keeping `index.md` and the item's front matter in step.
+
 A run first marks done the action items ticked off in the to-do list, then carries on with any email left part-way, then lists the INBOX messages received within `processing.lookback` of the latest successful run, newest first, and processes each one not yet in the database (matched by Message-ID; CLARIFICATIONS.md Q14).
 
 **No email is lost track of (R6).** A new email is saved before anything is done with it, and saved again after each step, each step in a transaction of its own. If processing stops part-way (a crash, a restart, the database going away), the email stays `pending` with the last step it saved, and the next run carries on from there. The steps:
@@ -75,7 +80,7 @@ Server-rendered Qute templates with HTMX for partial updates, and one small scri
 
 ## Status
 
-`HealthController` serves `/mail/health` and `/mail/status`. `HealthService` runs its checks in parallel (5 seconds each): the database, Dovecot, SMTP, the LLM, the encrypted settings, khal, Chromium, curl, the attachments and to-do folders and free disk space, plus a processing check worked out from the run history. It reports the overall status: `OK`, `DEGRADED` (a check other than the database or Dovecot is down or warns) or `DOWN` (the database or Dovecot is down, HTTP 503). It also reports the version, commit and build time (`BuildInfo`, from the `build-info.properties` that Gradle writes), the uptime and what processing is doing. A client asking for `application/health+json` gets the IETF draft's format instead. See [running.md](running.md#status) and CLARIFICATIONS.md R7.
+`HealthController` serves `/mail/health` and `/mail/status`. `HealthService` runs its checks in parallel (5 seconds each): the database, Dovecot, SMTP, the LLM, the encrypted settings, khal, Chromium, curl, the attachments and to-do folders, the to-do list's `index.md` and free disk space, plus a processing check worked out from the run history. It reports the overall status: `OK`, `DEGRADED` (a check other than the database or Dovecot is down or warns) or `DOWN` (the database or Dovecot is down, HTTP 503). It also reports the version, commit and build time (`BuildInfo`, from the `build-info.properties` that Gradle writes), the uptime and what processing is doing. A client asking for `application/health+json` gets the IETF draft's format instead. See [running.md](running.md#status) and CLARIFICATIONS.md R7.
 
 ## Logging
 

@@ -201,3 +201,26 @@ PLAN.md has a new "single agent" section explaining this.
 - the folded "Full message text" and "Linked page" on the email page
 
 Everything else that matters is always visible. That includes the email filters, which sit in the rail on wide screens.
+
+---
+
+## 2026-10-26
+
+**You:** Add folder scanning for move dropdowns (every 12h), email tracking (moved or deleted emails are greyed out and can't be acted on; Trash is searched; emails from the last seven days are checked), hiding deleted and untracked emails by default, marking an email done, events *or* action items (dated things are events, with conversion both ways), a 1h to-do sync that picks up done and in-progress items, a health check of the knowledgebase to-do list, absolute reminders such as `d-1@8pm`, and case-insensitive string conditions.
+
+**Claude:** I proposed defaults for most of it, and asked four questions. Your answers:
+- **In progress in the to-do list:** both markers, kept in step: `- [/]` in `index.md` and `status: in-progress` in the item's front matter.
+- **An action item in the to-do list that becomes an event:** remove it from the list (its file and its index line).
+- **Reminder notation:** `d-1@20:00`, with 12-hour times (`8pm`, `8:30am`) accepted too.
+- **Mark done:** completes the action items, clears Reply needed, can be reopened, and the email no longer shows in the list by default.
+
+Everything is recorded as CLARIFICATIONS.md R9 and PLAN.md task A.7.
+
+**You:** Marking an email done should also be exposed through the MCP server.
+
+**Claude:** It is: `mark_email_done`, plus `reopen_email` to undo it. `search_emails` takes `include_untracked`, and `get_email` shows each email's `tracking`.
+
+**Claude:** R9 is built (PLAN.md A.7). The full suite passes: 715 tests, 0 failures. The tests found one real defect, a new folder saved before its scan time was set, which is fixed. Notes:
+- Migration V9 makes emails soft-deleted before it `deleted` (untracked), so they can be opened again.
+- Absolute reminders are written as `TRIGGER;VALUE=DATE-TIME` alarms. `RealKhalTest` checks that the real khal (0.14.1) imports one and keeps it. It's skipped unless khal is on the test JVM's PATH (`PATH=~/.local/bin:$PATH ./gradlew --no-daemon test`), as it was in the full run (2 skipped).
+- Not deployed. Deploying runs V9 against the production database.

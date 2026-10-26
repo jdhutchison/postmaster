@@ -55,7 +55,7 @@ class CalendarsPageTest {
     val options = form.select("select[name=name] option").map { it.attr("value") }.filter { it.isNotEmpty() }
     assertTrue(options.containsAll(listOf("Dinners")), "khal calendars offered: $options")
     assertTrue(options.all { it in FakeTools.CALENDARS }, "only khal calendars: $options")
-    assertEquals("e.g. 4h, 1d", form.select("input[name=notificationPeriods]").attr("placeholder"))
+    assertEquals("e.g. 4h, d-1@20:00", form.select("input[name=notificationPeriods]").attr("placeholder"))
   }
 
   @Test

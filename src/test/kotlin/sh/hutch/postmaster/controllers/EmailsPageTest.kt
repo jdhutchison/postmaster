@@ -211,7 +211,7 @@ class EmailsPageTest : PipelineTest() {
   }
 
   @Test
-  fun `deleting moves the message to the trash and removes it from the list`() {
+  fun `deleting moves the message to the trash and leaves it out of the list, though it can still be viewed`() {
     inbox(message("<deleted@mail.example>", "Delete me"))
     run()
     val id = id("deleted@mail.example")
@@ -220,9 +220,11 @@ class EmailsPageTest : PipelineTest() {
 
     assertEquals("/mail/emails", response.header("HX-Redirect"))
     assertEquals(listOf("Delete me"), TestMessages.folderContents(greenMail, "Trash").map { it.first })
-    assertEquals(true, email("deleted@mail.example")["deleted"])
+    // CLAR R9: deleted emails are no longer tracked, rather than hidden
+    assertEquals("deleted", email("deleted@mail.example")["tracking"])
     assertTrue(getHtml("/emails").select("[data-testid=email-row-$id]").isEmpty())
-    assertEquals(404, given().get("/emails/$id").statusCode)
+    assertEquals(1, getHtml("/emails?untracked=true").select("[data-testid=email-row-$id]").size)
+    assertEquals(200, given().get("/emails/$id").statusCode)
     assertEquals(0, run().emailsFound, "not processed again")
   }
 

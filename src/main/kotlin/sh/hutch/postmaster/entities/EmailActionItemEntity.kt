@@ -8,12 +8,14 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import sh.hutch.postmaster.models.TodoStatus
 import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Something an email asks the user to do (CLARIFICATIONS.md R5). Change [completed] through
- * [EmailEntity.completeActionItem] so the email's action required flag follows.
+ * Something an email asks the user to do (CLARIFICATIONS.md R5). Change [completed] and [inProgress]
+ * through [EmailEntity.completeActionItem] or [EmailEntity.setActionItemStatus] so the email's
+ * action required flag follows.
  */
 @Entity
 @Table(name = "Email_action_items")
@@ -45,6 +47,11 @@ class EmailActionItemEntity : AuditedEntity() {
   var completedAt: Instant? = null
     internal set
 
+  /** Marked in progress in the to-do list (CLARIFICATIONS.md R9); it still needs doing. */
+  @Column(name = "in_progress", nullable = false)
+  var inProgress: Boolean = false
+    internal set
+
   /** The item's file name in the to-do list, without `.md`, once update_todo_list has written it. */
   @Column(name = "todo_name", length = 255)
   var todoName: String? = null
@@ -52,4 +59,12 @@ class EmailActionItemEntity : AuditedEntity() {
   @JdbcTypeCode(SqlTypes.TIMESTAMP)
   @Column(name = "todo_created_at")
   var todoCreatedAt: Instant? = null
+
+  /** Open, in progress or done. */
+  val status: TodoStatus
+    get() = when {
+      completed -> TodoStatus.DONE
+      inProgress -> TodoStatus.IN_PROGRESS
+      else -> TodoStatus.OPEN
+    }
 }

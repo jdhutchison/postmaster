@@ -218,6 +218,12 @@ components:
           - string
           - "null"
           description: true to enable the rule (edit only)
+        conditionJoin:
+          type:
+          - string
+          - "null"
+          description: "all (every condition must match, AND) or any (one is enough,\
+            \ OR); blank means all"
         conditions[i].id:
           type:
           - string
@@ -253,7 +259,8 @@ components:
           type:
           - string
           - "null"
-          description: "Folder for move, address for forward_email"
+          description: "Folder for move (chosen from the scanned folders), address\
+            \ for forward_email"
         actions[i].typeId:
           type:
           - string
@@ -268,7 +275,8 @@ components:
           type:
           - string
           - "null"
-          description: "Notification durations for create_events, e.g. 4h, 1d"
+          description: "Notifications for create_events: durations before the event\
+            \ or times of day before its day, e.g. 4h, d-1@20:00"
         actions[i].enabled:
           type:
           - string
@@ -658,7 +666,8 @@ paths:
       summary: Emails page
       description: "Without filters, the 30 most recently received emails. With any\
         \ filter, matching emails in pages of 50. Dates are yyyy-MM-dd (inclusive);\
-        \ type is a type id or 'none'; values that don't parse are ignored."
+        \ type is a type id or 'none'; values that don't parse are ignored. Emails\
+        \ that are deleted, moved or done are left out unless untracked=true."
       tags:
       - Emails
       parameters:
@@ -725,6 +734,13 @@ paths:
           - string
           - "null"
         required: true
+      - name: untracked
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
       responses:
         "200":
           description: OK
@@ -748,8 +764,8 @@ paths:
         "404":
           description: No such email
     delete:
-      summary: "Delete an email (HTMX): moves it to the trash folder and soft-deletes\
-        \ the record"
+      summary: "Delete an email (HTMX): moves it to the trash folder; the email is\
+        \ no longer tracked but can still be viewed"
       tags:
       - Emails
       parameters:
@@ -770,6 +786,8 @@ paths:
           description: The mailbox refused; an error toast says why
         "404":
           description: No such email
+        "409":
+          description: "The email isn't tracked, so it can't be acted on"
   /mail/emails/{id}/action-items/{itemId}/done:
     post:
       summary: "Mark an action item done, and tick it off in the to-do list if it's\
@@ -800,6 +818,86 @@ paths:
           description: No such email or action item
         "502":
           description: The to-do list couldn't be updated; an error toast says why
+  /mail/emails/{id}/action-items/{itemId}/event:
+    post:
+      summary: Make an action item an event (HTMX)
+      description: "date (yyyy-MM-dd) is required; time (HH:mm) is optional, all day\
+        \ without one; with calendarId the event is added to that calendar. An item\
+        \ in the to-do list is removed from it."
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - date
+              - time
+              - calendarId
+              properties:
+                date:
+                  type:
+                  - string
+                  - "null"
+                time:
+                  type:
+                  - string
+                  - "null"
+                calendarId:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: "No date, or no such enabled calendar"
+        "409":
+          description: "The item is done, or the email isn't tracked"
+        "502":
+          description: The to-do list or khal failed; an error toast says why
+        "400":
+          description: Bad Request
+    get:
+      summary: Form for making an action item an event (HTMX fragment that opens the
+        dialog)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such email or action item
   /mail/emails/{id}/action-required:
     post:
       summary: Set (required=true) or clear an email's action required flag (HTMX);
@@ -881,6 +979,62 @@ paths:
       responses:
         "404":
           description: "No such attachment, or it can't be previewed"
+  /mail/emails/{id}/done:
+    post:
+      summary: "Mark an email done (HTMX): its action items are done, no reply is\
+        \ needed, and it's no longer tracked"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: The email isn't tracked
+        "502":
+          description: The to-do list couldn't be updated; an error toast says why
+  /mail/emails/{id}/events/{eventId}/action-item:
+    post:
+      summary: Make an event that isn't in a calendar an action item (HTMX)
+      tags:
+      - Emails
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "404":
+          description: No such email or event
+        "409":
+          description: "The event is in a calendar, the email is a bill, or it isn't\
+            \ tracked"
+        "502":
+          description: The to-do list couldn't be written; an error toast says why
   /mail/emails/{id}/events/{eventId}/calendar:
     get:
       summary: Calendar choice for an event (HTMX fragment that opens the event calendar
@@ -1004,6 +1158,22 @@ paths:
           description: The mailbox refused; an error toast says why
         "400":
           description: Bad Request
+  /mail/emails/{id}/move/folders:
+    post:
+      summary: "Scan the mailbox's folders again (HTMX): the move form, with the folders\
+        \ found"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "502":
+          description: The mailbox can't be reached; an error toast says why
   /mail/emails/{id}/read:
     post:
       summary: Mark an email read (read=true) or unread (HTMX)
@@ -1040,6 +1210,27 @@ paths:
           description: The mailbox refused; an error toast says why
         "400":
           description: Bad Request
+  /mail/emails/{id}/reopen:
+    post:
+      summary: "Reopen an email marked done (HTMX): it's tracked again"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "409":
+          description: The email isn't done
   /mail/emails/{id}/reprocess:
     post:
       summary: Process an email again from its message in the mailbox (HTMX)

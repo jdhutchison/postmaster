@@ -38,12 +38,13 @@ class HealthTest : PipelineTest() {
   private lateinit var todo: Path
 
   private val allChecks = listOf(
-      "database", "dovecot", "llm", "smtp", "settings", "processing", "khal", "chromium", "curl", "attachments", "todo", "disk"
+      "database", "dovecot", "llm", "smtp", "settings", "processing", "khal", "chromium", "curl", "attachments", "todo", "todo_list", "disk"
   )
 
   @BeforeEach
   fun setUpHealth() {
     todo = Files.createTempDirectory("postmaster-todo")
+    Files.writeString(todo.resolve("index.md"), "# To-do\n<!-- todo-items:end -->\n")
     settings.update("todo.path", todo.toString())
     settings.update("health.pending_limit", "25")
     settings.update("health.min_free_mb", "1")
@@ -223,8 +224,42 @@ class HealthTest : PipelineTest() {
     val body = fetch().second
 
     assertEquals("DEGRADED", body["status"].asText())
-    assertEquals("DOWN", body["checks"]["todo"]["status"].asText())
-    assertTrue(body["checks"]["todo"]["output"].asText().contains("<!-- todo-items:end -->"))
+    assertEquals("UP", body["checks"]["todo"]["status"].asText(), "the folder is fine")
+    assertEquals("DOWN", body["checks"]["todo_list"]["status"].asText())
+    assertTrue(body["checks"]["todo_list"]["output"].asText().contains("<!-- todo-items:end -->"))
+  }
+
+  @Test
+  fun `the to-do list check counts Postmaster's items and warns about missing files`() {
+    // CLAR R9
+    llmUp()
+    inbox(message("<health-todo-${System.nanoTime()}@mail.example>", "Health to-do"))
+    processing.runNow(RunTrigger.MANUAL)
+    val email = dataSource.rows("SELECT id FROM Emails ORDER BY id DESC").first()["id"]
+    dataSource.update("DELETE FROM Email_action_items WHERE todo_name IS NOT NULL")
+    for ((name, done) in listOf("Health open" to false, "Health done" to true, "Health gone" to false)) {
+      dataSource.update(
+          "INSERT INTO Email_action_items (email_id, position, description, completed, in_progress, todo_name, created_at, last_updated_at) " +
+              "VALUES (?, 9, ?, ?, FALSE, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+          email, name, done, name
+      )
+    }
+    Files.writeString(todo.resolve("Health open.md"), "---\ncompleted: false\n---\n")
+    Files.writeString(todo.resolve("Health done.md"), "---\ncompleted: true\n---\n")
+
+    val check = fetch().second["checks"]["todo_list"]
+
+    assertEquals("WARN", check["status"].asText())
+    assertEquals(todo.resolve("index.md").toString(), check["target"].asText())
+    val output = check["output"].asText()
+    assertTrue(output.startsWith("3 items from Postmaster: 2 open, 0 in progress, 1 done"), output)
+    assertTrue(output.endsWith("the files of 1 are missing: Health gone"), output)
+
+    dataSource.update("DELETE FROM Email_action_items WHERE todo_name IS NOT NULL")
+    Files.delete(todo.resolve("index.md"))
+    val missing = fetch().second["checks"]["todo_list"]
+    assertEquals("WARN", missing["status"].asText())
+    assertTrue(missing["output"].asText().contains("doesn't exist"), missing.toString())
   }
 
   @Test

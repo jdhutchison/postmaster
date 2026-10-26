@@ -20,6 +20,8 @@ import sh.hutch.postmaster.models.HealthStatus
 import sh.hutch.postmaster.models.ProcessingInfo
 import sh.hutch.postmaster.models.RunInfo
 import sh.hutch.postmaster.models.RunStatus
+import sh.hutch.postmaster.models.TodoStatus
+import sh.hutch.postmaster.repositories.EmailActionItemRepository
 import sh.hutch.postmaster.repositories.EmailRepository
 import sh.hutch.postmaster.repositories.ProcessingRunRepository
 import sh.hutch.postmaster.util.IsoDurations
@@ -55,6 +57,7 @@ class HealthService(
     private val dashboard: DashboardService,
     private val runs: ProcessingRunRepository,
     private val emails: EmailRepository,
+    private val items: EmailActionItemRepository,
     private val build: BuildInfo,
     private val config: PostmasterConfig,
     private val workers: ManagedExecutor,
@@ -83,7 +86,10 @@ class HealthService(
         "attachments" to check(critical = false, type = "system", target = { settings.getString(SettingKeys.ATTACHMENTS_PATH) }) {
           folder(SettingKeys.ATTACHMENTS_PATH)
         },
-        "todo" to check(critical = false, type = "system", target = { settings.getString(SettingKeys.TODO_PATH) }) { todo() },
+        "todo" to check(critical = false, type = "system", target = { settings.getString(SettingKeys.TODO_PATH) }) {
+          folder(SettingKeys.TODO_PATH)
+        },
+        "todo_list" to check(critical = false, type = "system", target = { todoIndex()?.toString() }) { todoList() },
         "disk" to check(critical = false, type = "system", target = { null }) { disk() }
     )
     // Read here while the other checks run; the processing check is worked out from it
@@ -245,14 +251,38 @@ class HealthService(
     return up("Doesn't exist yet; it will be created when it's first needed")
   }
 
-  /** The to-do folder can be written to, and its index.md (if there is one yet) has the line items go above. */
-  private fun todo(): Outcome {
-    val outcome = folder(SettingKeys.TODO_PATH)
-    val index = Path.of(settings.getString(SettingKeys.TODO_PATH)!!).resolve(TodoList.INDEX)
-    if (Files.isRegularFile(index) && Files.readAllLines(index).none { it.trim() == TodoList.END_MARKER }) {
+  private fun todoIndex(): Path? = settings.getString(SettingKeys.TODO_PATH)?.let { Path.of(it).resolve(TodoList.INDEX) }
+
+  /**
+   * The to-do list's index.md (CLARIFICATIONS.md R9): it can be read and written and has the line
+   * items go above, and the files of the items Postmaster wrote are there.
+   */
+  private fun todoList(): Outcome {
+    val index = todoIndex() ?: throw IllegalStateException("The to-do list folder isn't set (${SettingKeys.TODO_PATH})")
+    if (!Files.exists(index)) {
+      return warn("$index doesn't exist; it's created when the first item is added, but check ${SettingKeys.TODO_PATH} is the to-do list's folder")
+    }
+    if (!Files.isRegularFile(index) || !Files.isReadable(index)) {
+      throw IllegalStateException("$index can't be read")
+    }
+    if (!Files.isWritable(index)) {
+      throw IllegalStateException("$index can't be written to, so items can't be added or ticked off")
+    }
+    if (Files.readAllLines(index).none { it.trim() == TodoList.END_MARKER }) {
       throw IllegalStateException("$index has no ${TodoList.END_MARKER} line, so items can't be added")
     }
-    return outcome
+    val listed = QuarkusTransaction.requiringNew().timeout(CHECK_TIMEOUT.seconds.toInt()).call {
+      items.listInTodoList().map { it.todoName!! to it.status }
+    }
+    val counts = TodoStatus.entries.associateWith { status -> listed.count { it.second == status } }
+    val summary = "${listed.size} item${if (listed.size == 1) "" else "s"} from Postmaster: ${counts[TodoStatus.OPEN]} open, " +
+        "${counts[TodoStatus.IN_PROGRESS]} in progress, ${counts[TodoStatus.DONE]} done"
+    val missing = listed.map { it.first }.filter { !Files.exists(index.resolveSibling("$it.md")) }
+    if (missing.isNotEmpty()) {
+      val names = missing.take(MAX_LISTED).joinToString(", ") + if (missing.size > MAX_LISTED) " and ${missing.size - MAX_LISTED} more" else ""
+      return warn("$summary; the files of ${missing.size} are missing: $names")
+    }
+    return up(summary)
   }
 
   /** Free space on the disks holding attachments, the to-do list and the calendars. */
@@ -338,6 +368,7 @@ class HealthService(
     /** How long each check gets to answer. */
     val CHECK_TIMEOUT: Duration = Duration.ofSeconds(5)
     private const val GRACE_MILLIS = 1000L
+    private const val MAX_LISTED = 5
     private const val MIB = 1024L * 1024
     private const val DESCRIPTION = "Postmaster: email processing, classification and actions"
 

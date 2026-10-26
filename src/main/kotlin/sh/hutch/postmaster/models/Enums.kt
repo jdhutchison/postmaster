@@ -114,6 +114,41 @@ enum class EmailStatus(override val code: String) : CodedEnum {
   }
 }
 
+/**
+ * Whether Postmaster still keeps track of an email (CLARIFICATIONS.md R9). Only [TRACKED] emails can
+ * be acted on; the others can still be viewed.
+ */
+enum class EmailTracking(override val code: String, val label: String) : CodedEnum {
+  TRACKED("tracked", "Tracked"),
+
+  /** It's no longer in the folder it was expected in. */
+  MOVED("moved", "Moved"),
+
+  /** It's in the trash folder, or was deleted by Postmaster. */
+  DELETED("deleted", "Deleted"),
+
+  /** It was marked done: nothing more needs doing. */
+  DONE("done", "Done");
+
+  val isTracked: Boolean
+    get() = this == TRACKED
+
+  companion object {
+    fun fromCode(code: String): EmailTracking = codedEnumOf(code)
+  }
+}
+
+/** Where an action item is in the to-do list (CLARIFICATIONS.md R5, R9). */
+enum class TodoStatus(override val code: String) : CodedEnum {
+  OPEN("todo"),
+  IN_PROGRESS("in-progress"),
+  DONE("done");
+
+  companion object {
+    fun fromCode(code: String): TodoStatus = codedEnumOf(code)
+  }
+}
+
 /** The processing phase an email error happened in. MANUAL is an action run from the UI or MCP. */
 enum class ErrorPhase(override val code: String) : CodedEnum {
   FETCH("fetch"),

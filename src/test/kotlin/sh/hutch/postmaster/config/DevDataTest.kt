@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.EmailRepository
+import sh.hutch.postmaster.repositories.FolderRepository
 import sh.hutch.postmaster.repositories.ProcessingRunRepository
 import sh.hutch.postmaster.repositories.RuleRepository
 import sh.hutch.postmaster.repositories.TypeRepository
@@ -46,6 +47,7 @@ class DevDataTest {
   @Inject lateinit var emails: EmailRepository
   @Inject lateinit var runs: ProcessingRunRepository
   @Inject lateinit var todos: TodoListService
+  @Inject lateinit var folders: FolderRepository
   @Inject lateinit var dataSource: AgroalDataSource
 
   private fun devData(): DevData {
@@ -53,7 +55,7 @@ class DevDataTest {
     val devConfig = object : PostmasterConfig by config {
       override fun khalConfig() = khal
     }
-    return DevData(devConfig, settings, types, calendars, rules, emails, runs, todos)
+    return DevData(devConfig, settings, types, calendars, rules, emails, runs, todos, folders)
   }
 
   @BeforeEach
@@ -102,7 +104,8 @@ class DevDataTest {
     val names = dataSource.rows("SELECT todo_name FROM Email_action_items WHERE todo_name IS NOT NULL").map { it["todo_name"] as String }
     assertEquals(3, names.size)
     for (name in names) {
-      assertTrue(index.contains("- [ ] [[$name]] #todo-item"), index)
+      // One is in progress (CLAR R9)
+      assertTrue(index.contains("- [ ] [[$name]] #todo-item") || index.contains("- [/] [[$name]] #todo-item"), index)
       assertTrue(Files.isRegularFile(dir.resolve("todo/$name.md")), name)
     }
   }

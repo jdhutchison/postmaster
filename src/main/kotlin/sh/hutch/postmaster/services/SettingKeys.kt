@@ -13,6 +13,7 @@ object SettingKeys {
   const val IMAP_PASSWORD = "imap.password"
   const val IMAP_INBOX_FOLDER = "imap.inbox_folder"
   const val IMAP_TRASH_FOLDER = "imap.trash_folder"
+  const val IMAP_FOLDER_SCAN_FREQUENCY = "imap.folder_scan_frequency"
 
   const val SMTP_HOST = "smtp.host"
   const val SMTP_PORT = "smtp.port"
@@ -40,6 +41,10 @@ object SettingKeys {
 
   const val TODO_PATH = "todo.path"
   const val TODO_POSTMASTER_URL = "todo.postmaster_url"
+  const val TODO_SYNC_FREQUENCY = "todo.sync_frequency"
+
+  const val TRACKING_FREQUENCY = "tracking.frequency"
+  const val TRACKING_WINDOW = "tracking.window"
 
   const val HEALTH_PENDING_LIMIT = "health.pending_limit"
   const val HEALTH_MIN_FREE_MB = "health.min_free_mb"

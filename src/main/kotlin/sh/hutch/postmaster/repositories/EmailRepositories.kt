@@ -10,10 +10,13 @@ import sh.hutch.postmaster.entities.EmailEntity
 import sh.hutch.postmaster.entities.EmailErrorEntity
 import sh.hutch.postmaster.entities.EmailEventEntity
 import sh.hutch.postmaster.entities.EmailRuleMatchEntity
+import sh.hutch.postmaster.entities.FolderEntity
 import sh.hutch.postmaster.entities.ProcessingRunEntity
 import sh.hutch.postmaster.models.EmailStatus
+import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.RunStatus
 import sh.hutch.postmaster.services.MessageIds
+import java.time.Instant
 
 @ApplicationScoped
 class EmailRepository : PanacheRepository<EmailEntity> {
@@ -29,6 +32,16 @@ class EmailRepository : PanacheRepository<EmailEntity> {
   /** Active emails whose processing hasn't finished, oldest first (CLARIFICATIONS.md R6). */
   fun listPendingIds(): List<Long> =
     find("status = ?1 and deleted = false order by receivedAt, id", EmailStatus.PENDING).list().map { it.id!! }
+
+  /**
+   * Tracked emails received at or after [since] whose processing has finished, to look for in their
+   * folders (CLARIFICATIONS.md R9).
+   */
+  fun listToTrack(since: Instant): List<EmailEntity> =
+    list(
+        "tracking = ?1 and status != ?2 and deleted = false and receivedAt >= ?3 order by receivedAt, id",
+        EmailTracking.TRACKED, EmailStatus.PENDING, since
+    )
 
   /** The most recently received active emails. */
   fun listRecent(limit: Int): List<EmailEntity> =
@@ -58,9 +71,9 @@ class EmailActionResultRepository : PanacheRepository<EmailActionResultEntity> {
 
 @ApplicationScoped
 class EmailActionItemRepository : PanacheRepository<EmailActionItemEntity> {
-  /** Action items that are in the to-do list and not done yet, of active emails. */
-  fun listOpenInTodoList(): List<EmailActionItemEntity> =
-    list("completed = false and todoName is not null and email.deleted = false order by id")
+  /** Action items that are in the to-do list, done or not, of active emails. */
+  fun listInTodoList(): List<EmailActionItemEntity> =
+    list("todoName is not null and email.deleted = false order by id")
 }
 
 @ApplicationScoped
@@ -68,6 +81,11 @@ class EmailErrorRepository : PanacheRepository<EmailErrorEntity> {
   fun listForEmail(emailId: Long): List<EmailErrorEntity> = list("email.id = ?1 order by createdAt, id", emailId)
 
   fun countForEmail(emailId: Long): Long = count("email.id", emailId)
+}
+
+@ApplicationScoped
+class FolderRepository : PanacheRepository<FolderEntity> {
+  fun listByName(): List<FolderEntity> = list("order by name, id")
 }
 
 @ApplicationScoped

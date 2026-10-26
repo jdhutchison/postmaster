@@ -25,18 +25,20 @@ data class EmailFilter(
     val responseRequired: Boolean = false,
     val actionRequired: Boolean = false,
     val withErrors: Boolean = false,
+    /** Also emails that are deleted, moved or done, which are left out otherwise (CLARIFICATIONS.md R9). */
+    val includeUntracked: Boolean = false,
     val page: Int = 1
 ) {
   /** Whether any filter is set. Unfiltered, the list shows the most recent emails only. */
   val isFiltered: Boolean
     get() = from != null || to != null || status != null || typeId != null || !sender.isNullOrBlank() ||
-        responseRequired || actionRequired || withErrors
+        responseRequired || actionRequired || withErrors || includeUntracked
 
   /** How many filters are set, for the "Filters" button. */
   val activeCount: Int
     get() = listOf(
         from != null || to != null, status != null, typeId != null, !sender.isNullOrBlank(),
-        responseRequired, actionRequired, withErrors
+        responseRequired, actionRequired, withErrors, includeUntracked
     ).count { it }
 
   fun hasStatus(candidate: EmailStatus): Boolean = status == candidate
@@ -57,6 +59,7 @@ data class EmailFilter(
         if (responseRequired) "response" to "true" else null,
         if (actionRequired) "action" to "true" else null,
         if (withErrors) "errors" to "true" else null,
+        if (includeUntracked) "untracked" to "true" else null,
         if (page > 1) "page" to page.toString() else null
     )
     return "?" + params.joinToString("&") { (key, value) -> key + "=" + URLEncoder.encode(value, StandardCharsets.UTF_8) }
@@ -84,11 +87,16 @@ data class EmailRow(
     val isRead: Boolean,
     val events: Long,
     val attachments: Long,
-    val errors: Long
+    val errors: Long,
+    val tracking: EmailTracking = EmailTracking.TRACKED
 ) {
   /** The sender's name, or the address when there's no name. */
   val from: String
     get() = senderName?.takeIf { it.isNotBlank() } ?: sender.orEmpty()
+
+  /** Whether the email can still be acted on (R9); untracked rows are shown greyed out. */
+  val isTracked: Boolean
+    get() = tracking.isTracked
 }
 
 /** A page of the emails list. [paginated] is false for the unfiltered "most recent" view. */
@@ -123,7 +131,10 @@ data class BillDetails(
     val downloadUrl: String?
 )
 
-/** Something an email asks the user to do (R5). [todoName] is its name in the to-do list, if it's there. */
+/**
+ * Something an email asks the user to do (R5). [todoName] is its name in the to-do list, if it's
+ * there; [inProgress] is set there (R9).
+ */
 @TemplateData
 data class ActionItemView(
     val id: Long,
@@ -132,7 +143,8 @@ data class ActionItemView(
     val notes: String?,
     val completed: Boolean,
     val completedAt: Instant?,
-    val todoName: String?
+    val todoName: String?,
+    val inProgress: Boolean = false
 )
 
 /** An event found in an email. [calendarId] is its calendar, or the suggested one if it isn't added. */
@@ -221,12 +233,23 @@ data class EmailDetail(
     val actions: List<RuleResults>,
     val manual: List<ActionResultView>,
     val errors: List<ErrorView>,
-    val calendars: List<CalendarOption>
+    val calendars: List<CalendarOption>,
+    /** Whether Postmaster still keeps track of the email; only a tracked one can be acted on (R9). */
+    val tracking: EmailTracking = EmailTracking.TRACKED,
+    val trackingChangedAt: Instant? = null
 ) {
+  val isTracked: Boolean
+    get() = tracking.isTracked
+
+  val isDone: Boolean
+    get() = tracking == EmailTracking.DONE
+
   val from: String
     get() = listOfNotNull(senderName?.takeIf { it.isNotBlank() }, sender?.let { "<$it>" }).joinToString(" ")
 
   fun event(id: Long): EventView? = events.firstOrNull { it.id == id }
+
+  fun actionItem(id: Long): ActionItemView? = actionItems.firstOrNull { it.id == id }
 
   fun attachment(id: Long): AttachmentView? = attachments.firstOrNull { it.id == id }
 }

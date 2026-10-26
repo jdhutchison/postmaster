@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import sh.hutch.postmaster.models.CalendarEvent
+import sh.hutch.postmaster.util.Reminder
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
@@ -33,7 +35,9 @@ class RealKhalTest {
         IcsWriter.event(
             CalendarEvent(
                 "real-khal-1", "Zoo excursion, grade 3", LocalDateTime.parse("2026-11-05T09:00"), null, false,
-                "Melbourne Zoo", "Bring lunch", listOf(Duration.ofDays(1), Duration.ofHours(2))
+                "Melbourne Zoo", "Bring lunch",
+                // A time of day before the event's day too (CLAR R9)
+                listOf(Reminder.Before(Duration.ofDays(1)), Reminder.Before(Duration.ofHours(2)), Reminder.At(1, LocalTime.of(20, 0)))
             ),
             melbourne
         )
@@ -45,6 +49,8 @@ class RealKhalTest {
     assertEquals(0, code, listing)
     assertTrue(listing.contains("09:00 Zoo excursion, grade 3"), listing)
     assertTrue(Files.list(dir.resolve("family")).use { files -> files.anyMatch { it.toString().endsWith(".ics") } })
+    val stored = Files.list(dir.resolve("family")).use { files -> files.toList() }.joinToString("") { Files.readString(it) }
+    assertTrue(stored.contains("TRIGGER;VALUE=DATE-TIME:20261104T090000Z"), stored)
   }
 
   @Test

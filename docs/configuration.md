@@ -38,6 +38,7 @@ Encrypted settings are stored AES-256-GCM encrypted, as `enc:` followed by base6
 | `imap.password` | | Dovecot password (encrypted) |
 | `imap.inbox_folder` | `INBOX` | Folder new email is read from |
 | `imap.trash_folder` | `Trash` | Folder deleted email is moved to |
+| `imap.folder_scan_frequency` | `12h` | How often the mailbox's folders are read again, for the move dropdowns. They're also read at startup and with "Refresh" in the Move dialog. |
 | `smtp.host` | `mail-opensmtp` | SMTP server used to forward email |
 | `smtp.port` | `25` | SMTP port |
 | `smtp.security` | `none` | `none`, `starttls` or `tls` |
@@ -58,11 +59,16 @@ Encrypted settings are stored AES-256-GCM encrypted, as `enc:` followed by base6
 | `bills.bill_link_text` | `View bill, Download bill, …` | Anchor texts that identify a link to download a bill |
 | `todo.path` | `/data/todo` | The markdown to-do list that `update_todo_list` writes to; `index.md` must have a `<!-- todo-items:end -->` line, or is created with one |
 | `todo.postmaster_url` | (empty) | The address of these pages, e.g. `http://tigerbear:8080/mail`, for links from to-do items back to their email |
+| `todo.sync_frequency` | `1h` | How often the to-do list is read for items that are open, in progress or done there |
+| `health.pending_limit` | `25` | The status endpoint warns when more emails than this are waiting to be processed |
+| `health.min_free_mb` | `1024` | The status endpoint warns when a disk holding attachments, the to-do list or calendars has less free space (MiB) |
+| `tracking.frequency` | `1h` | How often tracked emails are looked for in their folder, to notice those moved or deleted (CLARIFICATIONS.md R9) |
+| `tracking.window` | `7d` | Only emails received within this period are looked for |
 
 ## Types, calendars, prompts and rules
 
 These are also stored in the database and managed on their own pages.
 - **Types:** Bill is a system type and can't be deleted.
-- **Calendars:** names come from the khal config, and each has a colour and notification periods (`4h, 1d`).
+- **Calendars:** names come from the khal config, and each has a colour and notification periods. Notifications (here and on `create_events` actions) are durations before the event (`4h`, `1d`) or a time of day a number of days before the event's day: `d-1@20:00` is 8pm the day before, `d@8am` 8am on the day. Times are 24-hour or 12-hour (`8pm`, `8:30am`), in `processing.timezone`. Mix them, separated by a comma and a space: `1h, d-1@20:00`.
 - **Prompts:** the system prompts (summarise, classify, select_calendar, summarise_page, bill_details, identify_events) can be edited but not deleted. Their placeholders are `{{subject}}`, `{{sender}}`, `{{text}}`, `{{html}}`, `{{page}}`, `{{events}}`, `{{calendars}}` and `{{types}}`.
-- **Rules:** see [actions.md](actions.md) for the actions.
+- **Rules:** see [actions.md](actions.md) for the actions. String conditions ignore case, `regex` included; start a pattern with `(?-i)` to match case.

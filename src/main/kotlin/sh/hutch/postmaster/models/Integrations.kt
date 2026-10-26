@@ -1,7 +1,7 @@
 package sh.hutch.postmaster.models
 
+import sh.hutch.postmaster.util.Reminder
 import java.nio.file.Path
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -9,6 +9,9 @@ import java.time.LocalDateTime
 
 /** Where a message is in a folder: its UID, which holds only while the folder's UIDVALIDITY is [uidValidity]. */
 data class MessageLocation(val uid: Long, val uidValidity: Long)
+
+/** A message to look for in a folder: its Message-ID and, if known, its UID there (CLARIFICATIONS.md R9). */
+data class MessageRef(val messageId: String, val uid: Long?, val uidValidity: Long?)
 
 /** A message in the inbox, as listed before it is fetched. */
 data class MailboxMessage(
@@ -75,5 +78,5 @@ data class CalendarEvent(
     val allDay: Boolean,
     val location: String?,
     val notes: String?,
-    val alarms: List<Duration>
+    val alarms: List<Reminder>
 )

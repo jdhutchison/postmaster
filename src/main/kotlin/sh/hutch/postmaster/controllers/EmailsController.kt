@@ -18,6 +18,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag
 import org.jboss.resteasy.reactive.RestForm
 import org.jboss.resteasy.reactive.RestQuery
 import sh.hutch.postmaster.entities.TypeEntity
+import sh.hutch.postmaster.models.ActionItemView
 import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.AttachmentView
 import sh.hutch.postmaster.models.EmailDetail
@@ -32,7 +33,9 @@ import sh.hutch.postmaster.services.TypeService
 import sh.hutch.postmaster.services.ValidationException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeParseException
 
 /** The emails list and email detail pages (REQUIREMENTS.md "Viewing emails"). */
@@ -49,7 +52,10 @@ class EmailsController(private val emails: EmailService, private val types: Type
     external fun email(detail: EmailDetail, types: List<TypeEntity>): TemplateInstance
 
     @JvmStatic
-    external fun moveForm(detail: EmailDetail, folders: List<String>): TemplateInstance
+    external fun moveForm(detail: EmailDetail, folders: List<String>, scannedAt: Instant?): TemplateInstance
+
+    @JvmStatic
+    external fun actionItemEventForm(detail: EmailDetail, item: ActionItemView): TemplateInstance
 
     @JvmStatic
     external fun eventCalendarForm(detail: EmailDetail, event: EventView): TemplateInstance
@@ -63,7 +69,8 @@ class EmailsController(private val emails: EmailService, private val types: Type
   @Operation(
       summary = "Emails page",
       description = "Without filters, the 30 most recently received emails. With any filter, matching emails in pages of 50. " +
-          "Dates are yyyy-MM-dd (inclusive); type is a type id or 'none'; values that don't parse are ignored."
+          "Dates are yyyy-MM-dd (inclusive); type is a type id or 'none'; values that don't parse are ignored. " +
+          "Emails that are deleted, moved or done are left out unless untracked=true."
   )
   fun list(
       @RestQuery("from") from: String?,
@@ -74,6 +81,7 @@ class EmailsController(private val emails: EmailService, private val types: Type
       @RestQuery("response") response: String?,
       @RestQuery("action") action: String?,
       @RestQuery("errors") errors: String?,
+      @RestQuery("untracked") untracked: String?,
       @RestQuery("page") page: String?
   ): TemplateInstance {
     val filter = EmailFilter(
@@ -89,6 +97,7 @@ class EmailsController(private val emails: EmailService, private val types: Type
         responseRequired = response == "true",
         actionRequired = action == "true",
         withErrors = errors == "true",
+        includeUntracked = untracked == "true",
         page = page?.toIntOrNull()?.takeIf { it > 0 } ?: 1
     )
     return Templates.emails(emails.search(filter), types.list(), EmailStatus.entries)
@@ -104,10 +113,11 @@ class EmailsController(private val emails: EmailService, private val types: Type
   @DELETE
   @Path("/{id: \\d+}")
   @Produces(MediaType.TEXT_HTML)
-  @Operation(summary = "Delete an email (HTMX): moves it to the trash folder and soft-deletes the record")
+  @Operation(summary = "Delete an email (HTMX): moves it to the trash folder; the email is no longer tracked but can still be viewed")
   @APIResponse(responseCode = "200", description = "HX-Redirect to the emails page")
   @APIResponse(responseCode = "502", description = "The mailbox refused; an error toast says why")
   @APIResponse(responseCode = "404", description = "No such email")
+  @APIResponse(responseCode = "409", description = "The email isn't tracked, so it can't be acted on")
   fun delete(@PathParam("id") id: Long): Response {
     val result = emails.delete(id, ActionSource.UI)
     return if (result.ok) Htmx.redirect("/emails", Toast.success("Deleted the email: ${result.message}")) else failed(result)
@@ -130,7 +140,26 @@ class EmailsController(private val emails: EmailService, private val types: Type
   fun moveForm(@PathParam("id") id: Long): Response {
     val detail = emails.detail(id)
     return try {
-      Htmx.dialogForm(Templates.moveForm(detail, emails.folders().filter { it != detail.folder }), MOVE_DIALOG)
+      val folders = emails.folders()
+      Htmx.dialogForm(Templates.moveForm(detail, folders.filter { it != detail.folder }, emails.foldersScannedAt()), MOVE_DIALOG)
+    } catch (e: MailboxException) {
+      Htmx.response(null, status = 502, toasts = listOf(Toast.error(e.message ?: "The mailbox can't be reached")))
+    }
+  }
+
+  @POST
+  @Path("/{id: \\d+}/move/folders")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Scan the mailbox's folders again (HTMX): the move form, with the folders found")
+  @APIResponse(responseCode = "502", description = "The mailbox can't be reached; an error toast says why")
+  fun refreshFolders(@PathParam("id") id: Long): Response {
+    val detail = emails.detail(id)
+    return try {
+      val folders = emails.refreshFolders()
+      Htmx.response(
+          Templates.moveForm(detail, folders.filter { it != detail.folder }, emails.foldersScannedAt()),
+          toasts = listOf(Toast.success("Found ${folders.size} folder${if (folders.size == 1) "" else "s"}"))
+      )
     } catch (e: MailboxException) {
       Htmx.response(null, status = 502, toasts = listOf(Toast.error(e.message ?: "The mailbox can't be reached")))
     }
@@ -191,6 +220,79 @@ class EmailsController(private val emails: EmailService, private val types: Type
   @APIResponse(responseCode = "502", description = "The to-do list couldn't be updated; an error toast says why")
   fun completeActionItem(@PathParam("id") id: Long, @PathParam("itemId") itemId: Long): Response =
     done(id, emails.completeActionItem(id, itemId, ActionSource.UI))
+
+  @POST
+  @Path("/{id: \\d+}/done")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Mark an email done (HTMX): its action items are done, no reply is needed, and it's no longer tracked")
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "409", description = "The email isn't tracked")
+  @APIResponse(responseCode = "502", description = "The to-do list couldn't be updated; an error toast says why")
+  fun markDone(@PathParam("id") id: Long): Response = done(id, emails.markDone(id, ActionSource.UI))
+
+  @POST
+  @Path("/{id: \\d+}/reopen")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Reopen an email marked done (HTMX): it's tracked again")
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "409", description = "The email isn't done")
+  fun reopen(@PathParam("id") id: Long): Response = done(id, emails.reopen(id, ActionSource.UI))
+
+  @POST
+  @Path("/{id: \\d+}/events/{eventId: \\d+}/action-item")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Make an event that isn't in a calendar an action item (HTMX)")
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "404", description = "No such email or event")
+  @APIResponse(responseCode = "409", description = "The event is in a calendar, the email is a bill, or it isn't tracked")
+  @APIResponse(responseCode = "502", description = "The to-do list couldn't be written; an error toast says why")
+  fun eventToActionItem(@PathParam("id") id: Long, @PathParam("eventId") eventId: Long): Response =
+    done(id, emails.eventToActionItem(id, eventId, ActionSource.UI))
+
+  @GET
+  @Path("/{id: \\d+}/action-items/{itemId: \\d+}/event")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Form for making an action item an event (HTMX fragment that opens the dialog)")
+  @APIResponse(responseCode = "404", description = "No such email or action item")
+  fun actionItemEventForm(@PathParam("id") id: Long, @PathParam("itemId") itemId: Long): Response {
+    val detail = emails.detail(id)
+    val item = detail.actionItem(itemId) ?: throw NotFoundException("Action item $itemId not found")
+    return Htmx.dialogForm(Templates.actionItemEventForm(detail, item), ITEM_EVENT_DIALOG)
+  }
+
+  @POST
+  @Path("/{id: \\d+}/action-items/{itemId: \\d+}/event")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(
+      summary = "Make an action item an event (HTMX)",
+      description = "date (yyyy-MM-dd) is required; time (HH:mm) is optional, all day without one; with calendarId the event " +
+          "is added to that calendar. An item in the to-do list is removed from it."
+  )
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "422", description = "No date, or no such enabled calendar")
+  @APIResponse(responseCode = "409", description = "The item is done, or the email isn't tracked")
+  @APIResponse(responseCode = "502", description = "The to-do list or khal failed; an error toast says why")
+  fun actionItemToEvent(
+      @PathParam("id") id: Long,
+      @PathParam("itemId") itemId: Long,
+      @RestForm("date") date: String?,
+      @RestForm("time") time: String?,
+      @RestForm("calendarId") calendarId: String?
+  ): Response =
+    try {
+      val day = date(date)
+      val at = try {
+        time?.trim()?.takeIf { it.isNotEmpty() }?.let { LocalTime.parse(it) }
+      } catch (e: DateTimeParseException) {
+        throw ValidationException(mapOf("time" to "The time must be like 09:30"))
+      }
+      // A calendar id that isn't a number is no calendar, and is refused
+      val calendar = calendarId?.trim()?.takeIf { it.isNotEmpty() }?.let { it.toLongOrNull() ?: -1L }
+      done(id, emails.actionItemToEvent(id, itemId, day, at, calendar, ActionSource.UI))
+    } catch (e: ValidationException) {
+      invalid(e)
+    }
 
   @POST
   @Path("/{id: \\d+}/reprocess")
@@ -283,6 +385,7 @@ class EmailsController(private val emails: EmailService, private val types: Type
     const val MOVE_DIALOG = "move-dialog"
     const val EVENT_DIALOG = "event-calendar-dialog"
     const val PREVIEW_DIALOG = "attachment-dialog"
+    const val ITEM_EVENT_DIALOG = "action-item-event-dialog"
 
     private fun disposition(type: String, filename: String): String {
       val ascii = filename.replace(Regex("[^\\x20-\\x7e]|[\"\\\\]"), "_")

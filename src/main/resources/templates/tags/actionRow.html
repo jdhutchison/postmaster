@@ -8,10 +8,18 @@
     </select>
     {#if row.error('actionType')}<p class="pm-field-error" data-testid="error-actions[{row.index}].actionType">{row.error('actionType')}</p>{/if}
   </div>
-  <div class="pm-field pm-field--grow" data-pm-for="move forward_email">
+  <div class="pm-field pm-field--grow" data-pm-for="move">
+    <label for="action-{row.index}-folder">to:</label>
+    <select id="action-{row.index}-folder" name="actions[{row.index}].destination" class="pm-input" data-testid="action-folder"{#if row.actionType != 'move'} disabled{/if}{#if row.invalid('destination')} aria-invalid="true"{/if}>
+      <option value="">Choose a folder</option>
+      {#for o in form.folderOptions(row.destination)}<option value="{o.value}"{#if o.value == row.destination} selected{/if}>{o.label}</option>{/for}
+    </select>
+    {#if row.error('destination') && row.actionType == 'move'}<p class="pm-field-error" data-testid="error-actions[{row.index}].destination">{row.error('destination')}</p>{/if}
+  </div>
+  <div class="pm-field pm-field--grow" data-pm-for="forward_email">
     <label for="action-{row.index}-destination">to:</label>
-    <input id="action-{row.index}-destination" name="actions[{row.index}].destination" class="pm-input" value="{row.destination}" maxlength="500" autocomplete="off"{#if row.invalid('destination')} aria-invalid="true"{/if}>
-    {#if row.error('destination')}<p class="pm-field-error" data-testid="error-actions[{row.index}].destination">{row.error('destination')}</p>{/if}
+    <input id="action-{row.index}-destination" name="actions[{row.index}].destination" class="pm-input" value="{row.destination}" maxlength="500" autocomplete="off"{#if row.actionType != 'forward_email'} disabled{/if}{#if row.invalid('destination')} aria-invalid="true"{/if}>
+    {#if row.error('destination') && row.actionType != 'move'}<p class="pm-field-error" data-testid="error-actions[{row.index}].destination">{row.error('destination')}</p>{/if}
   </div>
   <div class="pm-field pm-field--grow" data-pm-for="set_type">
     <label for="action-{row.index}-typeId">Type</label>
@@ -31,7 +39,7 @@
   </div>
   <div class="pm-field" data-pm-for="create_events">
     <label for="action-{row.index}-notifications">Notifications</label>
-    <input id="action-{row.index}-notifications" name="actions[{row.index}].notifications" class="pm-input" value="{row.notifications}" placeholder="e.g. 4h, 1d" autocomplete="off"{#if row.invalid('notifications')} aria-invalid="true"{/if}>
+    <input id="action-{row.index}-notifications" name="actions[{row.index}].notifications" class="pm-input" value="{row.notifications}" placeholder="e.g. 4h, d-1@20:00" autocomplete="off"{#if row.invalid('notifications')} aria-invalid="true"{/if}>
     {#if row.error('notifications')}<p class="pm-field-error" data-testid="error-actions[{row.index}].notifications">{row.error('notifications')}</p>{/if}
   </div>
   <div class="pm-field pm-field--inline">

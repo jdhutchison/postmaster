@@ -33,6 +33,7 @@ import org.jsoup.nodes.Entities
 import sh.hutch.postmaster.models.AttachmentPart
 import sh.hutch.postmaster.models.MailboxMessage
 import sh.hutch.postmaster.models.MessageLocation
+import sh.hutch.postmaster.models.MessageRef
 import sh.hutch.postmaster.models.ParsedMessage
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -142,6 +143,30 @@ class MailboxClient(private val settings: SettingsService) {
       val trusted = uid?.takeIf { uidValidity == validity && imap.getMessageByUID(it) != null }
       val found = trusted ?: search(imap, messageId)
       found?.let { MessageLocation(it, validity) }
+    }
+
+  /**
+   * Which of [messages] are in [folder], by Message-ID, over one connection (CLARIFICATIONS.md R9). A
+   * known UID is trusted as in [locate]. None are there if the folder doesn't exist.
+   */
+  fun present(folder: String, messages: List<MessageRef>): Set<String> =
+    withStore("look for messages in $folder") { store ->
+      val imap = store.getFolder(folder) as IMAPFolder
+      if (!imap.exists()) {
+        return@withStore emptySet()
+      }
+      imap.open(Folder.READ_ONLY)
+      try {
+        val validity = imap.uidValidity
+        messages.filter { ref ->
+          val trusted = ref.uid != null && ref.uidValidity == validity && imap.getMessageByUID(ref.uid) != null
+          trusted || search(imap, ref.messageId) != null
+        }.map { it.messageId }.toSet()
+      } finally {
+        if (imap.isOpen) {
+          imap.close(false)
+        }
+      }
     }
 
   private fun search(imap: IMAPFolder, messageId: String): Long? {

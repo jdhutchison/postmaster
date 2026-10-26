@@ -17,14 +17,14 @@ Rules trigger actions. Each action type is an `ActionHandler` bean in the `actio
 | `update_todo_list` | gather (60) | Writes the email's open action items to the markdown to-do list in `todo.path`: a file per item and a task in `index.md` (see below). |
 | `forward_email` | forward | Forwards the email with its attachments to the action's address. |
 | `mark_read`, `mark_unread` | read state | Sets or clears `\Seen` in the mailbox. |
-| `move` | move (0) | Moves the message to the action's folder. |
-| `delete` | move (1) | Moves the message to `imap.trash_folder`. |
+| `move` | move (0) | Moves the message to the action's folder, chosen from the mailbox's folders as last scanned. Moving it to `imap.trash_folder` deletes it. |
+| `delete` | move (1) | Moves the message to `imap.trash_folder`. The email is no longer tracked (CLARIFICATIONS.md R9). |
 
 Stages run in the order shown. Within a stage, handlers run by `order`, then by rule priority. In the read-state and move stages, only the highest-priority rule's action runs; the others are recorded as conflicts (CLARIFICATIONS.md Q12).
 
 ## Action items and the to-do list
 
-The LLM's summary lists what an email asks the user to do as action items, each with an optional due date and notes (CLARIFICATIONS.md R5). The email page shows each item with a **Done** button.
+The LLM's summary lists what an email asks the user to do as action items, each with notes (CLARIFICATIONS.md R5). Something is an event or an action item, never both (R9): anything with a date is an event, and an item the LLM still gives a date becomes an all-day event that day. The email page shows each item with **Done** and **Make event** buttons, and an event that isn't in a calendar can be made an action item from its dialog. Making an item an event takes it out of the to-do list (its file and its task).
 
 `update_todo_list` writes each open item that isn't in the to-do list yet to the `todo.path` folder:
 
@@ -35,6 +35,7 @@ tags:
   - todo-item
 created: 2026-10-25T14:03:12
 completed: false
+status: todo
 due: 2026-10-28
 ---
 
@@ -52,7 +53,9 @@ The file is named after the item, e.g. `Post turntable in three days.md`. `due` 
 <!-- todo-items:end -->
 ```
 
-Done ticks the task (`- [x]`) and sets `completed: true` in the item's file. Each processing run starts by marking done here the items ticked off there, in `index.md` or in their file.
+Done ticks the task (`- [x]`) and sets `completed: true` and `status: done` in the item's file. An item is in progress as `- [/]` in `index.md` or `status: in-progress` in its file.
+
+Every `todo.sync_frequency` (1h) Postmaster reads both for each item it wrote. Where one has changed since Postmaster last saw it, the item takes that status here (open, in progress or done, and back again), and the other is updated to match; if both have changed, `index.md` wins. **Mark done** on an email marks all its open items done.
 
 ## Adding an action type
 

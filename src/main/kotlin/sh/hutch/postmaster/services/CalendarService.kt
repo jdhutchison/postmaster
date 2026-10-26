@@ -8,7 +8,7 @@ import sh.hutch.postmaster.models.CalendarInput
 import sh.hutch.postmaster.models.KhalCalendars
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.util.Colours
-import sh.hutch.postmaster.util.IsoDurations
+import sh.hutch.postmaster.util.Reminders
 
 /** Manages the calendars events can be added to. Names must be calendars in the khal configuration. */
 @ApplicationScoped
@@ -66,10 +66,10 @@ class CalendarService(private val calendars: CalendarRepository, private val kha
       errors.add("colour", "Colour must be an RGB hex code such as #ff5555")
     }
     val periods = input.notificationPeriods?.trim()?.ifEmpty { null }
-    if (periods != null && !IsoDurations.isValidList(periods)) {
+    if (periods != null && !Reminders.isValidList(periods)) {
       errors.add(
           "notificationPeriods",
-          "Durations must be a list of ISO 8601 durations separated by a comma and a space, such as 4h, 1d"
+          "Durations must be ISO 8601 durations or times like d-1@20:00, separated by a comma and a space, such as 4h, d-1@20:00"
       )
     }
     errors.throwIfAny()

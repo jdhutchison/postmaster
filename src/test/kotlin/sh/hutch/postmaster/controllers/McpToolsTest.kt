@@ -80,7 +80,7 @@ class McpToolsTest : PipelineTest() {
         tools.containsAll(listOf(
             "search_emails", "get_email", "set_email_type", "move_email", "mark_email_read", "delete_email", "forward_email",
             "set_response_required", "set_action_required", "complete_action_item", "set_event_calendar", "reprocess_email",
-            "list_types", "list_folders", "list_calendars"
+            "list_types", "list_folders", "list_calendars", "mark_email_done", "reopen_email"
         )),
         "tools: $tools"
     )
@@ -132,6 +132,36 @@ class McpToolsTest : PipelineTest() {
 
     val sources = actionResults("mcp@mail.example").filter { it["rule_name"] == null }.map { it["action_type"] }
     assertEquals(listOf("set_type", "mark_read", "move", "forward_email", "delete"), sources)
+  }
+
+  @Test
+  fun `an email can be marked done and reopened, and untracked emails are found only when asked for`() {
+    // CLAR R9
+    llm(SUMMARISE, """{"summary": "Done test", "response_required": true, "action_items": [{"action": "Sign it"}]}""")
+    inbox(message("<mcp-done@mail.example>", "MCP done", from = "Done Sender <sender@mcp-done.example>"))
+    processing.runNow(RunTrigger.MANUAL)
+    val client = Client()
+    val id = client.call("search_emails", mapOf("sender" to "mcp-done.example")).first.path("emails").first().path("id").asLong()
+
+    val (done, doneError) = client.call("mark_email_done", mapOf("id" to id))
+
+    assertFalse(doneError, done.toString())
+    val (detail, _) = client.call("get_email", mapOf("id" to id))
+    assertEquals("DONE", detail.path("tracking").asText())
+    assertFalse(detail.path("actionRequired").asBoolean())
+    assertFalse(detail.path("responseRequired").asBoolean())
+    assertEquals(0, client.call("search_emails", mapOf("sender" to "mcp-done.example")).first.path("total").asInt())
+    val all = client.call("search_emails", mapOf("sender" to "mcp-done.example", "include_untracked" to true)).first
+    assertEquals(1, all.path("total").asInt())
+    val (refused, refusedError) = client.call("mark_email_read", mapOf("id" to id, "read" to true))
+    assertTrue(refusedError, "a done email can't be acted on")
+    assertTrue(refused.toString().contains("reopen"), refused.toString())
+
+    val (_, reopenError) = client.call("reopen_email", mapOf("id" to id))
+
+    assertFalse(reopenError)
+    assertEquals(1, client.call("search_emails", mapOf("sender" to "mcp-done.example")).first.path("total").asInt())
+    assertTrue(client.call("reopen_email", mapOf("id" to id)).second, "it isn't done any more")
   }
 
   @Test

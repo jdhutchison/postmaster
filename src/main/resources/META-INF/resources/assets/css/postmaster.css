@@ -853,6 +853,12 @@ code {
   border-top: var(--pm-hairline);
 }
 
+/* A secondary choice, set apart at the left */
+.pm-dialog__actions .pm-actions__apart {
+  margin-left: 0;
+  margin-right: auto;
+}
+
 .pm-dialog--confirm {
   width: min(28rem, calc(100vw - 2rem));
 }
@@ -1212,6 +1218,13 @@ select.pm-input:disabled {
 
 .pm-badge--done {
   background: color-mix(in srgb, var(--pm-green) 25%, var(--pm-background));
+}
+
+/* Emails no longer tracked (CLARIFICATIONS.md R9) */
+.pm-badge--moved,
+.pm-badge--deleted {
+  background: var(--pm-selection);
+  color: var(--pm-comment);
 }
 
 .pm-swatch {
@@ -1613,6 +1626,16 @@ textarea.pm-prompt-text {
   font-weight: 700;
 }
 
+/* Emails no longer tracked: greyed out, still openable (CLARIFICATIONS.md R9) */
+.pm-table tbody tr.pm-row--untracked td {
+  color: var(--pm-comment);
+  opacity: 0.7;
+}
+
+.pm-table tbody tr.pm-row--untracked td a {
+  color: inherit;
+}
+
 /* Rows of emails with processing errors */
 .pm-table tbody tr.pm-row--error td {
   background: color-mix(in srgb, var(--pm-red) 12%, var(--pm-background));
@@ -1717,6 +1740,32 @@ textarea.pm-prompt-text {
 
 .pm-flag--reply .pm-label {
   color: var(--pm-cyan);
+}
+
+.pm-flag--progress .pm-label {
+  color: var(--pm-accent);
+}
+
+.pm-flag__buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--pm-space-2);
+}
+
+/* An email no longer tracked: why, above everything else, and the rest greyed out (R9) */
+.pm-untracked {
+  max-width: var(--pm-measure);
+  margin: 0 0 var(--pm-space-5);
+  padding: var(--pm-space-3) 0;
+  border-top: var(--pm-rule-heavy);
+  border-bottom: var(--pm-hairline);
+  font-weight: 600;
+}
+
+.pm-page--untracked .pm-pane > :not(.pm-untracked),
+.pm-page--untracked .pm-inspector {
+  opacity: 0.6;
 }
 
 .pm-summary {

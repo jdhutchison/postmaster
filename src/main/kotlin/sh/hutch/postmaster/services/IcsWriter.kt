@@ -1,6 +1,7 @@
 package sh.hutch.postmaster.services
 
 import sh.hutch.postmaster.models.CalendarEvent
+import sh.hutch.postmaster.util.Reminder
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.Instant
@@ -42,11 +43,16 @@ object IcsWriter {
     lines += "SUMMARY:${escape(event.title)}"
     event.location?.takeIf { it.isNotBlank() }?.let { lines += "LOCATION:${escape(it)}" }
     event.notes?.takeIf { it.isNotBlank() }?.let { lines += "DESCRIPTION:${escape(it)}" }
-    for (alarm in event.alarms.filter { !it.isNegative && !it.isZero }) {
+    for (alarm in event.alarms) {
+      val trigger = when (alarm) {
+        is Reminder.Before -> if (alarm.duration.isNegative || alarm.duration.isZero) continue else "TRIGGER:-${alarm.duration}"
+        // A time of day is absolute, so it's converted to UTC like the start (CLARIFICATIONS.md R9)
+        is Reminder.At -> "TRIGGER;VALUE=DATE-TIME:${UTC.format(alarm.on(event.startsAt.toLocalDate()).atZone(zone).toInstant())}"
+      }
       lines += "BEGIN:VALARM"
       lines += "ACTION:DISPLAY"
       lines += "DESCRIPTION:${escape(event.title)}"
-      lines += "TRIGGER:-$alarm"
+      lines += trigger
       lines += "END:VALARM"
     }
     lines += "END:VEVENT"

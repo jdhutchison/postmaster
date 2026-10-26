@@ -924,7 +924,7 @@ General rules for every page below:
 - **Actions:** inside `#actions[data-testid="actions"]`, each row is `div.pm-rule-row[data-testid="action-row"]` with:
   - `actions[i].id` (hidden)
   - `actions[i].actionType` (select)
-  - `actions[i].destination` (input, labelled `to:`), shown for `move` and `forward_email`
+  - `actions[i].destination`, labelled `to:`: for `move` a select (`#action-<i>-folder`, `data-testid=action-folder`) of the folders as last scanned, with the saved folder listed first as `<name> (not found)` if the scan didn't find it; for `forward_email` an input (`#action-<i>-destination`). Only the one for the chosen action type is enabled.
   - `actions[i].typeId` (select of active types), shown for `set_type`
   - `actions[i].calendarId` (select of active calendars, with a `(Choose with the LLM)` empty option for `create_events`), shown for `create_events` and `process_bill`
   - `actions[i].notifications` (input), shown for `create_events`
@@ -1303,11 +1303,11 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 
 ### 6.1 Emails list (`page="emails"`)
 
-`GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true` and `page`. Values that don't parse are ignored.
+`GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true`, `untracked=true` and `page`. Values that don't parse are ignored. Emails that aren't tracked (R9) are left out unless `untracked=true`, which counts as a filter.
 - **Filter form:** `form#email-filters[data-testid=email-filters]` (`method=get`) is in the rail and always shown on wide screens. Below 960px it folds behind the button `toggle-filters`, which reads "Filters" plus, when filters are set, `[data-testid=active-filters]` with how many (the date range counts once). The form has:
   - the date range `filter-from` and `filter-to` (one fieldset)
   - `filter-status`, `filter-type`, `filter-sender`
-  - checkboxes `filter-response`, `filter-action` and `filter-errors`
+  - checkboxes `filter-response`, `filter-action` and `filter-errors`, and `filter-untracked` ("Include deleted, moved and done")
   - `apply-filters`
 
   The link `clear-filters` ("Clear filters") is above the form, and only shown when filters are set.
@@ -1323,6 +1323,7 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 - **Rows** are `tr[data-testid=email-row-<id>][data-pm-href=/mail/emails/<id>]`. A click anywhere on a row, other than on a control, opens the email. Ctrl/Cmd-click opens it in a new tab.
 - **Rows with errors** have class `pm-row--error` and `data-error="true"`, with a red tint.
 - **Unread emails** have class `pm-row--unread` and `data-unread="true"`, and are bold.
+- **Untracked emails** (R9) have class `pm-row--untracked` and `data-untracked="<moved|deleted|done>"`, are greyed out, and show `tracking-badge` ("Moved", "Deleted" or "Done") in the status column.
 - **Empty list:** `[data-testid=no-emails]`.
 - **Pagination**, filtered with more than one page: `nav[data-testid=pagination]` with `previous-page`, `page-number` (`Page 2 of 3`) and `next-page`. The links keep the filters.
 
@@ -1330,10 +1331,16 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 
 | Route | Result |
 |---|---|
-| `GET /emails/{id}` | the page; 404 for unknown or deleted emails |
-| `DELETE /emails/{id}` | `HX-Redirect: /mail/emails`, flash `Deleted the email: Moved to Trash` |
+| `GET /emails/{id}` | the page, tracked or not; 404 for unknown emails |
+| `DELETE /emails/{id}` | `HX-Redirect: /mail/emails`, flash `Deleted the email: Moved to Trash`; the email becomes `deleted` |
 | `POST /emails/{id}/read` (`read=true\|false`) | |
-| `GET /emails/{id}/move` | form fragment for `move-dialog` (`select[name=folder]`, `data-testid=move-folder`; the current folder isn't offered). A mailbox failure is 502 with an error toast. |
+| `GET /emails/{id}/move` | form fragment for `move-dialog` (`select[name=folder]`, `data-testid=move-folder`, from the `Folders` table, scanned first if it's empty; the current folder isn't offered), with `folders-scanned` and `refresh-folders`. A mailbox failure is 502 with an error toast. |
+| `POST /emails/{id}/move/folders` | scans the folders again and returns the move form fragment (swapped into `#move-dialog-body`) with a success toast; 502 if the mailbox can't be reached |
+| `POST /emails/{id}/done` | marks the email done (R9) |
+| `POST /emails/{id}/reopen` | tracks a done email again; 409 if it isn't done |
+| `POST /emails/{id}/events/{eventId}/action-item` | makes an event that isn't added an action item; 409 if it's added, the email is a bill, or the item exists |
+| `GET /emails/{id}/action-items/{itemId}/event` | form fragment for `action-item-event-dialog`: `item-event-date` (`date`, the due date at first), `item-event-time` (`time`, optional), `item-event-calendar` (`calendarId`, blank for none), `cancel-item-event`, `save-item-event` |
+| `POST /emails/{id}/action-items/{itemId}/event` (`date`, `time`, `calendarId`) | 422 without a date or for an unknown calendar; 409 for a done item |
 | `POST /emails/{id}/move` (`folder`) | 422 if blank |
 | `POST /emails/{id}/type` (`typeId`; blank clears) | 422 for an unknown type |
 | `POST /emails/{id}/response-required` and `/action-required` (`required=true\|false`) | |
@@ -1344,14 +1351,16 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 | `GET /emails/{id}/attachments/{aid}` | the file, `Content-Disposition: attachment`. With `?inline=true`, previewable types are sent `inline`. Always `X-Content-Type-Options: nosniff`. |
 | `GET /emails/{id}/attachments/{aid}/preview` | fragment for `attachment-dialog`: an `iframe` (PDF, text) or `img` (`preview-image`) of `…?inline=true`. 404 if it can't be previewed. |
 
-- **Manual actions** that succeed respond `HX-Redirect` to `/mail/emails/{id}`, flashing a success toast with the result's message. Failures are **502** with an error toast; nothing is swapped.
+- **Manual actions** that succeed respond `HX-Redirect` to `/mail/emails/{id}`, flashing a success toast with the result's message. Failures are **502** with an error toast; nothing is swapped. Any action on an email that isn't tracked is **409** with an error toast, and nothing is recorded (R9).
 - **Page:**
   - **Masthead:**
     - the kicker links back (`back-to-emails`) and shows `email-from` and the received time
     - the lede `email-byline` shows the type badge, status and unread
-    - the actions are `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart)
+    - the actions are `mark-done` (tracked) or `reopen-email` (done), `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart); all but `reopen-email` are disabled when the email isn't tracked
+    - the lede shows `email-tracking` (a badge) when it isn't tracked
+  - **Untracked** (R9): the page has class `pm-page--untracked` and `data-untracked="<state>"`, the pane starts with `untracked-notice` saying why, and the rest is greyed out. The type select, the event buttons and every flag's button are disabled or left out.
   - **Pane, in order:**
-    - the flags `email-flags`, shown only when set, as ruled lines: each action item, `action-item-<id>` ("Action needed", or "Done" with `data-completed="true"`; `action-item-description`, optional `action-item-due`, `action-item-todo` and `action-item-notes`; `complete-action-item-<id>` "Done" while it's open) and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
+    - the flags `email-flags`, shown only when set, as ruled lines: each action item, `action-item-<id>` ("Action needed", "In progress" with `data-in-progress="true"`, or "Done" with `data-completed="true"`; `action-item-description`, optional `action-item-due`, `action-item-todo` and `action-item-notes`; while it's open, `action-item-to-event-<id>` "Make event" and `complete-action-item-<id>` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
     - the summary `email-summary`, as a lede
     - the sections
   - **Layout:** the details are the rail (an inspector, `.pm-page--inspector`), after the pane below 960px.
@@ -1360,7 +1369,7 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
     - `email-received`, `email-processed`, `email-status`, `email-folder`, `email-read`, `email-link`
   - **Bill:** `bill-details`, holding `bill-biller`, `bill-amount`, `bill-due`, `bill-pay-link` and `bill-download-url`.
   - **Collapsed contents:** `details[data-testid=full-message]` (closed at first) and `details[data-testid=linked-page]` (with `link-summary` and `link-contents`), the latter only when a page was fetched.
-  - **Events:** `ul[data-testid=events]`. Each is `button[data-testid=event-<id>]`, with the CSS variable `--pm-event-colour` set to its calendar's colour and `[data-testid=event-calendar]` showing the calendar, or `Not added (suggested: …)`. Events not added have class `pm-event--pending`. Clicking one opens the calendar dialog.
+  - **Events:** `ul[data-testid=events]`. Each is `button[data-testid=event-<id>]`, with the CSS variable `--pm-event-colour` set to its calendar's colour and `[data-testid=event-calendar]` showing the calendar, or `Not added (suggested: …)`. Events not added have class `pm-event--pending`. Clicking one opens the calendar dialog, which for an event not added also has `event-to-action-item` ("Make it an action item").
   - **Attachments:** `ul[data-testid=attachments]` with `attachment-<id>`. Downloaded ones have `download-attachment-<id>`, and previewable ones also `preview-attachment-<id>`.
   - **Rules:** `matched-rules`, holding:
     - `classification-rule` / `action-rule` blocks (`data-rule-id`) linking to the rule, or `no-classification-rule` / `no-action-rules`

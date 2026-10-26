@@ -13,7 +13,8 @@ import java.util.regex.PatternSyntaxException
 /**
  * Decides whether rules match an email. A rule matches when every one of its conditions does, or
  * any one of them for a rule whose conditions are joined with OR (CLARIFICATIONS.md Q21, R8); match
- * types work as agreed in Q9 and Q10, ignoring case (D5).
+ * types work as agreed in Q9 and Q10, ignoring case (D5), regexes included unless they start with
+ * `(?-i)` (R9).
  */
 @ApplicationScoped
 class RuleEngine {
@@ -64,7 +65,7 @@ class RuleEngine {
 
   private fun regexMatches(pattern: String, value: String): Boolean =
     try {
-      Regex(pattern).containsMatchIn(value)
+      Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(value)
     } catch (e: PatternSyntaxException) {
       false
     }

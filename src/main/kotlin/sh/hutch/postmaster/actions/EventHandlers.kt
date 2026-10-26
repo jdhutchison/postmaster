@@ -6,7 +6,7 @@ import sh.hutch.postmaster.models.ActionTypes
 import sh.hutch.postmaster.models.CalendarEvent
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.services.CalendarClient
-import sh.hutch.postmaster.util.IsoDurations
+import sh.hutch.postmaster.util.Reminders
 
 /** Finds the email's events and suggests calendars, without adding them (CLARIFICATIONS.md Q11). */
 @ApplicationScoped
@@ -52,8 +52,7 @@ class CreateEventsHandler(
         left += event.title
         continue
       }
-      val alarms = (action.notifications ?: target.notificationPeriods)
-          ?.let { runCatching { IsoDurations.parseList(it) }.getOrDefault(emptyList()) } ?: emptyList()
+      val alarms = Reminders.parseListOrEmpty(action.notifications ?: target.notificationPeriods)
       val uid = calendar.addEvent(
           target.name,
           CalendarEvent(CalendarClient.eventUid(context.email.id!!, event.id!!), event.title, event.startsAt!!, event.endsAt, event.allDay, event.location, event.notes, alarms)
