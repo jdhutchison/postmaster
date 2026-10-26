@@ -68,9 +68,9 @@ class EmailsController(private val emails: EmailService, private val types: Type
   @Produces(MediaType.TEXT_HTML)
   @Operation(
       summary = "Emails page",
-      description = "Without filters, the 30 most recently received emails. With any filter, matching emails in pages of 50. " +
-          "Dates are yyyy-MM-dd (inclusive); type is a type id or 'none'; values that don't parse are ignored. " +
-          "Emails that are deleted, moved or done are left out unless untracked=true."
+      description = "Emails received in the last 7 days, or every email with period=all, matching any filters, newest " +
+          "first in pages of 50. Dates (yyyy-MM-dd, inclusive) replace the 7 days. Type is a type id or 'none'; values that " +
+          "don't parse are ignored. Emails that are deleted, moved or done are left out unless untracked=true."
   )
   fun list(
       @RestQuery("from") from: String?,
@@ -82,11 +82,16 @@ class EmailsController(private val emails: EmailService, private val types: Type
       @RestQuery("action") action: String?,
       @RestQuery("errors") errors: String?,
       @RestQuery("untracked") untracked: String?,
+      @RestQuery("period") period: String?,
       @RestQuery("page") page: String?
   ): TemplateInstance {
+    val fromDate = date(from)
+    val toDate = date(to)
+    // The last few days unless dates are given or every email is asked for (CLARIFICATIONS.md R10)
+    val showAll = period == EmailFilter.PERIOD_ALL && fromDate == null && toDate == null
     val filter = EmailFilter(
-        from = date(from),
-        to = date(to),
+        from = fromDate,
+        to = toDate,
         status = status?.let { code -> EmailStatus.entries.firstOrNull { it.code == code } },
         typeId = when (type) {
           null, "" -> null
@@ -98,6 +103,8 @@ class EmailsController(private val emails: EmailService, private val types: Type
         actionRequired = action == "true",
         withErrors = errors == "true",
         includeUntracked = untracked == "true",
+        lastDays = if (fromDate == null && toDate == null && !showAll) EmailFilter.DEFAULT_DAYS else null,
+        showAll = showAll,
         page = page?.toIntOrNull()?.takeIf { it > 0 } ?: 1
     )
     return Templates.emails(emails.search(filter), types.list(), EmailStatus.entries)

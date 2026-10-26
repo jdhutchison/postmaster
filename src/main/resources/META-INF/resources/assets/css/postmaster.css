@@ -1616,6 +1616,32 @@ textarea.pm-prompt-text {
   width: 9rem;
 }
 
+/* The period of the emails list: the last few days or every email (CLARIFICATIONS.md R10) */
+.pm-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--pm-space-4);
+  margin-bottom: var(--pm-space-3);
+}
+
+.pm-period a {
+  padding-bottom: var(--pm-space-1);
+  border-bottom: 2px solid transparent;
+  color: var(--pm-comment);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pm-period a:hover {
+  color: var(--pm-foreground);
+}
+
+.pm-period a[aria-current="page"] {
+  border-bottom-color: var(--pm-accent);
+  color: var(--pm-foreground);
+}
+
 /* Rows open the email when clicked anywhere */
 .pm-table tr[data-pm-href] {
   cursor: pointer;

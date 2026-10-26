@@ -224,3 +224,7 @@ Everything is recorded as CLARIFICATIONS.md R9 and PLAN.md task A.7.
 - Migration V9 makes emails soft-deleted before it `deleted` (untracked), so they can be opened again.
 - Absolute reminders are written as `TRIGGER;VALUE=DATE-TIME` alarms. `RealKhalTest` checks that the real khal (0.14.1) imports one and keeps it. It's skipped unless khal is on the test JVM's PATH (`PATH=~/.local/bin:$PATH ./gradlew --no-daemon test`), as it was in the full run (2 skipped).
 - Not deployed. Deploying runs V9 against the production database.
+
+**You:** Deleted, done and untracked emails aren't to be shown in the emails list by default, with a filter to show them greyed out. By default the list should show only the last seven days, with a quick way to show all.
+
+**Claude:** The first was already done in R9: they're hidden unless "Include deleted, moved and done" is ticked, and then shown greyed out. For the second, the list now shows the last 7 days by default, and "Last 7 days | All" above the table switches between them, keeping the other filters. This is recorded as CLARIFICATIONS.md R10 and PLAN.md A.8.

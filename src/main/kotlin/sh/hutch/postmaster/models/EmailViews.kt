@@ -13,7 +13,9 @@ import java.time.LocalDateTime
 
 /**
  * Filters for the emails list. [typeId] is [UNCLASSIFIED] for emails without a type. Dates are
- * inclusive, in the processing.timezone setting.
+ * inclusive, in the processing.timezone setting. The emails page shows the last [lastDays] days
+ * unless dates are given or [showAll] is set (CLARIFICATIONS.md R10); with neither, as for MCP,
+ * the most recent emails are shown.
  */
 @TemplateData
 data class EmailFilter(
@@ -27,8 +29,16 @@ data class EmailFilter(
     val withErrors: Boolean = false,
     /** Also emails that are deleted, moved or done, which are left out otherwise (CLARIFICATIONS.md R9). */
     val includeUntracked: Boolean = false,
+    /** Only emails received within this many days, as the emails page shows by default (R10). */
+    val lastDays: Int? = null,
+    /** Every email received, rather than the last few days (R10). */
+    val showAll: Boolean = false,
     val page: Int = 1
 ) {
+  /** Whether the results come in pages; otherwise they're the most recent emails only. */
+  val isPaginated: Boolean
+    get() = isFiltered || lastDays != null || showAll
+
   /** Whether any filter is set. Unfiltered, the list shows the most recent emails only. */
   val isFiltered: Boolean
     get() = from != null || to != null || status != null || typeId != null || !sender.isNullOrBlank() ||
@@ -60,6 +70,7 @@ data class EmailFilter(
         if (actionRequired) "action" to "true" else null,
         if (withErrors) "errors" to "true" else null,
         if (includeUntracked) "untracked" to "true" else null,
+        if (showAll) "period" to PERIOD_ALL else null,
         if (page > 1) "page" to page.toString() else null
     )
     return "?" + params.joinToString("&") { (key, value) -> key + "=" + URLEncoder.encode(value, StandardCharsets.UTF_8) }
@@ -68,6 +79,12 @@ data class EmailFilter(
   companion object {
     const val UNCLASSIFIED = 0L
     const val TYPE_NONE = "none"
+
+    /** The `period` parameter for every email, rather than the last [DEFAULT_DAYS] days (R10). */
+    const val PERIOD_ALL = "all"
+
+    /** How many days the emails page shows by default (R10). */
+    const val DEFAULT_DAYS = 7
   }
 }
 
@@ -120,6 +137,26 @@ data class EmailPage(
 
   val nextQuery: String
     get() = filter.query(page + 1)
+
+  /** The query for the last few days with the same filters, without dates (R10). */
+  val recentQuery: String
+    get() = filter.copy(from = null, to = null, showAll = false).query(1)
+
+  /** The query for every email with the same filters, without dates (R10). */
+  val allQuery: String
+    get() = filter.copy(from = null, to = null, showAll = true).query(1)
+
+  /** How many days are shown by default (R10). */
+  val defaultDays: Int
+    get() = EmailFilter.DEFAULT_DAYS
+
+  /** Which period is shown: `recent`, `all`, or `dates` when dates are filtered on. */
+  val period: String
+    get() = when {
+      filter.from != null || filter.to != null -> "dates"
+      filter.showAll -> "all"
+      else -> "recent"
+    }
 }
 
 @TemplateData

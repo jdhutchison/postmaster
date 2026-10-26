@@ -43,7 +43,7 @@ class DashboardTest : PipelineTest() {
     assertFalse(dashboard.hasAttr("hx-trigger"), "polling stops once the run is done")
     assertEquals("Last run succeeded", page.testId("run-state").text())
     assertTrue(page.testId("count-response").text().contains(Regex("[1-9]")))
-    assertEquals("/mail/emails?response=true", page.testId("count-response").attr("href"))
+    assertEquals("/mail/emails?response=true&period=all", page.testId("count-response").attr("href"))
     assertTrue(page.select("[data-testid^=run-row-]").isNotEmpty())
     assertTrue(page.testId("next-run").text().contains("Scheduled processing is off"), "the tests turn the scheduler off")
   }

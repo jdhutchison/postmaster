@@ -15,11 +15,11 @@
 
   <div class="pm-pane">
     <nav class="pm-ledger" aria-label="Email counts">
-      <a class="pm-ledger__item" href="{base}/emails" data-testid="count-total"><span class="pm-ledger__value">{dashboard.counts.total}</span><span class="pm-label">Emails</span><span class="pm-ledger__note">{dashboard.counts.lastDay} in 24h</span></a>
-      <a class="pm-ledger__item{#if dashboard.counts.responseRequired > 0} pm-ledger__item--reply{/if}" href="{base}/emails?response=true" data-testid="count-response"><span class="pm-ledger__value">{dashboard.counts.responseRequired}</span><span class="pm-label">Reply needed</span></a>
-      <a class="pm-ledger__item{#if dashboard.counts.actionRequired > 0} pm-ledger__item--action{/if}" href="{base}/emails?action=true" data-testid="count-action"><span class="pm-ledger__value">{dashboard.counts.actionRequired}</span><span class="pm-label">Action needed</span></a>
-      <a class="pm-ledger__item" href="{base}/emails?type=none" data-testid="count-unclassified"><span class="pm-ledger__value">{dashboard.counts.unclassified}</span><span class="pm-label">Unclassified</span></a>
-      <a class="pm-ledger__item{#if dashboard.counts.withErrors > 0} pm-ledger__item--error{/if}" href="{base}/emails?errors=true" data-testid="count-errors"><span class="pm-ledger__value">{dashboard.counts.withErrors}</span><span class="pm-label">With errors</span></a>
+      <a class="pm-ledger__item" href="{base}/emails?period=all" data-testid="count-total"><span class="pm-ledger__value">{dashboard.counts.total}</span><span class="pm-label">Emails</span><span class="pm-ledger__note">{dashboard.counts.lastDay} in 24h</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.responseRequired > 0} pm-ledger__item--reply{/if}" href="{base}/emails?response=true&period=all" data-testid="count-response"><span class="pm-ledger__value">{dashboard.counts.responseRequired}</span><span class="pm-label">Reply needed</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.actionRequired > 0} pm-ledger__item--action{/if}" href="{base}/emails?action=true&period=all" data-testid="count-action"><span class="pm-ledger__value">{dashboard.counts.actionRequired}</span><span class="pm-label">Action needed</span></a>
+      <a class="pm-ledger__item" href="{base}/emails?type=none&period=all" data-testid="count-unclassified"><span class="pm-ledger__value">{dashboard.counts.unclassified}</span><span class="pm-label">Unclassified</span></a>
+      <a class="pm-ledger__item{#if dashboard.counts.withErrors > 0} pm-ledger__item--error{/if}" href="{base}/emails?errors=true&period=all" data-testid="count-errors"><span class="pm-ledger__value">{dashboard.counts.withErrors}</span><span class="pm-label">With errors</span></a>
     </nav>
 
     <section class="pm-section" aria-labelledby="runs-heading">

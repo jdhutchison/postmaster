@@ -47,6 +47,7 @@ import sh.hutch.postmaster.util.Times
 import java.net.URLConnection
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -78,8 +79,9 @@ class EmailService(
 ) {
 
   /**
-   * Emails matching [filter], newest first. Unfiltered, the [RECENT] most recent; filtered, pages of
-   * [PAGE_SIZE]. Only tracked emails, unless the filter includes the others (R9).
+   * Emails matching [filter], newest first, in pages of [PAGE_SIZE]: within its last days if it has
+   * them (R10). With no filters and no days, the [RECENT] most recent. Only tracked emails, unless
+   * the filter includes the others (R9).
    */
   @Transactional
   fun search(filter: EmailFilter): EmailPage {
@@ -97,6 +99,10 @@ class EmailService(
     filter.to?.let {
       where += "e.receivedAt < :to"
       params["to"] = it.plusDays(1).atStartOfDay(zone).toInstant()
+    }
+    filter.lastDays?.let {
+      where += "e.receivedAt >= :since"
+      params["since"] = Times.now().minus(Duration.ofDays(it.toLong()))
     }
     filter.status?.let {
       where += "e.status = :status"
@@ -124,7 +130,7 @@ class EmailService(
       where += "exists (select 1 from EmailErrorEntity x where x.email = e)"
     }
     val query = emails.find("from EmailEntity e where ${where.joinToString(" and ")} order by e.receivedAt desc, e.id desc", params)
-    if (!filter.isFiltered) {
+    if (!filter.isPaginated) {
       val list = query.page(Page.ofSize(RECENT)).list()
       return EmailPage(rows(list), filter, list.size.toLong(), 1, 1, paginated = false)
     }

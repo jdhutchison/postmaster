@@ -1,15 +1,16 @@
 {#include layout page="emails"}
   {#kicker}Postmaster · Mail{/kicker}
   {#title}Emails{/title}
-  {#lede}<p class="pm-lede" data-testid="email-count">{#if result.paginated}{result.total} matching email{#if result.total != 1}s{/if}{#else}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{/if}</p>{/lede}
+  {#lede}<p class="pm-lede" data-testid="email-count">{#if !result.paginated}The {result.rows.size} most recently received email{#if result.rows.size != 1}s{/if}{#else}{result.total}{#if result.filter.isFiltered} matching{/if} email{#if result.total != 1}s{/if}{#if result.filter.lastDays} received in the last {result.filter.lastDays} days{/if}{/if}</p>{/lede}
   {#content}
     <div class="pm-page">
       <aside class="pm-rail" aria-label="Filters">
         <div class="pm-rail__bar">
           <button type="button" class="pm-button pm-rail__toggle" data-testid="toggle-filters" aria-expanded="false" aria-controls="email-filters" data-pm-toggle="email-filters">Filters{#if result.filter.activeCount > 0} <span class="pm-badge pm-badge--count" data-testid="active-filters">{result.filter.activeCount}</span>{/if}</button>
-          {#if result.filter.isFiltered}<a class="pm-button pm-button--quiet" href="{base}/emails" data-testid="clear-filters">Clear filters</a>{/if}
+          {#if result.filter.isFiltered}<a class="pm-button pm-button--quiet" href="{base}/emails{#if result.filter.showAll}?period=all{/if}" data-testid="clear-filters">Clear filters</a>{/if}
         </div>
         <form id="email-filters" class="pm-filters pm-collapsible" method="get" action="{base}/emails" data-testid="email-filters">
+          {#if result.filter.showAll}<input type="hidden" name="period" value="all">{/if}
           <fieldset class="pm-date-range">
             <legend class="pm-label">Received</legend>
             <label class="pm-visually-hidden" for="filter-from">Received from</label>
@@ -51,6 +52,11 @@
         </form>
       </aside>
       <div class="pm-pane">
+    <nav class="pm-period" aria-label="Received" data-testid="period">
+      <a href="{base}/emails{result.recentQuery}" data-testid="period-recent"{#if result.period == 'recent'} aria-current="page"{/if}>Last {result.defaultDays} days</a>
+      <a href="{base}/emails{result.allQuery}" data-testid="period-all"{#if result.period == 'all'} aria-current="page"{/if}>All</a>
+      {#if result.period == 'dates'}<span class="pm-muted" data-testid="period-dates">Received {result.filter.from ?: '…'} to {result.filter.to ?: '…'}</span>{/if}
+    </nav>
     {#table id="emails-table"}
       <thead><tr>
         {#th col="received" label="Received" priority=1 /}
@@ -77,7 +83,7 @@
           </span>{/td}
         </tr>
         {#else}
-        <tr><td colspan="7" class="pm-muted" data-testid="no-emails">No emails{#if result.filter.isFiltered} match these filters{#else} have been processed yet{/if}.</td></tr>
+        <tr><td colspan="7" class="pm-muted" data-testid="no-emails">No emails{#if result.filter.isFiltered} match these filters{#else if result.filter.lastDays} were received in the last {result.filter.lastDays} days{#else} have been processed yet{/if}.</td></tr>
         {/for}
       </tbody>
     {/table}

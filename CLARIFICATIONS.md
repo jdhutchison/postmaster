@@ -473,6 +473,13 @@ Each classification and action rule says how its conditions combine, for the who
 - **Absolute reminders.** Notifications (a `create_events` action's and a calendar's Durations) also take `d-1@20:00`: a reminder at a time of day, a number of days before the event's day (`d@08:00` is on the day). Times are 24-hour ISO 8601 (`20:00`) or 12-hour (`8pm`, `8:30am`), in `processing.timezone`. They mix with durations, e.g. `1h, d-1@20:00`. They're written as absolute iCalendar alarms (`TRIGGER;VALUE=DATE-TIME`).
 - **Case.** `regex` conditions ignore case too, like every other string condition (revises D5). Start a pattern with `(?-i)` to match case.
 
+**R10 (2026-10-26). The emails list shows the last seven days (your request; revises REQUIREMENTS.md "Viewing emails" 1 and D10).**
+- **By default** the emails page shows the emails received in the last 7 days, newest first, in pages of 50, instead of the 30 most recent. Other filters apply within those 7 days.
+- **"Last 7 days | All"** above the table switches between them, keeping the other filters (`period=all` shows every email). Filtering on dates replaces the 7 days.
+- Clearing the filters keeps the period. The dashboard's counts cover all time, so their links open "All".
+- Deleted, moved and done emails stay hidden unless "Include deleted, moved and done" is ticked (R9), whichever period is shown.
+- MCP `search_emails` is unchanged: with no filters it still gives the 30 most recent.
+
 ---
 
 ## Technical suggestions

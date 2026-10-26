@@ -1303,7 +1303,7 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 
 ### 6.1 Emails list (`page="emails"`)
 
-`GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true`, `untracked=true` and `page`. Values that don't parse are ignored. Emails that aren't tracked (R9) are left out unless `untracked=true`, which counts as a filter.
+`GET /emails` takes query parameters `from` and `to` (`yyyy-MM-dd`), `status` (code), `type` (id, or `none`), `sender`, `response=true`, `action=true`, `errors=true`, `untracked=true`, `period=all` and `page`. Without dates or `period=all`, only emails received in the last 7 days are listed (R10); results are always in pages of 50. Values that don't parse are ignored. Emails that aren't tracked (R9) are left out unless `untracked=true`, which counts as a filter.
 - **Filter form:** `form#email-filters[data-testid=email-filters]` (`method=get`) is in the rail and always shown on wide screens. Below 960px it folds behind the button `toggle-filters`, which reads "Filters" plus, when filters are set, `[data-testid=active-filters]` with how many (the date range counts once). The form has:
   - the date range `filter-from` and `filter-to` (one fieldset)
   - `filter-status`, `filter-type`, `filter-sender`
@@ -1311,7 +1311,8 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
   - `apply-filters`
 
   The link `clear-filters` ("Clear filters") is above the form, and only shown when filters are set.
-- **Count line:** `[data-testid=email-count]`, the masthead's lede, reads `The N most recently received emails` (unfiltered) or `N matching emails`.
+- **Count line:** `[data-testid=email-count]`, the masthead's lede, reads `N emails received in the last 7 days`, `N matching emails received in the last 7 days`, `N emails` or `N matching emails`.
+- **Period** (R10): `nav[data-testid=period]` above the table, with the links `period-recent` ("Last 7 days") and `period-all` ("All"), which keep the other filters but drop dates. The one shown has `aria-current="page"`. With dates, neither has it, and `period-dates` shows the range. With All, the filter form has a hidden `period=all`, and `clear-filters` goes to `/mail/emails?period=all`.
 - **Table** `{#table id="emails-table"}`, with columns (default widths in CSS; the subject takes the rest):
   - `received` (p1, `{#time}`)
   - `subject` (p1, a link `email-link-<id>`)

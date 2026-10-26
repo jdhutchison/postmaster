@@ -229,6 +229,8 @@ These are reusable, so the action handlers can share them.
 
 - [x] **A.7** `build: done` `tests: done` Folder scanning, email tracking, marking emails done, events or action items, to-do status sync, a `todo_list` status check, absolute reminders and case-insensitive regex conditions (CLARIFICATIONS.md R9). Verified 2026-10-26: 715 tests pass, and dev mode shows the new pages and dialogs.
 
+- [x] **A.8** `build: done` `tests: done` The emails list shows the last seven days by default, with a switch to all emails (CLARIFICATIONS.md R10).
+
 ## Phase 9: Deployment (in `/data/code/ansible`)
 
 - [x] **9.1** `build: done` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:

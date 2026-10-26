@@ -664,10 +664,11 @@ paths:
   /mail/emails:
     get:
       summary: Emails page
-      description: "Without filters, the 30 most recently received emails. With any\
-        \ filter, matching emails in pages of 50. Dates are yyyy-MM-dd (inclusive);\
-        \ type is a type id or 'none'; values that don't parse are ignored. Emails\
-        \ that are deleted, moved or done are left out unless untracked=true."
+      description: "Emails received in the last 7 days, or every email with period=all,\
+        \ matching any filters, newest first in pages of 50. Dates (yyyy-MM-dd, inclusive)\
+        \ replace the 7 days. Type is a type id or 'none'; values that don't parse\
+        \ are ignored. Emails that are deleted, moved or done are left out unless\
+        \ untracked=true."
       tags:
       - Emails
       parameters:
@@ -693,6 +694,13 @@ paths:
           - "null"
         required: true
       - name: page
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      - name: period
         in: query
         schema:
           type:

@@ -24,6 +24,8 @@ import sh.hutch.postmaster.testsupport.toasts
 import sh.hutch.postmaster.testsupport.update
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -70,10 +72,10 @@ class TrackingFlowTest : PipelineTest() {
     }
   }
 
-  /** Processes one message with [subject] and returns its Message-ID */
-  private fun processed(subject: String): String {
+  /** Processes one message with [subject], received just now unless [sent] says, and returns its Message-ID */
+  private fun processed(subject: String, sent: Instant = Instant.now()): String {
     val messageId = "$prefix-${subject.replace(' ', '-')}@mail.example"
-    inbox(message("<$messageId>", subject))
+    inbox(message("<$messageId>", subject, sent = sent))
     run()
     return messageId
   }
@@ -112,7 +114,7 @@ class TrackingFlowTest : PipelineTest() {
 
   @Test
   fun `emails received before the tracking window aren't looked for`() {
-    val old = processed("Old news")
+    val old = processed("Old news", Instant.now().minus(Duration.ofDays(30)))
     settings.update("tracking.window", "1d")
     moveOutside("Old news", "INBOX", "Folders/School")
 

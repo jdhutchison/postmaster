@@ -22,7 +22,10 @@ import sh.hutch.postmaster.testsupport.parseHtml
 import sh.hutch.postmaster.testsupport.testId
 import sh.hutch.postmaster.testsupport.toasts
 import sh.hutch.postmaster.testsupport.update
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** The emails list and email detail pages (REQ "Viewing emails", "Viewing an individual email"). */
 @QuarkusTest
@@ -32,7 +35,7 @@ class EmailsPageTest : PipelineTest() {
   private fun id(messageId: String) = (email(messageId)["id"] as Number).toLong()
 
   @Test
-  fun `the list shows the most recent emails with their counts, and highlights errors`() {
+  fun `the list shows emails newest first with their counts, and highlights errors`() {
     llm(SUMMARISE, """{"summary": "S", "response_required": true, "events": [{"title": "Fete", "when": "2026-11-20"}]}""")
     inbox(
         message("<list-a@mail.example>", "Older one", sent = Instant.parse("2026-12-01T09:00:00Z")),
@@ -47,7 +50,7 @@ class EmailsPageTest : PipelineTest() {
         id("list-a@mail.example")
     )
 
-    val page = getHtml("/emails")
+    val page = getHtml("/emails?period=all")
 
     val rows = page.select("[data-testid^=email-row-]")
     val a = id("list-a@mail.example")
@@ -69,8 +72,49 @@ class EmailsPageTest : PipelineTest() {
     assertEquals("1", older.select("[data-testid=error-count]").text())
     assertEquals("0", older.select("[data-testid=count-attachments]").text())
     assertEquals("/mail/emails/$a", older.attr("data-pm-href"))
-    assertTrue(page.testId("email-count").text().startsWith("The "), "unfiltered: the most recent")
-    assertTrue(page.select("[data-testid=pagination]").isEmpty())
+    assertTrue(Regex("\\d+ emails").matches(page.testId("email-count").text()), page.testId("email-count").text())
+    assertTrue(page.select("[data-testid=pagination]").isEmpty() || page.testId("page-number").text().startsWith("Page 1 of"))
+  }
+
+  @Test
+  fun `by default the list shows the last seven days, and All shows every email`() {
+    // CLAR R10
+    inbox(
+        message("<week-new@mail.example>", "This week", from = "Week <w@week.example>", sent = Instant.now().minus(Duration.ofDays(2))),
+        message("<week-old@mail.example>", "Last month", from = "Week <w@week.example>", sent = Instant.now().minus(Duration.ofDays(30)))
+    )
+    run()
+    val recent = id("week-new@mail.example")
+    val old = id("week-old@mail.example")
+
+    val page = getHtml("/emails")
+
+    assertEquals(1, page.select("[data-testid=email-row-$recent]").size)
+    assertEquals(0, page.select("[data-testid=email-row-$old]").size)
+    assertTrue(page.testId("email-count").text().endsWith("received in the last 7 days"), page.testId("email-count").text())
+    assertEquals("page", page.testId("period-recent").attr("aria-current"))
+    assertFalse(page.testId("period-all").hasAttr("aria-current"))
+    assertEquals("/mail/emails?period=all", page.testId("period-all").attr("href"))
+    assertTrue(page.select("[data-testid=clear-filters]").isEmpty(), "the seven days aren't a filter")
+
+    val all = getHtml(page.testId("period-all").attr("href").removePrefix("/mail"))
+    assertEquals(1, all.select("[data-testid=email-row-$old]").size)
+    assertEquals("page", all.testId("period-all").attr("aria-current"))
+    assertEquals("all", all.select("#email-filters input[name=period]").attr("value"), "applying filters keeps All")
+
+    // The switch keeps the other filters
+    val filtered = getHtml("/emails?sender=week.example")
+    assertEquals("1 matching email received in the last 7 days", filtered.testId("email-count").text())
+    assertEquals("/mail/emails?sender=week.example&period=all", filtered.testId("period-all").attr("href"))
+    assertEquals("2 matching emails", getHtml("/emails?sender=week.example&period=all").testId("email-count").text())
+    assertEquals("/mail/emails?period=all", getHtml("/emails?sender=week.example&period=all").testId("clear-filters").attr("href"))
+
+    // Dates replace the seven days
+    val day = LocalDate.now(ZoneOffset.UTC).minusDays(30)
+    val dated = getHtml("/emails?sender=week.example&from=${day.minusDays(1)}&to=${day.plusDays(1)}")
+    assertEquals(1, dated.select("[data-testid=email-row-$old]").size)
+    assertEquals(1, dated.select("[data-testid=period-dates]").size)
+    assertFalse(dated.testId("period-recent").hasAttr("aria-current"))
   }
 
   @Test
@@ -82,7 +126,7 @@ class EmailsPageTest : PipelineTest() {
     inbox(message("<page-other@mail.example>", "Something else", from = "Pagingfriend <friend@paging.example>"))
     run()
 
-    val byType = getHtml("/emails?type=${bill.id}&sender=paging.example")
+    val byType = getHtml("/emails?type=${bill.id}&sender=paging.example&period=all")
     assertEquals(50, byType.select("[data-testid^=email-row-]").size, "pages of 50")
     assertEquals("52 matching emails", byType.testId("email-count").text())
     assertEquals("Page 1 of 2", byType.testId("page-number").text())
@@ -93,11 +137,11 @@ class EmailsPageTest : PipelineTest() {
     assertEquals(2, second.select("[data-testid^=email-row-]").size)
     assertEquals(1, second.select("[data-testid=previous-page]").size)
 
-    val bySender = getHtml("/emails?sender=PAGINGFRIEND")
+    val bySender = getHtml("/emails?sender=PAGINGFRIEND&period=all")
     assertEquals(listOf("Something else"), bySender.select("tbody [data-col=subject]").map { it.text() })
-    val unclassified = getHtml("/emails?type=none&sender=paging.example")
+    val unclassified = getHtml("/emails?type=none&sender=paging.example&period=all")
     assertEquals(listOf("Something else"), unclassified.select("tbody [data-col=subject]").map { it.text() })
-    assertEquals(0, getHtml("/emails?response=true&sender=paging.example").select("[data-testid^=email-row-]").size)
+    assertEquals(0, getHtml("/emails?response=true&sender=paging.example&period=all").select("[data-testid^=email-row-]").size)
     assertEquals(53, getHtml("/emails?status=processed&from=2026-10-01&to=2026-10-31&sender=paging.example")
         .testId("email-count").text().substringBefore(" ").toInt())
     assertEquals(1, getHtml("/emails?from=2027-01-01").select("[data-testid=no-emails]").size)
@@ -222,8 +266,8 @@ class EmailsPageTest : PipelineTest() {
     assertEquals(listOf("Delete me"), TestMessages.folderContents(greenMail, "Trash").map { it.first })
     // CLAR R9: deleted emails are no longer tracked, rather than hidden
     assertEquals("deleted", email("deleted@mail.example")["tracking"])
-    assertTrue(getHtml("/emails").select("[data-testid=email-row-$id]").isEmpty())
-    assertEquals(1, getHtml("/emails?untracked=true").select("[data-testid=email-row-$id]").size)
+    assertTrue(getHtml("/emails?period=all").select("[data-testid=email-row-$id]").isEmpty())
+    assertEquals(1, getHtml("/emails?untracked=true&period=all").select("[data-testid=email-row-$id]").size)
     assertEquals(200, given().get("/emails/$id").statusCode)
     assertEquals(0, run().emailsFound, "not processed again")
   }
