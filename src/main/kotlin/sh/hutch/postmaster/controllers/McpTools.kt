@@ -149,7 +149,11 @@ class McpTools(
       @ToolArg(description = "The address to forward to") to: String
   ): String = done { emails.forward(id, to, ActionSource.MCP) }
 
-  @Tool(name = "set_response_required", description = "Sets or clears whether an email needs a response.")
+  @Tool(
+      name = "set_response_required",
+      description = "Sets or clears whether an email needs a response. Setting it puts a task to reply in the to-do list; " +
+          "clearing it ticks that task off."
+  )
   fun setResponseRequired(
       @ToolArg(description = "The email's id") id: Long,
       @ToolArg(description = "true if a response is needed, false once it's been dealt with") required: Boolean
@@ -175,6 +179,15 @@ class McpTools(
       @ToolArg(name = "email_id", description = "The email's id") emailId: Long,
       @ToolArg(name = "item_id", description = "The action item's id, from get_email") itemId: Long
   ): String = done { emails.completeActionItem(emailId, itemId, ActionSource.MCP) }
+
+  @Tool(
+      name = "add_todo_task",
+      description = "Adds a task to an email and writes it to the to-do list, with a link back to the email."
+  )
+  fun addTodoTask(
+      @ToolArg(description = "The email's id") id: Long,
+      @ToolArg(description = "The task's name, e.g. Book the dentist") name: String
+  ): String = done { emails.addTask(id, name, ActionSource.MCP) }
 
   @Tool(
       name = "mark_email_done",

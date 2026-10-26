@@ -138,6 +138,22 @@ enum class EmailTracking(override val code: String, val label: String) : CodedEn
   }
 }
 
+/** What an action item is for (CLARIFICATIONS.md R11). */
+enum class ActionItemKind(override val code: String) : CodedEnum {
+  /** Something the email asks the user to do, found by the LLM (R5). */
+  ACTION("action"),
+
+  /** Replying to an email that needs a response; it follows the response required flag. */
+  REPLY("reply"),
+
+  /** A task added by hand. */
+  TASK("task");
+
+  companion object {
+    fun fromCode(code: String): ActionItemKind = codedEnumOf(code)
+  }
+}
+
 /** Where an action item is in the to-do list (CLARIFICATIONS.md R5, R9). */
 enum class TodoStatus(override val code: String) : CodedEnum {
   OPEN("todo"),

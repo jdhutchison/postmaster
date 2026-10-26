@@ -218,8 +218,10 @@ class TrackingFlowTest : PipelineTest() {
     assertEquals("done", email["tracking"])
     assertEquals(false, email["response_required"])
     assertEquals(false, email["action_required"])
-    assertEquals(listOf(true), items(messageId).map { it["completed"] })
+    // The item, and the task to reply (CLAR R11)
+    assertEquals(listOf("action" to true, "reply" to true), items(messageId).map { it["kind"] to it["completed"] })
     assertTrue(index().contains("- [x] [[Sign the form]]"), index())
+    assertTrue(index().contains("- [x] [[Reply to Sender Finish me]]"), index())
     assertEquals(0, getHtml("/emails").select("[data-testid=email-row-$id]").size)
     val page = getHtml("/emails/$id")
     assertTrue(page.testId("untracked-notice").text().startsWith("Done: nothing more needs doing"))
@@ -228,7 +230,7 @@ class TrackingFlowTest : PipelineTest() {
     assertEquals(200, htmx().post("/emails/$id/reopen").statusCode)
 
     assertEquals("tracked", email(messageId)["tracking"])
-    assertEquals(listOf(true), items(messageId).map { it["completed"] }, "its items stay done")
+    assertEquals(listOf(true, true), items(messageId).map { it["completed"] }, "its items stay done")
     assertEquals(1, getHtml("/emails").select("[data-testid=email-row-$id]").size)
     assertEquals(409, htmx().post("/emails/$id/reopen").statusCode, "only a done email can be reopened")
   }

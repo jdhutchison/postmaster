@@ -24,7 +24,8 @@ mcp_servers:
 | `mark_email_read` | `id`, `read` (default true) | A message |
 | `delete_email` | `id` | A message. The message moves to the trash folder, and the email is no longer tracked: it appears in searches only with `include_untracked`. |
 | `forward_email` | `id`, `to` | A message |
-| `set_response_required` | `id`, `required` | A message |
+| `set_response_required` | `id`, `required` | A message. Setting it puts a task to reply in the to-do list (or reopens it); clearing it ticks the task off. |
+| `add_todo_task` | `id`, `name` | A message. Adds a task to the email and writes it to the to-do list, linking back to the email. |
 | `set_action_required` | `id`, `required`, `description` (optional) | A message. Setting it adds an action item; clearing it marks every open item done, in the to-do list too. Refused for bills. |
 | `complete_action_item` | `email_id`, `item_id` | A message. The item is marked done and ticked off in the to-do list if it's there. |
 | `mark_email_done` | `id` | A message. The email's open action items are marked done (and ticked off in the to-do list), it no longer needs a reply, and it's no longer tracked. |

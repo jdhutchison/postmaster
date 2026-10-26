@@ -11,6 +11,7 @@ import sh.hutch.postmaster.actions.isTrash
 import sh.hutch.postmaster.actions.location
 import sh.hutch.postmaster.actions.markTrashed
 import sh.hutch.postmaster.actions.moveTo
+import sh.hutch.postmaster.entities.EmailActionItemEntity
 import sh.hutch.postmaster.entities.EmailActionResultEntity
 import sh.hutch.postmaster.entities.EmailAttachmentEntity
 import sh.hutch.postmaster.entities.EmailEntity
@@ -37,6 +38,7 @@ import sh.hutch.postmaster.models.EventView
 import sh.hutch.postmaster.models.ManualResult
 import sh.hutch.postmaster.models.RuleResults
 import sh.hutch.postmaster.models.RuleType
+import sh.hutch.postmaster.models.TodoStatus
 import sh.hutch.postmaster.repositories.CalendarRepository
 import sh.hutch.postmaster.repositories.EmailEventRepository
 import sh.hutch.postmaster.repositories.EmailRepository
@@ -207,7 +209,7 @@ class EmailService(
         actionRequired = email.actionRequired,
         actionDescription = email.actionDescription,
         actionItems = email.actionItems.map {
-          ActionItemView(it.id!!, it.description, it.dueDate, it.notes, it.completed, it.completedAt, it.todoName, it.inProgress)
+          ActionItemView(it.id!!, it.description, it.dueDate, it.notes, it.completed, it.completedAt, it.todoName, it.inProgress, it.kind)
         },
         tracking = email.tracking,
         trackingChangedAt = email.trackingChangedAt,
@@ -287,12 +289,63 @@ class EmailService(
     }
   }
 
+  /**
+   * Sets or clears response required. Setting it puts a task to reply in the to-do list, or reopens
+   * the one there; clearing it ticks that task off (R11).
+   */
   @Transactional
   fun setResponseRequired(id: Long, required: Boolean, source: ActionSource): ManualResult {
     val email = tracked(id)
     return manual(email, SET_RESPONSE_REQUIRED, source) {
-      email.responseRequired = required
-      if (required) "Response required" else "Response no longer required"
+      if (required) {
+        val item = email.addReplyItem()
+        when {
+          item.completed -> {
+            todos.setStatus(item, TodoStatus.OPEN)
+            email.setActionItemStatus(item, TodoStatus.OPEN)
+          }
+          item.todoCreatedAt == null -> writeToTodoList(email, item)
+        }
+        email.responseRequired = true
+        "Response required, and a task to reply is in the to-do list"
+      } else {
+        email.replyItem()?.takeIf { !it.completed }?.let {
+          todos.complete(it)
+          email.completeActionItem(it)
+        }
+        email.responseRequired = false
+        "Response no longer required"
+      }
+    }
+  }
+
+  /** Adds a task to the email by hand and writes it to the to-do list (R11). */
+  @Transactional
+  fun addTask(id: Long, name: String?, source: ActionSource): ManualResult {
+    val email = tracked(id)
+    val text = name?.trim()?.takeIf { it.isNotEmpty() } ?: throw ValidationException(mapOf("name" to "Enter the task's name"))
+    if (email.actionItems.any { it.description.equals(text.take(EmailEntity.MAX_DESCRIPTION), ignoreCase = true) }) {
+      throw OperationNotAllowedException("The email already has a task '$text'")
+    }
+    return manual(email, ADD_TASK, source) {
+      val item = email.addTask(text) ?: throw IllegalStateException("'$text' can't be added")
+      val name = writeToTodoList(email, item)
+      "Added '$name' to the to-do list"
+    }
+  }
+
+  /**
+   * Writes [item] to the to-do list and returns its name there. If it can't be written, the item is
+   * taken off the email again.
+   */
+  private fun writeToTodoList(email: EmailEntity, item: EmailActionItemEntity): String {
+    // Saved first, so the item's name is kept as it's written (R6)
+    emails.flush()
+    return try {
+      todos.add(email, item)
+    } catch (e: Exception) {
+      email.removeActionItem(item)
+      throw e
     }
   }
 
@@ -656,6 +709,7 @@ class EmailService(
     const val COMPLETE_ACTION_ITEM = "complete_action_item"
     const val CHANGE_EVENT_CALENDAR = "change_event_calendar"
     const val MARK_DONE = "mark_done"
+    const val ADD_TASK = "add_task"
     const val REOPEN = "reopen"
     const val EVENT_TO_ACTION_ITEM = "event_to_action_item"
     const val ACTION_ITEM_TO_EVENT = "action_item_to_event"

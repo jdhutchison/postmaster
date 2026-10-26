@@ -55,6 +55,8 @@ The file is named after the item, e.g. `Post turntable in three days.md`. `due` 
 
 Done ticks the task (`- [x]`) and sets `completed: true` and `status: done` in the item's file. An item is in progress as `- [/]` in `index.md` or `status: in-progress` in its file.
 
+**Tasks to reply** (CLARIFICATIONS.md R11). An email that needs a response gets a task named "Reply to <sender>: <subject>" in the to-do list once it's processed, without needing `update_todo_list`. It follows Reply needed: **Replied** ticks it off, and ticking it off there clears Reply needed. **Add to-do** on the email page adds a task by name and writes it to the list straight away. Set `todo.postmaster_url` so items link back to their email.
+
 Every `todo.sync_frequency` (1h) Postmaster reads both for each item it wrote. Where one has changed since Postmaster last saw it, the item takes that status here (open, in progress or done, and back again), and the other is updated to match; if both have changed, `index.md` wins. **Mark done** on an email marks all its open items done.
 
 ## Adding an action type

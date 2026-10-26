@@ -58,7 +58,7 @@ Encrypted settings are stored AES-256-GCM encrypted, as `enc:` followed by base6
 | `bills.pay_link_text` | `Pay now, Pay your bill, …` | Anchor texts that identify a bill's payment link (ignoring case) |
 | `bills.bill_link_text` | `View bill, Download bill, …` | Anchor texts that identify a link to download a bill |
 | `todo.path` | `/data/todo` | The markdown to-do list that `update_todo_list` writes to; `index.md` must have a `<!-- todo-items:end -->` line, or is created with one |
-| `todo.postmaster_url` | (empty) | The address of these pages, e.g. `http://tigerbear:8080/mail`, for links from to-do items back to their email |
+| `todo.postmaster_url` | (empty) | The address of these pages, e.g. `http://tigerbear:8080/mail`, for links from to-do items (tasks to reply among them) back to their email. The `todo_list` status check warns while it's empty. |
 | `todo.sync_frequency` | `1h` | How often the to-do list is read for items that are open, in progress or done there |
 | `health.pending_limit` | `25` | The status endpoint warns when more emails than this are waiting to be processed |
 | `health.min_free_mb` | `1024` | The status endpoint warns when a disk holding attachments, the to-do list or calendars has less free space (MiB) |

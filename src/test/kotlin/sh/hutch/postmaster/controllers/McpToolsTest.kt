@@ -80,7 +80,7 @@ class McpToolsTest : PipelineTest() {
         tools.containsAll(listOf(
             "search_emails", "get_email", "set_email_type", "move_email", "mark_email_read", "delete_email", "forward_email",
             "set_response_required", "set_action_required", "complete_action_item", "set_event_calendar", "reprocess_email",
-            "list_types", "list_folders", "list_calendars", "mark_email_done", "reopen_email"
+            "list_types", "list_folders", "list_calendars", "mark_email_done", "reopen_email", "add_todo_task"
         )),
         "tools: $tools"
     )

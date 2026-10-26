@@ -102,7 +102,7 @@ class DevDataTest {
     }
     val index = Files.readString(dir.resolve("todo/index.md"))
     val names = dataSource.rows("SELECT todo_name FROM Email_action_items WHERE todo_name IS NOT NULL").map { it["todo_name"] as String }
-    assertEquals(3, names.size)
+    assertEquals(4, names.size)
     for (name in names) {
       // One is in progress (CLAR R9)
       assertTrue(index.contains("- [ ] [[$name]] #todo-item") || index.contains("- [/] [[$name]] #todo-item"), index)

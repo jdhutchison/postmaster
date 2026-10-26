@@ -14,6 +14,7 @@ import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import sh.hutch.postmaster.models.ActionItemKind
 import sh.hutch.postmaster.models.EmailStatus
 import sh.hutch.postmaster.models.EmailTracking
 import sh.hutch.postmaster.models.ProcessingProgress
@@ -202,6 +203,46 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
   /** The action items that aren't done yet. */
   fun openActionItems(): List<EmailActionItemEntity> = actionItems.filter { !it.completed }
 
+  /** The item for replying to the email, if it has one (R11). */
+  fun replyItem(): EmailActionItemEntity? = actionItems.firstOrNull { it.kind == ActionItemKind.REPLY }
+
+  /**
+   * Adds the item for replying to the email (R11), named after its sender and subject, and returns
+   * it; or the one it has already.
+   */
+  fun addReplyItem(): EmailActionItemEntity {
+    replyItem()?.let { return it }
+    val from = senderName?.takeIf { it.isNotBlank() } ?: sender ?: "the sender"
+    val item = newItem("Reply to $from: ${subject?.takeIf { it.isNotBlank() } ?: "(no subject)"}", null, null, ActionItemKind.REPLY)
+    actionItems.add(item)
+    return item
+  }
+
+  /**
+   * Adds a task by hand (R11) and returns it, or null if the email already has an item with that
+   * description. Unlike the LLM's items, bills can have them, though a bill never needs action.
+   */
+  fun addTask(description: String): EmailActionItemEntity? {
+    val text = description.trim().take(MAX_DESCRIPTION)
+    if (text.isEmpty() || actionItems.any { it.description.equals(text, ignoreCase = true) }) {
+      return null
+    }
+    val item = newItem(text, null, null, ActionItemKind.TASK)
+    actionItems.add(item)
+    syncActionRequired()
+    return item
+  }
+
+  private fun newItem(description: String, dueDate: LocalDate?, notes: String?, kind: ActionItemKind) =
+    EmailActionItemEntity().also {
+      it.email = this
+      it.kind = kind
+      it.position = (actionItems.maxOfOrNull { existing -> existing.position } ?: -1) + 1
+      it.description = description.trim().take(MAX_DESCRIPTION)
+      it.dueDate = dueDate
+      it.notes = notes?.trim()?.ifEmpty { null }
+    }
+
   /**
    * Adds something the email asks the user to do (CLARIFICATIONS.md R5) and returns it. Nothing is
    * added for bills (Q13), or when an item with the same description is already there, as it is
@@ -212,13 +253,7 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
     if (type?.isBill == true || text.isEmpty() || actionItems.any { it.description.equals(text, ignoreCase = true) }) {
       return null
     }
-    val item = EmailActionItemEntity().also {
-      it.email = this
-      it.position = (actionItems.maxOfOrNull { existing -> existing.position } ?: -1) + 1
-      it.description = text
-      it.dueDate = dueDate
-      it.notes = notes?.trim()?.ifEmpty { null }
-    }
+    val item = newItem(text, dueDate, notes, ActionItemKind.ACTION)
     actionItems.add(item)
     syncActionRequired()
     return item
@@ -236,6 +271,10 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
     }
     item.completed = status == TodoStatus.DONE
     item.inProgress = status == TodoStatus.IN_PROGRESS
+    if (item.kind == ActionItemKind.REPLY) {
+      // A reply ticked off in the to-do list has been made, and one reopened there is needed (R11)
+      responseRequired = status != TodoStatus.DONE
+    }
     syncActionRequired()
   }
 
@@ -262,8 +301,9 @@ class EmailEntity : AuditedEntity(), SoftDeletable {
     syncActionRequired()
   }
 
+  /** Action required follows the open items other than the reply, which response required follows (R11). */
   private fun syncActionRequired() {
-    val open = if (type?.isBill == true) emptyList() else openActionItems()
+    val open = if (type?.isBill == true) emptyList() else openActionItems().filter { it.kind != ActionItemKind.REPLY }
     actionRequired = open.isNotEmpty()
     actionDescription = open.joinToString("; ") { it.description }.ifEmpty { null }
   }

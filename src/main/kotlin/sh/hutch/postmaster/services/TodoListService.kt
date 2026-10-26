@@ -67,6 +67,17 @@ class TodoListService(private val settings: SettingsService, private val items: 
     LOG.infof("Ticked '%s' off in the to-do list", name)
   }
 
+  /**
+   * Marks [item] open, in progress or done in the to-do list, if it's there (R11).
+   *
+   * @throws TodoListException if the list can't be written
+   */
+  fun setStatus(item: EmailActionItemEntity, status: TodoStatus) {
+    val name = item.todoName ?: return
+    lock.withLock { list().setStatus(name, status) }
+    LOG.infof("Marked '%s' %s in the to-do list", name, status.code)
+  }
+
   /** What the to-do list says about the items named [names], for the status check. */
   fun observe(names: Collection<String>): Map<String, TodoObserved> = lock.withLock { list().statuses(names) }
 

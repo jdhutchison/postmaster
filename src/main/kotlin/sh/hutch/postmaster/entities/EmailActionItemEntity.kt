@@ -1,6 +1,7 @@
 package sh.hutch.postmaster.entities
 
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
@@ -8,6 +9,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import sh.hutch.postmaster.models.ActionItemKind
 import sh.hutch.postmaster.models.TodoStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -26,6 +28,11 @@ class EmailActionItemEntity : AuditedEntity() {
 
   @Column(name = "position", nullable = false)
   var position: Int = 0
+
+  /** What the item is for: something the email asks for, a reply, or a task added by hand (R11). */
+  @Convert(converter = ActionItemKindConverter::class)
+  @Column(name = "kind", nullable = false, length = 10)
+  var kind: ActionItemKind = ActionItemKind.ACTION
 
   @Column(name = "description", nullable = false, length = 500)
   var description: String = ""

@@ -2,6 +2,7 @@ package sh.hutch.postmaster.entities
 
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
+import sh.hutch.postmaster.models.ActionItemKind
 import sh.hutch.postmaster.models.ActionResultStatus
 import sh.hutch.postmaster.models.ActionSource
 import sh.hutch.postmaster.models.CodedEnum
@@ -29,6 +30,9 @@ abstract class CodedEnumConverter<E>(private val type: Class<E>) : AttributeConv
           ?: throw IllegalArgumentException("Unknown ${type.simpleName} '$code'")
     }
 }
+
+@Converter
+class ActionItemKindConverter : CodedEnumConverter<ActionItemKind>(ActionItemKind::class.java)
 
 @Converter
 class RuleTypeConverter : CodedEnumConverter<RuleType>(RuleType::class.java)

@@ -228,3 +228,7 @@ Everything is recorded as CLARIFICATIONS.md R9 and PLAN.md task A.7.
 **You:** Deleted, done and untracked emails aren't to be shown in the emails list by default, with a filter to show them greyed out. By default the list should show only the last seven days, with a quick way to show all.
 
 **Claude:** The first was already done in R9: they're hidden unless "Include deleted, moved and done" is ticked, and then shown greyed out. For the second, the list now shows the last 7 days by default, and "Last 7 days | All" above the table switches between them, keeping the other filters. This is recorded as CLARIFICATIONS.md R10 and PLAN.md A.8.
+
+**You:** An email marked done also has Reply needed cleared. Emails needing a reply get a task to reply in the to-do list, linking to the email here. Every email has an option to add a to-do task, with a dialog asking for its name.
+
+**Claude:** The first was already so (R9). The other two are recorded as CLARIFICATIONS.md R11 and PLAN.md A.9. The reply task follows Reply needed both ways. The link back needs `todo.postmaster_url`, which the `todo_list` status check now warns about when it's empty.

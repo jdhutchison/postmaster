@@ -58,6 +58,9 @@ class EmailsController(private val emails: EmailService, private val types: Type
     external fun actionItemEventForm(detail: EmailDetail, item: ActionItemView): TemplateInstance
 
     @JvmStatic
+    external fun taskForm(detail: EmailDetail): TemplateInstance
+
+    @JvmStatic
     external fun eventCalendarForm(detail: EmailDetail, event: EventView): TemplateInstance
 
     @JvmStatic
@@ -245,6 +248,29 @@ class EmailsController(private val emails: EmailService, private val types: Type
   @APIResponse(responseCode = "409", description = "The email isn't done")
   fun reopen(@PathParam("id") id: Long): Response = done(id, emails.reopen(id, ActionSource.UI))
 
+  @GET
+  @Path("/{id: \\d+}/tasks")
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Form for adding a to-do task to an email (HTMX fragment that opens the task dialog)")
+  @APIResponse(responseCode = "404", description = "No such email")
+  fun taskForm(@PathParam("id") id: Long): Response = Htmx.dialogForm(Templates.taskForm(emails.detail(id)), TASK_DIALOG)
+
+  @POST
+  @Path("/{id: \\d+}/tasks")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.TEXT_HTML)
+  @Operation(summary = "Add a to-do task named name to an email, writing it to the to-do list (HTMX)")
+  @APIResponse(responseCode = "200", description = "HX-Redirect back to the email")
+  @APIResponse(responseCode = "422", description = "No name")
+  @APIResponse(responseCode = "409", description = "The email already has the task, or isn't tracked")
+  @APIResponse(responseCode = "502", description = "The to-do list couldn't be written; an error toast says why")
+  fun addTask(@PathParam("id") id: Long, @RestForm("name") name: String?): Response =
+    try {
+      done(id, emails.addTask(id, name, ActionSource.UI))
+    } catch (e: ValidationException) {
+      invalid(e)
+    }
+
   @POST
   @Path("/{id: \\d+}/events/{eventId: \\d+}/action-item")
   @Produces(MediaType.TEXT_HTML)
@@ -393,6 +419,7 @@ class EmailsController(private val emails: EmailService, private val types: Type
     const val EVENT_DIALOG = "event-calendar-dialog"
     const val PREVIEW_DIALOG = "attachment-dialog"
     const val ITEM_EVENT_DIALOG = "action-item-event-dialog"
+    const val TASK_DIALOG = "task-dialog"
 
     private fun disposition(type: String, filename: String): String {
       val ascii = filename.replace(Regex("[^\\x20-\\x7e]|[\"\\\\]"), "_")

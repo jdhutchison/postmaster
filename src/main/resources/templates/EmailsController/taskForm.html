@@ -1,0 +1,11 @@
+<form id="task-form" class="pm-form" data-testid="task-form" hx-post="{base}/emails/{detail.id}/tasks" data-pm-dialog-title="Add a to-do task">
+  <div class="pm-field">
+    <label for="task-name">Task</label>
+    <input id="task-name" name="name" class="pm-input" maxlength="500" required autofocus autocomplete="off" data-testid="task-name" placeholder="e.g. Book the dentist">
+    <p class="pm-hint">It's added to the to-do list, with a link back to this email.</p>
+  </div>
+  <div class="pm-dialog__actions">
+    <button type="button" class="pm-button" data-pm-close data-testid="cancel-task">Cancel</button>
+    <button type="submit" class="pm-button pm-button--primary" data-testid="save-task">Add</button>
+  </div>
+</form>

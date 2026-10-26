@@ -61,6 +61,7 @@ class ProcessingService(
     private val llm: LlmClient,
     private val prompts: PromptRenderer,
     private val events: EventFinder,
+    private val todos: TodoListService,
     private val workers: ManagedExecutor
 ) {
   private val running = AtomicBoolean(false)
@@ -375,6 +376,7 @@ class ProcessingService(
       if (!runActions(pass) { true }) {
         return Outcome.INTERRUPTED
       }
+      step(pass) { if (!it.stopped) addReplyTask(it) }
       step(pass) { finish(it.email, if (it.stopped) EmailStatus.SKIPPED else EmailStatus.PROCESSED) }
       return Outcome.FINISHED
     } catch (e: Exception) {
@@ -567,6 +569,30 @@ class ProcessingService(
       }
     } else if (answer.path("action_required").asBoolean(false)) {
       email.addActionItem(answer.path("action").asText("").trim().ifEmpty { DEFAULT_ACTION })
+    }
+  }
+
+  /**
+   * Puts a task to reply to the email in the to-do list when it needs a response (R11). Its name is
+   * saved before its files are written, so an interrupted write is finished under the same name.
+   * A failure is recorded as an error on the email.
+   */
+  private fun addReplyTask(context: ProcessingContext) {
+    val email = context.email
+    if (!email.responseRequired) {
+      return
+    }
+    val item = email.addReplyItem()
+    if (item.completed || item.todoCreatedAt != null) {
+      return
+    }
+    if (item.id == null) {
+      emails.flush()
+    }
+    try {
+      todos.add(email, item)
+    } catch (e: TodoListException) {
+      context.addError(ErrorPhase.ACTION, "The task to reply couldn't be added to the to-do list: ${e.message}")
     }
   }
 

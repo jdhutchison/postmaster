@@ -282,6 +282,10 @@ class HealthService(
       val names = missing.take(MAX_LISTED).joinToString(", ") + if (missing.size > MAX_LISTED) " and ${missing.size - MAX_LISTED} more" else ""
       return warn("$summary; the files of ${missing.size} are missing: $names")
     }
+    if (settings.getString(SettingKeys.TODO_POSTMASTER_URL).isNullOrBlank()) {
+      // Reply tasks in particular link back to their email (R11)
+      return warn("$summary; ${SettingKeys.TODO_POSTMASTER_URL} isn't set, so items don't link back to their email")
+    }
     return up(summary)
   }
 

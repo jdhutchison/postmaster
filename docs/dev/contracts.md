@@ -1338,6 +1338,8 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
 | `GET /emails/{id}/move` | form fragment for `move-dialog` (`select[name=folder]`, `data-testid=move-folder`, from the `Folders` table, scanned first if it's empty; the current folder isn't offered), with `folders-scanned` and `refresh-folders`. A mailbox failure is 502 with an error toast. |
 | `POST /emails/{id}/move/folders` | scans the folders again and returns the move form fragment (swapped into `#move-dialog-body`) with a success toast; 502 if the mailbox can't be reached |
 | `POST /emails/{id}/done` | marks the email done (R9) |
+| `GET /emails/{id}/tasks` | form fragment for `task-dialog`: `task-name` (`name`), `cancel-task`, `save-task` (R11) |
+| `POST /emails/{id}/tasks` (`name`) | adds a task and writes it to the to-do list; 422 without a name, 409 if the email has it already, 502 if the list can't be written |
 | `POST /emails/{id}/reopen` | tracks a done email again; 409 if it isn't done |
 | `POST /emails/{id}/events/{eventId}/action-item` | makes an event that isn't added an action item; 409 if it's added, the email is a bill, or the item exists |
 | `GET /emails/{id}/action-items/{itemId}/event` | form fragment for `action-item-event-dialog`: `item-event-date` (`date`, the due date at first), `item-event-time` (`time`, optional), `item-event-calendar` (`calendarId`, blank for none), `cancel-item-event`, `save-item-event` |
@@ -1357,11 +1359,11 @@ An email is given up on when a pass would be its sixth (`MAX_ATTEMPTS = 5`): an 
   - **Masthead:**
     - the kicker links back (`back-to-emails`) and shows `email-from` and the received time
     - the lede `email-byline` shows the type badge, status and unread
-    - the actions are `mark-done` (tracked) or `reopen-email` (done), `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart); all but `reopen-email` are disabled when the email isn't tracked
+    - the actions are `mark-done` and `add-task` ("Add to-do") (tracked) or `reopen-email` (done), `mark-read`/`mark-unread`, `move-email`, `reprocess-email` (confirm) and `delete-email` (confirm, set apart); all but `reopen-email` are disabled when the email isn't tracked
     - the lede shows `email-tracking` (a badge) when it isn't tracked
   - **Untracked** (R9): the page has class `pm-page--untracked` and `data-untracked="<state>"`, the pane starts with `untracked-notice` saying why, and the rest is greyed out. The type select, the event buttons and every flag's button are disabled or left out.
   - **Pane, in order:**
-    - the flags `email-flags`, shown only when set, as ruled lines: each action item, `action-item-<id>` ("Action needed", "In progress" with `data-in-progress="true"`, or "Done" with `data-completed="true"`; `action-item-description`, optional `action-item-due`, `action-item-todo` and `action-item-notes`; while it's open, `action-item-to-event-<id>` "Make event" and `complete-action-item-<id>` "Done") and `email-response-required` ("Reply needed" and `clear-response-required` "Replied")
+    - the flags `email-flags`, shown only when set, as ruled lines: each action item, `action-item-<id>` ("Action needed", "In progress" with `data-in-progress="true"`, or "Done" with `data-completed="true"`; `action-item-description`, optional `action-item-due`, `action-item-todo` and `action-item-notes`; while it's open, `action-item-to-event-<id>` "Make event" and `complete-action-item-<id>` "Done") and `email-response-required` ("Reply needed", with `reply-todo` "In the to-do list" when its task to reply is there, and `clear-response-required` "Replied"). The task to reply isn't listed as an item (R11).
     - the summary `email-summary`, as a lede
     - the sections
   - **Layout:** the details are the rail (an inspector, `.pm-page--inspector`), after the pane below 960px.

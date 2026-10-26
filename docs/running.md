@@ -99,7 +99,7 @@ Each check's `status` is `UP`, `WARN` or `DOWN`:
 | `khal` | `khal printcalendars` fails, or a calendar folder can't be written to |
 | `chromium`, `curl` | `--version` fails |
 | `attachments`, `todo` | the folder can't be written to (or created) |
-| `todo_list` | the to-do list's `index.md` can't be read or written, or has no `<!-- todo-items:end -->` line; warns if it doesn't exist, or if files of items Postmaster wrote are missing. Otherwise it says how many of Postmaster's items are open, in progress and done. |
+| `todo_list` | the to-do list's `index.md` can't be read or written, or has no `<!-- todo-items:end -->` line; warns if it doesn't exist, if files of items Postmaster wrote are missing, or if `todo.postmaster_url` isn't set. Otherwise it says how many of Postmaster's items are open, in progress and done. |
 | `disk` | warns: a disk holding attachments, the to-do list or a calendar has less free space than the *Low disk space warning* setting (1024 MiB) |
 
 Each check gets 5 seconds, and they run at the same time. The Docker image's `HEALTHCHECK` calls the endpoint every minute.

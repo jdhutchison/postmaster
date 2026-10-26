@@ -334,4 +334,109 @@ class TodoListFlowTest : PipelineTest() {
     assertEquals(false, items(sold)[0]["completed"])
     assertTrue(index().contains("- [ ] [[Post turntable in three days]]"))
   }
+
+  // CLAR R11: a task to reply, and tasks added by hand
+
+  private fun replyEmail(subject: String): String {
+    llm(SUMMARISE, """{"summary": "Can you come to lunch?", "response_required": true}""")
+    val messageId = "reply-$subject-$sold".replace(' ', '-')
+    inbox(message("<$messageId>", subject, from = "Sam Friend <sam@friends.example>"))
+    run()
+    return messageId
+  }
+
+  @Test
+  fun `an email that needs a reply gets a task to reply in the to-do list, linking back to it`() {
+    val messageId = replyEmail("Lunch next week")
+    val id = id(messageId)
+
+    val item = items(messageId).single()
+    assertEquals("Reply to Sam Friend: Lunch next week", item["description"])
+    assertEquals("reply", item["kind"])
+    assertEquals("Reply to Sam Friend Lunch next week", item["todo_name"], "the colon can't be in a file name")
+    assertTrue(index().contains("- [ ] [[Reply to Sam Friend Lunch next week]] #todo-item"), index())
+    val text = file("Reply to Sam Friend Lunch next week")
+    assertTrue(text.contains("Can you come to lunch?"), text)
+    assertTrue(text.contains("[Open the email in Postmaster](http://tigerbear:8080/mail/emails/$id)"), text)
+    val email = email(messageId)
+    assertEquals(true, email["response_required"])
+    assertEquals(false, email["action_required"], "a reply isn't an action")
+    val page = getHtml("/emails/$id")
+    assertEquals("In the to-do list", page.testId("reply-todo").text())
+    assertTrue(page.select(".pm-flag--action").isEmpty(), "the reply is shown with Reply needed, not as an item")
+
+    processing.reprocess(id)
+    assertEquals(1, items(messageId).size, "not written again")
+    assertEquals(1, index().lines().count { it.contains("[[Reply to Sam Friend Lunch next week]]") })
+  }
+
+  @Test
+  fun `Replied ticks the task off, and ticking it off in the to-do list means no reply is needed`() {
+    val replied = replyEmail("Replied here")
+    htmx().formParam("required", "false").post("/emails/${id(replied)}/response-required")
+
+    assertTrue(index().contains("- [x] [[Reply to Sam Friend Replied here]]"), index())
+    assertEquals(false, email(replied)["response_required"])
+
+    val ticked = replyEmail("Ticked there")
+    Files.writeString(todo.resolve("index.md"), index().replace("- [ ] [[Reply to Sam Friend Ticked there]]", "- [x] [[Reply to Sam Friend Ticked there]]"))
+    todos.sync()
+    assertEquals(false, email(ticked)["response_required"])
+
+    // Reopened there, so a reply is needed again; and set again here, the task is reopened
+    Files.writeString(todo.resolve("index.md"), index().replace("- [x] [[Reply to Sam Friend Ticked there]]", "- [ ] [[Reply to Sam Friend Ticked there]]"))
+    todos.sync()
+    assertEquals(true, email(ticked)["response_required"])
+    assertEquals(200, htmx().formParam("required", "true").post("/emails/${id(replied)}/response-required").statusCode)
+    assertEquals(true, email(replied)["response_required"])
+    assertTrue(index().contains("- [ ] [[Reply to Sam Friend Replied here]]"), index())
+    assertEquals(1, items(replied).size)
+  }
+
+  @Test
+  fun `marking an email done clears reply needed and ticks the reply off`() {
+    val messageId = replyEmail("Done with it")
+
+    htmx().post("/emails/${id(messageId)}/done")
+
+    assertEquals(false, email(messageId)["response_required"])
+    assertTrue(index().contains("- [x] [[Reply to Sam Friend Done with it]]"), index())
+  }
+
+  @Test
+  fun `a to-do task can be added to any email by name`() {
+    inbox(message("<task-$sold>", "Plain email"))
+    run()
+    val id = id("task-$sold")
+    val form = htmx().get("/emails/$id/tasks")
+    assertEquals(200, form.statusCode)
+    assertTrue(form.body.asString().contains("data-testid=\"task-name\""))
+    assertEquals(422, htmx().formParam("name", " ").post("/emails/$id/tasks").statusCode)
+
+    val response = htmx().formParam("name", "Book the dentist").post("/emails/$id/tasks")
+
+    assertEquals(200, response.statusCode)
+    assertEquals("/mail/emails/$id", response.header("HX-Redirect"))
+    val item = items("task-$sold").single()
+    assertEquals("task", item["kind"])
+    assertEquals("Book the dentist", item["todo_name"])
+    assertTrue(index().contains("- [ ] [[Book the dentist]] #todo-item"), index())
+    assertTrue(file("Book the dentist").contains("[Open the email in Postmaster](http://tigerbear:8080/mail/emails/$id)"))
+    assertEquals(true, email("task-$sold")["action_required"])
+    assertEquals(409, htmx().formParam("name", "book the dentist").post("/emails/$id/tasks").statusCode, "not twice")
+    assertEquals(1, getHtml("/emails/$id").select("[data-testid=add-task]").size)
+  }
+
+  @Test
+  fun `a task that can't be written to the to-do list isn't added`() {
+    inbox(message("<task-broken-$sold>", "Broken list"))
+    run()
+    val id = id("task-broken-$sold")
+    Files.writeString(todo.resolve("index.md"), "# To-do\n")
+
+    val response = htmx().formParam("name", "Call the plumber").post("/emails/$id/tasks")
+
+    assertEquals(502, response.statusCode)
+    assertTrue(items("task-broken-$sold").isEmpty())
+  }
 }

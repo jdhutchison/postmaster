@@ -104,6 +104,10 @@ abstract class PipelineTest {
     settings.update("attachments.path", attachments.toString())
     settings.update("attachments.extensions", "pdf")
     settings.update("processing.lookback", "3650d")
+    // Emails that need a reply get a task in the to-do list (CLAR R11)
+    val todo = Files.createTempDirectory("postmaster-todo")
+    Files.writeString(todo.resolve("index.md"), "# To-do\n\n<!-- todo-items:end -->\n")
+    settings.update("todo.path", todo.toString())
     // By default the LLM classifies nothing and summarises everything the same way
     llm(CLASSIFY, "NO CLASSIFICATION")
     llm(SUMMARISE, """{"summary": "A summary"}""")

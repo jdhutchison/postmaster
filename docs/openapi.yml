@@ -1294,6 +1294,62 @@ paths:
                 type: string
         "400":
           description: Bad Request
+  /mail/emails/{id}/tasks:
+    get:
+      summary: Form for adding a to-do task to an email (HTMX fragment that opens
+        the task dialog)
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: No such email
+    post:
+      summary: "Add a to-do task named name to an email, writing it to the to-do list\
+        \ (HTMX)"
+      tags:
+      - Emails
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - name
+              properties:
+                name:
+                  type:
+                  - string
+                  - "null"
+        required: true
+      responses:
+        "200":
+          description: HX-Redirect back to the email
+          content:
+            text/html:
+              schema:
+                type: string
+        "422":
+          description: No name
+        "409":
+          description: "The email already has the task, or isn't tracked"
+        "502":
+          description: The to-do list couldn't be written; an error toast says why
+        "400":
+          description: Bad Request
   /mail/emails/{id}/type:
     post:
       summary: "Set an email's type (typeId), or clear it when typeId is blank (HTMX)"

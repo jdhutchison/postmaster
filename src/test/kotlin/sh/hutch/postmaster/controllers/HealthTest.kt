@@ -46,6 +46,9 @@ class HealthTest : PipelineTest() {
     todo = Files.createTempDirectory("postmaster-todo")
     Files.writeString(todo.resolve("index.md"), "# To-do\n<!-- todo-items:end -->\n")
     settings.update("todo.path", todo.toString())
+    settings.update("todo.postmaster_url", "http://tigerbear:8080/mail")
+    // Other tests' items were written to to-do lists of their own, not this one
+    dataSource.update("UPDATE Email_action_items SET todo_name = NULL")
     settings.update("health.pending_limit", "25")
     settings.update("health.min_free_mb", "1")
   }
@@ -256,6 +259,11 @@ class HealthTest : PipelineTest() {
     assertTrue(output.endsWith("the files of 1 are missing: Health gone"), output)
 
     dataSource.update("DELETE FROM Email_action_items WHERE todo_name IS NOT NULL")
+    settings.update("todo.postmaster_url", "")
+    val unlinked = fetch().second["checks"]["todo_list"]
+    assertEquals("WARN", unlinked["status"].asText())
+    assertTrue(unlinked["output"].asText().endsWith("todo.postmaster_url isn't set, so items don't link back to their email"), unlinked.toString())
+
     Files.delete(todo.resolve("index.md"))
     val missing = fetch().second["checks"]["todo_list"]
     assertEquals("WARN", missing["status"].asText())

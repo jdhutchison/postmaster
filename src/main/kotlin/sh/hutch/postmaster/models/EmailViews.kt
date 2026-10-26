@@ -181,8 +181,13 @@ data class ActionItemView(
     val completed: Boolean,
     val completedAt: Instant?,
     val todoName: String?,
-    val inProgress: Boolean = false
-)
+    val inProgress: Boolean = false,
+    val kind: ActionItemKind = ActionItemKind.ACTION
+) {
+  /** Whether this is the item for replying to the email (R11), shown with Reply needed rather than as an item. */
+  val isReply: Boolean
+    get() = kind == ActionItemKind.REPLY
+}
 
 /** An event found in an email. [calendarId] is its calendar, or the suggested one if it isn't added. */
 @TemplateData
@@ -287,6 +292,14 @@ data class EmailDetail(
   fun event(id: Long): EventView? = events.firstOrNull { it.id == id }
 
   fun actionItem(id: Long): ActionItemView? = actionItems.firstOrNull { it.id == id }
+
+  /** The items shown as things to do: all but the reply (R11). */
+  val tasks: List<ActionItemView>
+    get() = actionItems.filter { !it.isReply }
+
+  /** The item for replying to the email, if it has one (R11). */
+  val replyItem: ActionItemView?
+    get() = actionItems.firstOrNull { it.isReply }
 
   fun attachment(id: Long): AttachmentView? = attachments.firstOrNull { it.id == id }
 }

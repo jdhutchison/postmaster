@@ -216,6 +216,10 @@ class DevData(
           summary = text, read = i % 2 == 0, link = if (i == 0) "https://brunswicksouthps.example/excursion" else null
       ) { e ->
         e.responseRequired = isHigh || i == 1
+        if (i == 1) {
+          // A task to reply, in the to-do list (CLARIFICATIONS.md R11)
+          todo(e, e.addReplyItem())
+        }
         when (i) {
           0 -> {
             todo(e, e.addActionItem("Sign and return the zoo excursion permission form", friday(e),

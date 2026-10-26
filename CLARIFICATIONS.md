@@ -480,6 +480,17 @@ Each classification and action rule says how its conditions combine, for the who
 - Deleted, moved and done emails stay hidden unless "Include deleted, moved and done" is ticked (R9), whichever period is shown.
 - MCP `search_emails` is unchanged: with no filters it still gives the 30 most recent.
 
+**R11 (2026-10-26). A to-do task to reply, and to-do tasks added by hand (your requests).**
+- **Done clears Reply needed.** This was already so in R9: marking an email done clears Reply needed too, and ticks off its task to reply.
+- **Kinds of action item** (migration V10, `Email_action_items.kind`): `action` (what the LLM found the email asks for, R5), `reply` and `task`.
+- **A task to reply.** When an email is processed and needs a response, a task to reply is put in the to-do list, whether or not `update_todo_list` runs. The same happens when Reply needed is set by hand (MCP `set_response_required`).
+  - It's named "Reply to <sender's name or address>: <subject>". Like every to-do item, its file holds the email's summary, its subject and sender, and a link to the email here when `todo.postmaster_url` is set.
+  - It follows Reply needed both ways. **Replied** (or clearing it through MCP) ticks it off, and so does marking the email done. Ticking it off in the to-do list clears Reply needed, and reopening it there sets it again. Setting Reply needed again reopens the task.
+  - It doesn't count as action needed. The email page shows it with Reply needed ("In the to-do list"), not as an item.
+  - If it can't be written, an error is recorded on the email.
+- **Tasks by hand.** **Add to-do** on any tracked email opens a dialog asking for the task's name. The task is written to the to-do list straight away, with the link back to the email, and shows on the email as an item to do. Bills can have them too, though a bill never needs action (Q13). MCP has `add_todo_task`.
+- **Status check.** `todo_list` warns when `todo.postmaster_url` isn't set, because then to-do items don't link back to their email.
+
 ---
 
 ## Technical suggestions

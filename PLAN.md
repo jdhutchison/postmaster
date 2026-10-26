@@ -231,6 +231,8 @@ These are reusable, so the action handlers can share them.
 
 - [x] **A.8** `build: done` `tests: done` The emails list shows the last seven days by default, with a switch to all emails (CLARIFICATIONS.md R10).
 
+- [x] **A.9** `build: done` `tests: done` A to-do task to reply to emails that need a response, and to-do tasks added by hand (CLARIFICATIONS.md R11).
+
 ## Phase 9: Deployment (in `/data/code/ansible`)
 
 - [x] **9.1** `build: done` `tests: n/a` Add the `postmaster` service user to `group_vars/all.yaml`, and create `config/postmaster/`:

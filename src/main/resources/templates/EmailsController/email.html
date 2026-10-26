@@ -5,6 +5,7 @@
   {#actions}
     {#if detail.isTracked}
     <button type="button" class="pm-button pm-button--primary" data-testid="mark-done" hx-post="{base}/emails/{detail.id}/done">Mark done</button>
+    <button type="button" class="pm-button" data-testid="add-task" hx-get="{base}/emails/{detail.id}/tasks" hx-target="#task-dialog-body">Add to-do</button>
     {#else if detail.isDone}
     <button type="button" class="pm-button pm-button--primary" data-testid="reopen-email" hx-post="{base}/emails/{detail.id}/reopen">Reopen</button>
     {/if}
@@ -65,9 +66,9 @@
           {/if}
         </p>
         {/if}
-        {#if detail.responseRequired || !detail.actionItems.isEmpty}
+        {#if detail.responseRequired || !detail.tasks.isEmpty}
         <div class="pm-flags" data-testid="email-flags">
-          {#for item in detail.actionItems}
+          {#for item in detail.tasks}
           <div class="pm-flag pm-flag--action{#if item.completed} pm-flag--done{/if}{#if item.inProgress} pm-flag--progress{/if}" data-testid="action-item-{item.id}"{#if item.completed} data-completed="true"{/if}{#if item.inProgress} data-in-progress="true"{/if}>
             <span class="pm-label">{#if item.completed}Done{#else if item.inProgress}In progress{#else}Action needed{/if}</span>
             <span class="pm-flag__text">
@@ -86,7 +87,7 @@
           {#if detail.responseRequired}
           <div class="pm-flag pm-flag--reply" data-testid="email-response-required">
             <span class="pm-label">Reply needed</span>
-            <span class="pm-flag__text">The sender is expecting a response.</span>
+            <span class="pm-flag__text">The sender is expecting a response.{#if detail.replyItem && detail.replyItem.todoName}<span class="pm-flag__meta" data-testid="reply-todo">In the to-do list{#if detail.replyItem.inProgress}, in progress{/if}</span>{/if}</span>
             {#if detail.isTracked}<button type="button" class="pm-button pm-button--small" data-testid="clear-response-required" hx-post="{base}/emails/{detail.id}/response-required" hx-vals='{"required": "false"}'>Replied</button>{/if}
           </div>
           {/if}
@@ -202,5 +203,6 @@
     {#modal id="event-calendar-dialog" title="Calendar"}<p class="pm-muted">Loading…</p>{/modal}
     {#modal id="attachment-dialog" title="Preview"}<p class="pm-muted">Loading…</p>{/modal}
     {#modal id="action-item-event-dialog" title="Make it an event"}<p class="pm-muted">Loading…</p>{/modal}
+    {#modal id="task-dialog" title="Add a to-do task"}<p class="pm-muted">Loading…</p>{/modal}
   {/content}
 {/include}
